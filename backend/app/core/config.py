@@ -1,6 +1,6 @@
 import os
 from typing import List
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "INCOIS 3D Ocean Data System"
@@ -14,9 +14,11 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173"
     ]
     
-    DATASETS_DIR: str = os.getenv("DATASETS_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../datasets")))
+    DATASETS_DIR: str = os.getenv(
+        "DATASETS_DIR", 
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../datasets"))
+    )
 
-    class Config:
-        case_sensitive = True
+    model_config = SettingsConfigDict(case_sensitive=True)
 
 settings = Settings()

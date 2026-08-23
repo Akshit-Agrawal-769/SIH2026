@@ -45,8 +45,8 @@ class ArgoGDACAdapter(BaseOceanAdapter):
             else:
                 wmo = os.path.basename(path).split("_")[0]
 
-            n_prof = ds.dims.get("N_PROF", 1)
-            n_levels = ds.dims.get("N_LEVELS", 0)
+            n_prof = ds.sizes.get("N_PROF", 1)
+            n_levels = ds.sizes.get("N_LEVELS", 0)
 
             lats = ds["LATITUDE"].values if "LATITUDE" in ds else np.array([12.0])
             lons = ds["LONGITUDE"].values if "LONGITUDE" in ds else np.array([75.0])
@@ -73,7 +73,7 @@ class ArgoGDACAdapter(BaseOceanAdapter):
             else:
                 wmo = os.path.basename(self.file_path).split("_")[0]
 
-            n_prof = ds.dims.get("N_PROF", 1)
+            n_prof = ds.sizes.get("N_PROF", 1)
 
             pres_var = "PRES_ADJUSTED" if "PRES_ADJUSTED" in ds and not np.isnan(ds["PRES_ADJUSTED"].values).all() else "PRES"
             temp_var = "TEMP_ADJUSTED" if "TEMP_ADJUSTED" in ds and not np.isnan(ds["TEMP_ADJUSTED"].values).all() else "TEMP"
@@ -89,7 +89,6 @@ class ArgoGDACAdapter(BaseOceanAdapter):
 
                     cycle = int(ds["CYCLE_NUMBER"].values[prof_idx]) if "CYCLE_NUMBER" in ds else prof_idx
 
-                    # Timestamp
                     time_str = "2026-08-23T00:00:00Z"
                     if "JULD" in ds:
                         juld = ds["JULD"].values[prof_idx]
@@ -100,7 +99,6 @@ class ArgoGDACAdapter(BaseOceanAdapter):
                     raw_temp = ds[temp_var].values[prof_idx]
                     raw_psal = ds[psal_var].values[prof_idx] if psal_var else None
 
-                    # QC Flags
                     qc_flags = [1] * len(raw_pres)
                     if f"{temp_var}_QC" in ds:
                         raw_qc = ds[f"{temp_var}_QC"].values[prof_idx]
@@ -109,7 +107,6 @@ class ArgoGDACAdapter(BaseOceanAdapter):
                         elif isinstance(raw_qc, str):
                             qc_flags = [int(c) if c.isdigit() else 4 for c in raw_qc]
 
-                    # Filter valid points and calculate TEOS-10 depth
                     depths = []
                     temps = []
                     psals = []
@@ -119,7 +116,6 @@ class ArgoGDACAdapter(BaseOceanAdapter):
                         p = raw_pres[i]
                         t = raw_temp[i]
                         if not np.isnan(p) and not np.isnan(t) and p >= 0:
-                            # TEOS-10 pressure to depth conversion
                             z = -float(gsw.z_from_p(p, lat))
                             depths.append(round(z, 2))
                             temps.append(round(float(t), 3))

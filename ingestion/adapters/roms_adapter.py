@@ -34,7 +34,7 @@ class ROMSModelAdapter(BaseOceanAdapter):
             lon_key = next((k for k in ["lon", "longitude", "lon_rho", "x", "nav_lon"] if k in ds.coords or k in ds.data_vars), None)
             lat_key = next((k for k in ["lat", "latitude", "lat_rho", "y", "nav_lat"] if k in ds.coords or k in ds.data_vars), None)
             time_key = next((k for k in ["time", "ocean_time", "time_counter"] if k in ds.coords or k in ds.data_vars), None)
-            depth_key = next((k for k in ["depth", "s_rho", "lev", "level", "z", "deptht"] if k in ds.dims or k in ds.coords), None)
+            depth_key = next((k for k in ["depth", "s_rho", "lev", "level", "z", "deptht"] if k in ds.coords or k in ds.dims), None)
 
             lon_vals = ds[lon_key].values if lon_key else np.array([60.0, 95.0])
             lat_vals = ds[lat_key].values if lat_key else np.array([5.0, 25.0])
@@ -63,7 +63,7 @@ class ROMSModelAdapter(BaseOceanAdapter):
             variables = []
             var_info = {}
             for name, da in ds.data_vars.items():
-                if len(da.dims) >= 2:
+                if len(da.shape) >= 2:
                     variables.append(name)
                     var_info[name] = {
                         "long_name": da.attrs.get("long_name", name),
@@ -80,5 +80,5 @@ class ROMSModelAdapter(BaseOceanAdapter):
                 "time_range": time_range,
                 "variables": variables,
                 "variable_info": var_info,
-                "dimensions": {str(k): int(v) for k, v in ds.dims.items()},
+                "dimensions": {str(k): int(v) for k, v in ds.sizes.items()},
             }

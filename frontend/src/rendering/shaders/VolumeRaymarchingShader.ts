@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 export const VolumeVertexShader = `
   varying vec3 vOrigin;
   varying vec3 vDirection;
@@ -73,10 +71,10 @@ export const VolumeFragmentShader = `
   // Thermal / Ocean Warm Colormap
   vec3 colormap_thermal(float t) {
     t = clamp(t, 0.0, 1.0);
-    vec3 c1 = vec3(0.05, 0.15, 0.45); // Deep Blue
-    vec3 c2 = vec3(0.1, 0.7, 0.8);   // Cyan
-    vec3 c3 = vec3(0.95, 0.85, 0.2); // Warm Yellow
-    vec3 c4 = vec3(0.9, 0.2, 0.1);   // Red
+    vec3 c1 = vec3(0.05, 0.15, 0.45);
+    vec3 c2 = vec3(0.1, 0.7, 0.8);
+    vec3 c3 = vec3(0.95, 0.85, 0.2);
+    vec3 c4 = vec3(0.9, 0.2, 0.1);
 
     if (t < 0.33) return mix(c1, c2, t / 0.33);
     if (t < 0.66) return mix(c2, c3, (t - 0.33) / 0.33);
@@ -125,13 +123,10 @@ export const VolumeFragmentShader = `
     vec4 accumulatedColor = vec4(0.0);
 
     for (int i = 0; i < 120; i++) {
-      // Map [-0.5, 0.5] space to texture space [0, 1]
-      // X = lon, Z = lat, Y = depth (invert Y so top is surface)
       vec3 uvw = vec3(currentPos.x + 0.5, 0.5 - currentPos.y, currentPos.z + 0.5);
 
       if (uvw.x >= 0.0 && uvw.x <= 1.0 && uvw.y >= 0.0 && uvw.y <= 1.0 && uvw.z >= 0.0 && uvw.z <= 1.0) {
         
-        // Check slice clipping if enabled
         bool sliceClip = false;
         if (u_enableSlice == 1 && uvw.y > u_sliceZ) {
           sliceClip = true;
@@ -142,21 +137,17 @@ export const VolumeFragmentShader = `
 
           if (scalar >= u_threshold) {
             if (u_renderMode == 1) {
-              // Iso-surface mode
               if (abs(scalar - u_isoValue) < 0.035) {
                 vec3 col = apply_colormap(scalar);
                 accumulatedColor = vec4(col, 0.92);
                 break;
               }
             } else {
-              // Volume raymarching mode
               vec3 col = apply_colormap(scalar);
-              // Exponential opacity weighting
               float density = (scalar - u_threshold) / (1.0 - u_threshold + 1e-4);
               float alpha = (1.0 - exp(-density * u_opacity * 3.5)) * dt * 30.0;
               alpha = clamp(alpha, 0.0, 1.0);
 
-              // Front-to-back alpha blending
               accumulatedColor.rgb += (1.0 - accumulatedColor.a) * col * alpha;
               accumulatedColor.a += (1.0 - accumulatedColor.a) * alpha;
 
