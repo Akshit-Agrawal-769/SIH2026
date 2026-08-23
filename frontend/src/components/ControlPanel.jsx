@@ -7,12 +7,12 @@ import {
   Layers, 
   Play, 
   Pause, 
-  Sparkles 
+  Sparkles,
+  Maximize2
 } from './Icons';
 import { useOceanStore } from '../store/oceanStore';
-import { OceanVariable, RenderMode, ColormapType } from '../types/ocean';
 
-export const ControlPanel: React.FC = () => {
+export const ControlPanel = () => {
   const {
     datasets,
     activeDataset,
@@ -35,6 +35,8 @@ export const ControlPanel: React.FC = () => {
     setSliceDepthMeters,
     enableSlice,
     setEnableSlice,
+    verticalExaggeration,
+    setVerticalExaggeration,
     isPlayingTimeline,
     toggleTimelinePlayback,
     argoFloats,
@@ -45,13 +47,13 @@ export const ControlPanel: React.FC = () => {
   useEffect(() => {
     if (!isPlayingTimeline) return;
     const interval = setInterval(() => {
-      const maxTime = metadata?.time_range.length || 5;
+      const maxTime = metadata?.time_range?.length || 5;
       setTimeIndex((timeIndex + 1) % maxTime);
     }, 1500);
     return () => clearInterval(interval);
   }, [isPlayingTimeline, timeIndex, metadata, setTimeIndex]);
 
-  const variables: { id: OceanVariable; label: string; icon: React.ReactNode; units: string }[] = [
+  const variables = [
     { id: 'temp', label: 'Temp', icon: <Thermometer className="w-3.5 h-3.5" />, units: '°C' },
     { id: 'salt', label: 'Salinity', icon: <Droplet className="w-3.5 h-3.5" />, units: 'PSU' },
     { id: 'u', label: 'u-Vel', icon: <Wind className="w-3.5 h-3.5" />, units: 'm/s' },
@@ -59,7 +61,7 @@ export const ControlPanel: React.FC = () => {
     { id: 'chl', label: 'Chl-a', icon: <Activity className="w-3.5 h-3.5" />, units: 'mg/m³' },
   ];
 
-  const colormaps: { id: ColormapType; label: string; preview: string }[] = [
+  const colormaps = [
     { id: 'turbo', label: 'Turbo', preview: 'bg-gradient-to-r from-indigo-600 via-emerald-400 to-rose-600' },
     { id: 'viridis', label: 'Viridis', preview: 'bg-gradient-to-r from-purple-800 via-teal-500 to-yellow-300' },
     { id: 'thermal', label: 'Thermal', preview: 'bg-gradient-to-r from-blue-900 via-cyan-400 to-orange-500' },
@@ -207,17 +209,17 @@ export const ControlPanel: React.FC = () => {
             </div>
             <div>
               <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                <span>Density Cutoff Threshold</span>
-                <span className="font-mono text-slate-300">{(threshold * 100).toFixed(0)}%</span>
+                <span>Vertical Exaggeration</span>
+                <span className="font-mono text-slate-300">{verticalExaggeration.toFixed(1)}x</span>
               </div>
               <input
                 type="range"
-                min="0.0"
-                max="0.8"
-                step="0.02"
-                value={threshold}
-                onChange={(e) => setThreshold(Number(e.target.value))}
-                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-400"
+                min="0.5"
+                max="3.0"
+                step="0.1"
+                value={verticalExaggeration}
+                onChange={(e) => setVerticalExaggeration(Number(e.target.value))}
+                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-400"
               />
             </div>
           </>
@@ -254,16 +256,16 @@ export const ControlPanel: React.FC = () => {
         <input
           type="range"
           min="0"
-          max={(metadata?.time_range.length || 5) - 1}
+          max={(metadata?.time_range?.length || 5) - 1}
           step="1"
           value={timeIndex}
           onChange={(e) => setTimeIndex(Number(e.target.value))}
           className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-400"
         />
         <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-mono">
-          <span>T+00h (2026-08-20)</span>
+          <span>T+00h</span>
           <span>T+{timeIndex * 24}h</span>
-          <span>T+96h</span>
+          <span>T+{((metadata?.time_range?.length || 5) - 1) * 24}h</span>
         </div>
       </div>
 

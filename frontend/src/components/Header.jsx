@@ -2,7 +2,7 @@ import React from 'react';
 import { Waves, Compass, ShieldCheck } from './Icons';
 import { useOceanStore } from '../store/oceanStore';
 
-export const Header: React.FC = () => {
+export const Header = () => {
   const health = useOceanStore((state) => state.health);
   const metadata = useOceanStore((state) => state.metadata);
 

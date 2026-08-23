@@ -1,7 +1,7 @@
 import React from 'react';
 import { useOceanStore } from '../store/oceanStore';
 
-export const ColorbarLegend: React.FC = () => {
+export const ColorbarLegend = () => {
   const volumeMeta = useOceanStore((state) => state.volumeMeta);
   const colormap = useOceanStore((state) => state.colormap);
   const variable = useOceanStore((state) => state.variable);

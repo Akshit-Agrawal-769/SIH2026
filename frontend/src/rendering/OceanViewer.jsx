@@ -1,17 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-// @ts-ignore
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { useOceanStore } from '../store/oceanStore';
 import { VolumeVertexShader, VolumeFragmentShader } from './shaders/VolumeRaymarchingShader';
 
-export const OceanViewer: React.FC = () => {
-  const mountRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const volumeMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
-  const slicePlaneRef = useRef<THREE.Mesh | null>(null);
-  const floatMarkersRef = useRef<THREE.Group | null>(null);
+export const OceanViewer = () => {
+  const mountRef = useRef(null);
+  const sceneRef = useRef(null);
+  const rendererRef = useRef(null);
+  const volumeMaterialRef = useRef(null);
+  const slicePlaneRef = useRef(null);
+  const floatMarkersRef = useRef(null);
+  const boxMeshRef = useRef(null);
 
   const {
     volumeBuffer,
@@ -23,6 +23,7 @@ export const OceanViewer: React.FC = () => {
     isoValue,
     sliceDepthMeters,
     enableSlice,
+    verticalExaggeration,
     argoFloats,
     selectFloat,
   } = useOceanStore();
@@ -62,23 +63,24 @@ export const OceanViewer: React.FC = () => {
     scene.add(dirLight);
 
     // Bounding Box (Lat 4-26N, Lon 58-96E, Depth 0-2000m)
-    const boxGeo = new THREE.BoxGeometry(1.0, 0.6, 1.0);
+    const boxGeo = new THREE.BoxGeometry(1.0, 0.6 * verticalExaggeration, 1.0);
     const boxEdges = new THREE.EdgesGeometry(boxGeo);
     const boxLine = new THREE.LineSegments(boxEdges, new THREE.LineBasicMaterial({ color: 0x334155, linewidth: 1 }));
+    boxMeshRef.current = boxLine;
     scene.add(boxLine);
 
     const surfaceGrid = new THREE.GridHelper(1.0, 10, 0x0284c7, 0x1e293b);
-    surfaceGrid.position.y = 0.3;
+    surfaceGrid.position.y = 0.3 * verticalExaggeration;
     scene.add(surfaceGrid);
 
     const floorGrid = new THREE.GridHelper(1.0, 10, 0x0f766e, 0x0f172a);
-    floorGrid.position.y = -0.3;
+    floorGrid.position.y = -0.3 * verticalExaggeration;
     scene.add(floorGrid);
 
     // Volumetric Raymarching Mesh
-    const volGeo = new THREE.BoxGeometry(1.0, 0.6, 1.0);
+    const volGeo = new THREE.BoxGeometry(1.0, 0.6 * verticalExaggeration, 1.0);
     const dummyData = new Float32Array(64 * 64 * 32);
-    const dummyTexture = new THREE.Data3DTexture(dummyData as unknown as BufferSource, 64, 64, 32);
+    const dummyTexture = new THREE.Data3DTexture(dummyData, 64, 64, 32);
     dummyTexture.format = THREE.RedFormat;
     dummyTexture.type = THREE.FloatType;
     dummyTexture.minFilter = THREE.LinearFilter;
@@ -123,7 +125,7 @@ export const OceanViewer: React.FC = () => {
       side: THREE.DoubleSide,
     });
     const slicePlane = new THREE.Mesh(slicePlaneGeo, slicePlaneMat);
-    slicePlane.position.y = 0.3 - (sliceDepthMeters / 2000.0) * 0.6;
+    slicePlane.position.y = (0.3 - (sliceDepthMeters / 2000.0) * 0.6) * verticalExaggeration;
     slicePlane.visible = enableSlice;
     slicePlaneRef.current = slicePlane;
     scene.add(slicePlane);
@@ -136,7 +138,7 @@ export const OceanViewer: React.FC = () => {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const handlePointerDown = (event: MouseEvent) => {
+    const handlePointerDown = (event) => {
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -144,12 +146,12 @@ export const OceanViewer: React.FC = () => {
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(floatGroup.children, true);
       if (intersects.length > 0) {
-        let obj: THREE.Object3D | null = intersects[0].object;
+        let obj = intersects[0].object;
         while (obj && !obj.userData?.platform_number && obj.parent) {
           obj = obj.parent;
         }
         if (obj?.userData?.platform_number) {
-          const targetFloat = argoFloats.find(f => f.platform_number === obj?.userData.platform_number);
+          const targetFloat = argoFloats.find(f => f.platform_number === obj.userData.platform_number);
           if (targetFloat) {
             selectFloat(targetFloat);
           }
@@ -159,7 +161,7 @@ export const OceanViewer: React.FC = () => {
 
     renderer.domElement.addEventListener('pointerdown', handlePointerDown);
 
-    let animationId: number;
+    let animationId;
     const animate = () => {
       animationId = requestAnimationFrame(animate);
       controls.update();
@@ -182,6 +184,9 @@ export const OceanViewer: React.FC = () => {
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('pointerdown', handlePointerDown);
       renderer.dispose();
+      dummyTexture.dispose();
+      volGeo.dispose();
+      volMat.dispose();
     };
   }, []);
 
@@ -190,7 +195,7 @@ export const OceanViewer: React.FC = () => {
     if (!volumeBuffer || !volumeMeta || !volumeMaterialRef.current) return;
 
     const { dimX, dimY, dimZ } = volumeMeta;
-    const texture = new THREE.Data3DTexture(volumeBuffer as unknown as BufferSource, dimX, dimY, dimZ);
+    const texture = new THREE.Data3DTexture(volumeBuffer, dimX, dimY, dimZ);
     texture.format = THREE.RedFormat;
     texture.type = THREE.FloatType;
     texture.minFilter = THREE.LinearFilter;
@@ -198,6 +203,9 @@ export const OceanViewer: React.FC = () => {
     texture.unpackAlignment = 1;
     texture.needsUpdate = true;
 
+    if (volumeMaterialRef.current.uniforms.u_data.value) {
+      volumeMaterialRef.current.uniforms.u_data.value.dispose();
+    }
     volumeMaterialRef.current.uniforms.u_data.value = texture;
     volumeMaterialRef.current.uniforms.u_dim.value = new THREE.Vector3(dimX, dimY, dimZ);
   }, [volumeBuffer, volumeMeta]);
@@ -217,9 +225,9 @@ export const OceanViewer: React.FC = () => {
 
     if (slicePlaneRef.current) {
       slicePlaneRef.current.visible = enableSlice;
-      slicePlaneRef.current.position.y = 0.3 - (sliceDepthMeters / 2000.0) * 0.6;
+      slicePlaneRef.current.position.y = (0.3 - (sliceDepthMeters / 2000.0) * 0.6) * verticalExaggeration;
     }
-  }, [opacity, threshold, isoValue, renderMode, colormap, sliceDepthMeters, enableSlice]);
+  }, [opacity, threshold, isoValue, renderMode, colormap, sliceDepthMeters, enableSlice, verticalExaggeration]);
 
   // Render Argo Float Markers
   useEffect(() => {
@@ -233,14 +241,14 @@ export const OceanViewer: React.FC = () => {
     argoFloats.forEach((float) => {
       const normX = ((float.latest_position.longitude - 58.0) / (96.0 - 58.0)) - 0.5;
       const normZ = ((float.latest_position.latitude - 4.0) / (26.0 - 4.0)) - 0.5;
-      const surfaceY = 0.3;
+      const surfaceY = 0.3 * verticalExaggeration;
 
       const marker = new THREE.Group();
       marker.userData = { platform_number: float.platform_number };
 
       const lineGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(normX, surfaceY, normZ),
-        new THREE.Vector3(normX, -0.3, normZ),
+        new THREE.Vector3(normX, -0.3 * verticalExaggeration, normZ),
       ]);
       const lineMat = new THREE.LineDashedMaterial({
         color: 0xf59e0b,
@@ -277,7 +285,7 @@ export const OceanViewer: React.FC = () => {
 
       floatGroup.add(marker);
     });
-  }, [argoFloats]);
+  }, [argoFloats, verticalExaggeration]);
 
   return (
     <div className="relative w-full h-full">

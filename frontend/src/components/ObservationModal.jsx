@@ -2,7 +2,7 @@ import React from 'react';
 import { X, CheckCircle2, TrendingUp } from './Icons';
 import { useOceanStore } from '../store/oceanStore';
 
-export const ObservationModal: React.FC = () => {
+export const ObservationModal = () => {
   const { 
     isModalOpen, 
     closeModal, 
@@ -29,14 +29,14 @@ export const ObservationModal: React.FC = () => {
   const maxVal = Math.max(...obs_values, ...model_interpolated_values);
   const valRange = maxVal - minVal > 0.1 ? maxVal - minVal : 1.0;
 
-  const scaleX = (v: number) => margin.left + ((v - minVal) / valRange) * plotWidth;
-  const scaleY = (d: number) => margin.top + (d / maxDepth) * plotHeight;
+  const scaleX = (v) => margin.left + ((v - minVal) / valRange) * plotWidth;
+  const scaleY = (d) => margin.top + (d / maxDepth) * plotHeight;
 
   const obsPoints = obs_values.map((v, i) => `${scaleX(v)},${scaleY(depths[i])}`).join(' ');
   const modelPoints = model_interpolated_values.map((v, i) => `${scaleX(v)},${scaleY(depths[i])}`).join(' ');
 
   const maxAbsRes = Math.max(...residuals.map(r => Math.abs(r)), 0.5);
-  const resScaleX = (r: number) => margin.left + ((r + maxAbsRes) / (2 * maxAbsRes)) * plotWidth;
+  const resScaleX = (r) => margin.left + ((r + maxAbsRes) / (2 * maxAbsRes)) * plotWidth;
   const resPoints = residuals.map((r, i) => `${resScaleX(r)},${scaleY(depths[i])}`).join(' ');
 
   return (

@@ -1,75 +1,13 @@
 import { create } from 'zustand';
-import { 
-  OceanVariable, 
-  ColormapType, 
-  RenderMode, 
-  DatasetHealth, 
-  DatasetMetadata, 
-  VolumeMetadata, 
-  ArgoFloatSummary, 
-  ModelVsObsComparison 
-} from '../types/ocean';
 
-interface OceanState {
+export const useOceanStore = create((set, get) => ({
   // Datasets & Health
-  health: DatasetHealth | null;
-  datasets: string[];
-  activeDataset: string;
-  metadata: DatasetMetadata | null;
-
-  // Scientific Controls
-  variable: OceanVariable;
-  renderMode: RenderMode;
-  colormap: ColormapType;
-  timeIndex: number;
-  depthIndex: number;
-  opacity: number;
-  threshold: number;
-  isoValue: number;
-  sliceDepthMeters: number;
-  enableSlice: boolean;
-
-  // 3D Volume Binary Buffer
-  volumeBuffer: Float32Array | null;
-  volumeMeta: VolumeMetadata | null;
-
-  // Argo In-Situ Floats
-  argoFloats: ArgoFloatSummary[];
-  selectedFloat: ArgoFloatSummary | null;
-  selectedCycle: number | null;
-
-  // Validation & Profiling Modal
-  comparisonData: ModelVsObsComparison | null;
-  isModalOpen: boolean;
-  isLoading: boolean;
-  isPlayingTimeline: boolean;
-
-  // Actions
-  fetchInitialData: () => Promise<void>;
-  selectDataset: (dataset: string) => Promise<void>;
-  setVariable: (v: OceanVariable) => void;
-  setRenderMode: (m: RenderMode) => void;
-  setColormap: (c: ColormapType) => void;
-  setTimeIndex: (t: number) => void;
-  setDepthIndex: (d: number) => void;
-  setOpacity: (o: number) => void;
-  setThreshold: (th: number) => void;
-  setIsoValue: (iso: number) => void;
-  setSliceDepthMeters: (m: number) => void;
-  setEnableSlice: (e: boolean) => void;
-  toggleTimelinePlayback: () => void;
-  selectFloat: (float: ArgoFloatSummary) => Promise<void>;
-  fetchComparison: (platformNumber: string, cycle?: number) => Promise<void>;
-  closeModal: () => void;
-  fetchVolumeData: () => Promise<void>;
-}
-
-export const useOceanStore = create<OceanState>((set, get) => ({
   health: null,
   datasets: [],
   activeDataset: '',
   metadata: null,
 
+  // Scientific Controls
   variable: 'temp',
   renderMode: 'volume',
   colormap: 'turbo',
@@ -80,25 +18,30 @@ export const useOceanStore = create<OceanState>((set, get) => ({
   isoValue: 0.65,
   sliceDepthMeters: 50,
   enableSlice: false,
+  verticalExaggeration: 1.0,
 
+  // 3D Volume Binary Buffer
   volumeBuffer: null,
   volumeMeta: null,
 
+  // Argo In-Situ Floats
   argoFloats: [],
   selectedFloat: null,
   selectedCycle: null,
 
+  // Validation & Profiling Modal
   comparisonData: null,
   isModalOpen: false,
   isLoading: false,
   isPlayingTimeline: false,
 
+  // Actions
   fetchInitialData: async () => {
     try {
       set({ isLoading: true });
       // 1. Health check
       const healthRes = await fetch('/api/v1/health');
-      const health: DatasetHealth = await healthRes.json();
+      const health = await healthRes.json();
       set({ health });
 
       // 2. Available model datasets
@@ -115,7 +58,8 @@ export const useOceanStore = create<OceanState>((set, get) => ({
 
       // 3. Argo floats
       const argoRes = await fetch('/api/v1/observations/argo');
-      const argoFloats: ArgoFloatSummary[] = await argoRes.json();
+      const argoData = await argoRes.json();
+      const argoFloats = Array.isArray(argoData) ? argoData : [];
       set({ argoFloats, isLoading: false });
     } catch (err) {
       console.error('Error fetching initial ocean data:', err);
@@ -123,11 +67,11 @@ export const useOceanStore = create<OceanState>((set, get) => ({
     }
   },
 
-  selectDataset: async (dataset: string) => {
+  selectDataset: async (dataset) => {
     try {
       set({ activeDataset: dataset, isLoading: true });
       const metaRes = await fetch(`/api/v1/model/metadata?filename=${encodeURIComponent(dataset)}`);
-      const metadata: DatasetMetadata = await metaRes.json();
+      const metadata = await metaRes.json();
       set({ metadata });
       await get().fetchVolumeData();
       set({ isLoading: false });
@@ -164,38 +108,39 @@ export const useOceanStore = create<OceanState>((set, get) => ({
     }
   },
 
-  setVariable: (variable: OceanVariable) => {
+  setVariable: (variable) => {
     set({ variable });
     get().fetchVolumeData();
     if (get().selectedFloat) {
-      get().fetchComparison(get().selectedFloat!.platform_number, get().selectedCycle || undefined);
+      get().fetchComparison(get().selectedFloat.platform_number, get().selectedCycle || undefined);
     }
   },
 
-  setRenderMode: (renderMode: RenderMode) => set({ renderMode }),
-  setColormap: (colormap: ColormapType) => set({ colormap }),
-  setTimeIndex: (timeIndex: number) => {
+  setRenderMode: (renderMode) => set({ renderMode }),
+  setColormap: (colormap) => set({ colormap }),
+  setTimeIndex: (timeIndex) => {
     set({ timeIndex });
     get().fetchVolumeData();
   },
-  setDepthIndex: (depthIndex: number) => set({ depthIndex }),
-  setOpacity: (opacity: number) => set({ opacity }),
-  setThreshold: (threshold: number) => set({ threshold }),
-  setIsoValue: (isoValue: number) => set({ isoValue }),
-  setSliceDepthMeters: (sliceDepthMeters: number) => set({ sliceDepthMeters }),
-  setEnableSlice: (enableSlice: boolean) => set({ enableSlice }),
+  setDepthIndex: (depthIndex) => set({ depthIndex }),
+  setOpacity: (opacity) => set({ opacity }),
+  setThreshold: (threshold) => set({ threshold }),
+  setIsoValue: (isoValue) => set({ isoValue }),
+  setSliceDepthMeters: (sliceDepthMeters) => set({ sliceDepthMeters }),
+  setEnableSlice: (enableSlice) => set({ enableSlice }),
+  setVerticalExaggeration: (verticalExaggeration) => set({ verticalExaggeration }),
 
   toggleTimelinePlayback: () => {
     const isPlaying = !get().isPlayingTimeline;
     set({ isPlayingTimeline: isPlaying });
   },
 
-  selectFloat: async (float: ArgoFloatSummary) => {
+  selectFloat: async (float) => {
     set({ selectedFloat: float, selectedCycle: float.cycles[0] || null });
     await get().fetchComparison(float.platform_number, float.cycles[0]);
   },
 
-  fetchComparison: async (platformNumber: string, cycle?: number) => {
+  fetchComparison: async (platformNumber, cycle) => {
     const { variable, activeDataset } = get();
     try {
       set({ isLoading: true });
@@ -205,7 +150,7 @@ export const useOceanStore = create<OceanState>((set, get) => ({
       }
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch comparison');
-      const comparisonData: ModelVsObsComparison = await res.json();
+      const comparisonData = await res.json();
       set({ comparisonData, isModalOpen: true, isLoading: false });
     } catch (err) {
       console.error('Error fetching comparison profile:', err);
