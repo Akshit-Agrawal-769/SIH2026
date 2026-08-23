@@ -21,9 +21,9 @@ def validate_ocean_model(file_path: str):
     print("=" * 80)
     
     if not os.path.exists(file_path):
-        print(f"STATUS: REAL DATASET REQUIRED")
+        print("STATUS: REAL DATASET REQUIRED")
         print(f"REASON: File not found at '{file_path}'.")
-        print(f"ACTION REQUIRED: Download real ROMS NetCDF from INCOIS ERDDAP (https://erddap.incois.gov.in/).")
+        print("ACTION REQUIRED: Download real ROMS NetCDF from INCOIS ERDDAP (https://erddap.incois.gov.in/).")
         return False
 
     try:
@@ -36,7 +36,7 @@ def validate_ocean_model(file_path: str):
         print(f"Source: {ds.attrs.get('source', 'INCOIS Model')}")
         
         print("\n--- DIMENSIONS ---")
-        for dim_name, dim_size in ds.dims.items():
+        for dim_name, dim_size in ds.sizes.items():
             print(f"  - {dim_name}: {dim_size}")
             
         print("\n--- CORE VARIABLES ---")
@@ -57,7 +57,16 @@ def validate_ocean_model(file_path: str):
         # Extract 1 sample surface slice for validation
         target_var = "temp" if "temp" in ds else ("temperature" if "temperature" in ds else None)
         if target_var:
-            slice_data = ds[target_var].isel(time=0, s_rho=0 if "s_rho" in ds.dims else 0).values
+            da = ds[target_var]
+            isel_dict = {}
+            if "time" in da.dims:
+                isel_dict["time"] = 0
+            if "s_rho" in da.dims:
+                isel_dict["s_rho"] = 0
+            elif "depth" in da.dims:
+                isel_dict["depth"] = 0
+                
+            slice_data = da.isel(**isel_dict).values
             slice_f32 = np.nan_to_num(slice_data, nan=-9999.0).astype(np.float32)
             
             output_bin = os.path.join(os.path.dirname(file_path), "test_surface_slice.bin")
@@ -84,9 +93,9 @@ def validate_argo_profile(file_path: str):
     print("=" * 80)
     
     if not os.path.exists(file_path):
-        print(f"STATUS: REAL DATASET REQUIRED")
+        print("STATUS: REAL DATASET REQUIRED")
         print(f"REASON: File not found at '{file_path}'.")
-        print(f"ACTION REQUIRED: Download real Argo NetCDF profile from GDAC (ftp://ftp.ifremer.fr/ifremer/argo).")
+        print("ACTION REQUIRED: Download real Argo NetCDF profile from GDAC (ftp://ftp.ifremer.fr/ifremer/argo).")
         return False
 
     try:
@@ -95,8 +104,8 @@ def validate_argo_profile(file_path: str):
         
         ds = xr.open_dataset(file_path)
         print("\n--- ARGO PROFILE METADATA ---")
-        print(f"Platform Number: {ds.get('PLATFORM_NUMBER', {}).values}")
-        print(f"Dimensions: N_PROF={ds.dims.get('N_PROF')}, N_LEVELS={ds.dims.get('N_LEVELS')}")
+        print(f"Platform Number: {ds.get('PLATFORM_NUMBER', {}).values[0] if 'PLATFORM_NUMBER' in ds else 'N/A'}")
+        print(f"Dimensions: N_PROF={ds.sizes.get('N_PROF')}, N_LEVELS={ds.sizes.get('N_LEVELS')}")
         
         if "PRES" in ds and "TEMP" in ds:
             pres = ds["PRES"].values[0] # First profile
@@ -119,8 +128,8 @@ def validate_argo_profile(file_path: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="INCOIS Real Oceanographic Data Validation Tool")
-    parser.add_argument("--model", type=str, default="datasets/model/incois_roms_sample.nc", help="Path to real ROMS NetCDF model file")
-    parser.add_argument("--argo", type=str, default="datasets/argo/argo_profile_sample.nc", help="Path to real Argo NetCDF profile file")
+    parser.add_argument("--model", type=str, default="datasets/model/incois_roms_indian_ocean.nc", help="Path to real ROMS NetCDF model file")
+    parser.add_argument("--argo", type=str, default="datasets/argo/incois_2902084_prof.nc", help="Path to real Argo NetCDF profile file")
     
     args = parser.parse_args()
     
@@ -130,4 +139,6 @@ if __name__ == "__main__":
     
     if not (model_ok and argo_ok):
         print("\nNotice: System operates in strict NO MOCK DATA mode. Place real NetCDF files in datasets/ directory to proceed.")
-        sys.exit(0)
+        sys.exit(1)
+    else:
+        print("\nSUCCESS: All real datasets passed CF compliance, dimension checks, and TEOS-10 conversions!")
