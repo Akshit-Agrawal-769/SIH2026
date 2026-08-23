@@ -9,13 +9,18 @@ router = APIRouter()
 def compare_model_vs_obs(
     platform_number: str = Query(..., description="Argo float WMO platform number"),
     cycle_number: Optional[int] = Query(None, description="Cycle number"),
-    variable: str = Query("temp", description="Variable (temp, salt)"),
-    model_filename: Optional[str] = Query(None, description="Model filename")
+    variable: str = Query("temp", description="Ocean variable to compare (temp, salt)"),
+    model_filename: Optional[str] = Query(None, description="Model dataset filename")
 ):
-    result = comparison_service.compare_float_profile(platform_number, cycle_number, variable, model_filename)
-    if not result:
+    comparison = comparison_service.compare_float_profile(
+        platform_number=platform_number,
+        cycle_number=cycle_number,
+        variable=variable,
+        model_filename=model_filename
+    )
+    if not comparison:
         raise HTTPException(
             status_code=404,
-            detail=f"REAL DATASET REQUIRED: Unable to perform model-vs-observation comparison for float {platform_number}."
+            detail=f"REAL DATASET REQUIRED: Unable to compute comparison for float {platform_number}."
         )
-    return result
+    return comparison

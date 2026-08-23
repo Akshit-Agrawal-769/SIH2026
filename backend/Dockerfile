@@ -8,10 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libnetcdf-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY backend/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/ /app/backend/
+COPY ingestion/ /app/ingestion/
+
+ENV PYTHONPATH=/app:/app/backend
+
+WORKDIR /app/backend
 
 EXPOSE 8000
 

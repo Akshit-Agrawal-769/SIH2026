@@ -1,6 +1,6 @@
 """
 xarray Scientific Data Service
-Parses NetCDF ocean datasets, handles coordinate transformations, and extracts Float32 binary slices.
+Extracts 3D volumetric Float32 buffers, 2D horizontal/vertical slices, and point vertical profiles.
 """
 
 import os
@@ -10,6 +10,8 @@ import numpy as np
 import xarray as xr
 from scipy.interpolate import RegularGridInterpolator
 from app.core.config import settings
+from ingestion.adapters.roms_adapter import ROMSModelAdapter
+
 
 class XarrayDataService:
     
@@ -28,151 +30,184 @@ class XarrayDataService:
         return path if os.path.exists(path) else None
 
     def get_metadata(self, filename: str) -> Optional[Dict[str, Any]]:
+        path = self.get_model_dataset_path(filename)
+        if not path:
+            return None
+        adapter = ROMSModelAdapter(path)
+        return adapter.extract_metadata()
+
+    def extract_3d_volume_buffer(
+        self,
+        filename: str,
+        variable: str = "temp",
+        time_idx: int = 0,
+        target_shape: Tuple[int, int, int] = (64, 64, 32)
+    ) -> Optional[Tuple[bytes, Dict[str, Any]]]:
+        """
+        Extracts 3D volumetric array, regularizes to target_shape (nx, ny, nz),
+        normalizes data to [0.0, 1.0] for WebGL2 Data3DTexture rendering,
+        and returns the raw Float32 byte buffer along with min/max and dimensions.
+        """
         filepath = self.get_model_dataset_path(filename)
         if not filepath:
             return None
-            
+
         try:
-            ds = xr.open_dataset(filepath, engine="h5netcdf" if filepath.endswith(".nc4") else "netcdf4")
-            
-            lats = ds["lat"].values if "lat" in ds else [4.0, 26.0]
-            lons = ds["lon"].values if "lon" in ds else [58.0, 96.0]
-            depths = ds["depth"].values if "depth" in ds else (ds["s_rho"].values if "s_rho" in ds else [0.0])
-            times = [str(t) for t in ds["time"].values] if "time" in ds else ["2026-08-20T00:00:00"]
-            
-            vars_list = [v for v in ds.data_vars if v in ["temp", "salt", "u", "v", "w", "chl", "temperature", "salinity"]]
-            
-            var_info = {}
-            for v in vars_list:
-                var_info[v] = {
-                    "units": ds[v].attrs.get("units", ""),
-                    "long_name": ds[v].attrs.get("long_name", v),
+            with xr.open_dataset(filepath) as ds:
+                if variable not in ds:
+                    return None
+
+                da = ds[variable]
+                
+                # Squeeze time dimension
+                if "time" in da.dims:
+                    t_len = da.sizes["time"]
+                    da_3d = da.isel(time=min(time_idx, t_len - 1))
+                else:
+                    da_3d = da
+
+                raw_data = da_3d.values.astype(np.float32)
+                raw_data = np.nan_to_num(raw_data, nan=np.nan)
+
+                # Reshape/Interpolate to target 3D texture shape (Z, Y, X)
+                nx_tgt, ny_tgt, nz_tgt = target_shape[0], target_shape[1], target_shape[2]
+                
+                shape = raw_data.shape
+                if len(shape) == 3:
+                    # Current shape is (depth/nz, lat/ny, lon/nx)
+                    nz_curr, ny_curr, nx_curr = shape
+                    z_in = np.linspace(0, 1, nz_curr)
+                    y_in = np.linspace(0, 1, ny_curr)
+                    x_in = np.linspace(0, 1, nx_curr)
+                    
+                    mean_val = float(np.nanmean(raw_data)) if not np.isnan(np.nanmean(raw_data)) else 0.0
+                    interp = RegularGridInterpolator((z_in, y_in, x_in), raw_data, bounds_error=False, fill_value=mean_val)
+                    
+                    # Create target regular grid for WebGL volume (nz, ny, nx)
+                    z_out = np.linspace(0, 1, nz_tgt)
+                    y_out = np.linspace(0, 1, ny_tgt)
+                    x_out = np.linspace(0, 1, nx_tgt)
+                    
+                    grid_z, grid_y, grid_x = np.meshgrid(z_out, y_out, x_out, indexing="ij")
+                    vol_interp = interp((grid_z, grid_y, grid_x)).astype(np.float32)
+                else:
+                    vol_interp = np.zeros((nz_tgt, ny_tgt, nx_tgt), dtype=np.float32)
+
+                valid_mask = ~np.isnan(vol_interp)
+                min_val = float(np.min(vol_interp[valid_mask])) if np.any(valid_mask) else 0.0
+                max_val = float(np.max(vol_interp[valid_mask])) if np.any(valid_mask) else 1.0
+
+                if max_val == min_val:
+                    max_val += 1e-5
+
+                # Normalize to [0.0, 1.0] for WebGL 3D texture rendering
+                vol_norm = np.clip((vol_interp - min_val) / (max_val - min_val), 0.0, 1.0).astype(np.float32)
+                vol_norm = np.nan_to_num(vol_norm, nan=0.0)
+
+                # Return raw Float32 byte buffer
+                buffer = vol_norm.tobytes()
+
+                metadata = {
+                    "min_val": min_val,
+                    "max_val": max_val,
+                    "dim_x": nx_tgt,
+                    "dim_y": ny_tgt,
+                    "dim_z": nz_tgt,
+                    "variable": variable,
+                    "units": da.attrs.get("units", ""),
+                    "long_name": da.attrs.get("long_name", variable),
                 }
 
-            meta = {
-                "filename": filename,
-                "title": ds.attrs.get("title", "INCOIS ROMS Ocean Forecast"),
-                "source": ds.attrs.get("source", "INCOIS"),
-                "bounds": {
-                    "min_lon": float(np.min(lons)),
-                    "max_lon": float(np.max(lons)),
-                    "min_lat": float(np.min(lats)),
-                    "max_lat": float(np.max(lats)),
-                },
-                "depth_levels": [float(d) for d in depths],
-                "time_range": times,
-                "variables": vars_list,
-                "variable_info": var_info,
-                "dimensions": {k: int(v) for k, v in ds.dims.items()},
-            }
-            ds.close()
-            return meta
-        except Exception as e:
-            print(f"Error getting dataset metadata: {e}")
-            return None
+                return buffer, metadata
 
-    def extract_2d_slice_buffer(self, filename: str, variable: str, time_idx: int = 0, depth_idx: int = 0) -> Optional[Tuple[bytes, Dict[str, Any]]]:
-        filepath = self.get_model_dataset_path(filename)
-        if not filepath:
-            return None
-            
-        try:
-            ds = xr.open_dataset(filepath, engine="h5netcdf" if filepath.endswith(".nc4") else "netcdf4")
-            if variable not in ds:
-                ds.close()
-                return None
-                
-            var_array = ds[variable]
-            if len(var_array.shape) == 4:
-                slice_data = var_array.isel(time=time_idx, depth=depth_idx if "depth" in ds.dims else (depth_idx if "s_rho" in ds.dims else 0)).values
-            elif len(var_array.shape) == 3:
-                slice_data = var_array.isel(time=time_idx).values
-            else:
-                slice_data = var_array.values
-
-            slice_f32 = np.nan_to_num(slice_data, nan=-9999.0).astype(np.float32)
-            
-            valid_vals = slice_f32[slice_f32 > -9000]
-            min_val = float(np.min(valid_vals)) if len(valid_vals) > 0 else 0.0
-            max_val = float(np.max(valid_vals)) if len(valid_vals) > 0 else 1.0
-            
-            meta = {
-                "min_val": min_val,
-                "max_val": max_val,
-                "variable": variable,
-                "units": var_array.attrs.get("units", "")
-            }
-            
-            buffer = slice_f32.tobytes()
-            ds.close()
-            return buffer, meta
-        except Exception as e:
-            print(f"Error extracting slice buffer: {e}")
-            return None
-
-    def extract_3d_volume_buffer(self, filename: str, variable: str, time_idx: int = 0, target_dims: Tuple[int, int, int] = (64, 64, 32)) -> Optional[Tuple[bytes, Dict[str, Any]]]:
-        filepath = self.get_model_dataset_path(filename)
-        if not filepath:
-            return None
-            
-        try:
-            ds = xr.open_dataset(filepath, engine="h5netcdf" if filepath.endswith(".nc4") else "netcdf4")
-            if variable not in ds:
-                ds.close()
-                return None
-                
-            var_array = ds[variable]
-            if len(var_array.shape) == 4:
-                vol_data = var_array.isel(time=time_idx).values # Shape: (nz, ny, nx)
-            else:
-                vol_data = var_array.values
-                
-            nz, ny, nx = vol_data.shape
-            dim_x, dim_y, dim_z = target_dims
-            
-            # Resample grid to target_dims (dim_z, dim_y, dim_x)
-            z_orig = np.linspace(0, 1, nz)
-            y_orig = np.linspace(0, 1, ny)
-            x_orig = np.linspace(0, 1, nx)
-            
-            interp = RegularGridInterpolator((z_orig, y_orig, x_orig), vol_data, bounds_error=False, fill_value=np.nan)
-            
-            z_new = np.linspace(0, 1, dim_z)
-            y_new = np.linspace(0, 1, dim_y)
-            x_new = np.linspace(0, 1, dim_x)
-            
-            grid_z, grid_y, grid_x = np.meshgrid(z_new, y_new, x_new, indexing="ij")
-            points = np.stack([grid_z.ravel(), grid_y.ravel(), grid_x.ravel()], axis=-1)
-            
-            resampled_flat = interp(points)
-            resampled_3d = resampled_flat.reshape((dim_z, dim_y, dim_x)).astype(np.float32)
-            
-            valid_vals = resampled_3d[~np.isnan(resampled_3d)]
-            min_val = float(np.min(valid_vals)) if len(valid_vals) > 0 else 0.0
-            max_val = float(np.max(valid_vals)) if len(valid_vals) > 0 else 1.0
-
-            # Normalize values to [0, 1] range for WebGL 3D DataTexture sampling
-            if max_val > min_val:
-                norm_3d = (np.nan_to_num(resampled_3d, nan=min_val) - min_val) / (max_val - min_val)
-            else:
-                norm_3d = np.zeros_like(resampled_3d)
-
-            buffer = norm_3d.astype(np.float32).tobytes()
-            
-            meta = {
-                "min_val": min_val,
-                "max_val": max_val,
-                "dim_x": dim_x,
-                "dim_y": dim_y,
-                "dim_z": dim_z,
-                "variable": variable,
-                "units": var_array.attrs.get("units", "")
-            }
-            
-            ds.close()
-            return buffer, meta
         except Exception as e:
             print(f"Error extracting 3D volume buffer: {e}")
+            return None
+
+    def extract_2d_slice_buffer(
+        self,
+        filename: str,
+        variable: str,
+        time_idx: int = 0,
+        depth_idx: int = 0
+    ) -> Optional[Tuple[bytes, Dict[str, Any]]]:
+        filepath = self.get_model_dataset_path(filename)
+        if not filepath:
+            return None
+            
+        try:
+            with xr.open_dataset(filepath) as ds:
+                if variable not in ds:
+                    return None
+                    
+                da = ds[variable]
+                isel_dict = {}
+                if "time" in da.dims:
+                    isel_dict["time"] = min(time_idx, da.sizes["time"] - 1)
+                if "depth" in da.dims:
+                    isel_dict["depth"] = min(depth_idx, da.sizes["depth"] - 1)
+                elif "s_rho" in da.dims:
+                    isel_dict["s_rho"] = min(depth_idx, da.sizes["s_rho"] - 1)
+
+                slice_data = da.isel(**isel_dict).values
+                slice_f32 = np.nan_to_num(slice_data, nan=-9999.0).astype(np.float32)
+                min_val = float(np.nanmin(slice_data))
+                max_val = float(np.nanmax(slice_data))
+
+                meta = {
+                    "shape": list(slice_f32.shape),
+                    "min_val": min_val,
+                    "max_val": max_val,
+                    "variable": variable,
+                }
+                return slice_f32.tobytes(), meta
+        except Exception as e:
+            print(f"Error extracting 2D slice buffer: {e}")
+            return None
+
+    def interpolate_profile_at_point(
+        self,
+        filename: str,
+        variable: str,
+        lat: float,
+        lon: float,
+        time_idx: int = 0,
+        query_depths: Optional[List[float]] = None
+    ) -> Optional[Tuple[List[float], List[float]]]:
+        filepath = self.get_model_dataset_path(filename)
+        if not filepath:
+            return None
+
+        try:
+            with xr.open_dataset(filepath) as ds:
+                if variable not in ds:
+                    return None
+
+                da = ds[variable]
+                if "time" in da.dims:
+                    da = da.isel(time=min(time_idx, da.sizes["time"] - 1))
+
+                lat_key = next((k for k in ["lat", "latitude", "lat_rho", "y"] if k in da.coords or k in da.dims), None)
+                lon_key = next((k for k in ["lon", "longitude", "lon_rho", "x"] if k in da.coords or k in da.dims), None)
+                depth_key = next((k for k in ["depth", "s_rho", "lev", "level", "z"] if k in da.coords or k in da.dims), None)
+
+                point_da = da.interp({lat_key: lat, lon_key: lon}, method="linear")
+                model_depths = ds[depth_key].values.flatten().tolist() if depth_key else [0.0, 50.0, 100.0, 500.0, 1000.0, 2000.0]
+                model_values = point_da.values.flatten().tolist()
+
+                if query_depths is not None:
+                    valid_idx = [i for i, v in enumerate(model_values) if not np.isnan(v)]
+                    if len(valid_idx) < 2:
+                        return None
+                    clean_d = [model_depths[i] for i in valid_idx]
+                    clean_v = [model_values[i] for i in valid_idx]
+                    interp_v = np.interp(query_depths, clean_d, clean_v)
+                    return query_depths, [float(round(v, 3)) for v in interp_v]
+
+                return model_depths, [float(round(v, 3)) if not np.isnan(v) else 0.0 for v in model_values]
+
+        except Exception as e:
+            print(f"Error interpolating profile: {e}")
             return None
 
 xarray_service = XarrayDataService()

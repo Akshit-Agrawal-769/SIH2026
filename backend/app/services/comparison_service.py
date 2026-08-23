@@ -1,97 +1,100 @@
 """
-Model vs Observation Comparison Service
-Performs 4D spatial-temporal bilinear/trilinear interpolation comparing ROMS model forecast against Argo profile observations.
-Calculates Bias, MAE, RMSE, Pearson r, and depth residual curves.
+Model vs. Observation Comparison Service
+Performs 4D spatio-temporal colocation, depth-by-depth residual computation,
+and computes Bias, MAE, RMSE, and Pearson Correlation metrics.
 """
 
-import os
-import numpy as np
-import xarray as xr
 from typing import Dict, Any, Optional
+import numpy as np
 from app.services.xarray_service import xarray_service
 from app.services.argo_service import argo_service
 
-class ComparisonService:
-    
-    def compare_float_profile(self, platform_number: str, cycle_number: Optional[int] = None, variable: str = "temp", model_filename: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        profile = argo_service.get_float_profile(platform_number, cycle_number)
-        if not profile:
+
+class OceanComparisonService:
+
+    def compare_float_profile(
+        self,
+        platform_number: str,
+        cycle_number: Optional[int] = None,
+        variable: str = "temp",
+        model_filename: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        # 1. Fetch Argo Observation Profile
+        argo_profile = argo_service.get_float_profile(platform_number, cycle_number)
+        if not argo_profile:
             return None
-            
-        datasets = xarray_service.list_available_model_datasets()
-        if not datasets:
+
+        # 2. Identify Model Dataset
+        models = xarray_service.list_available_model_datasets()
+        if not models:
             return None
-            
-        model_file = model_filename if (model_filename and model_filename in datasets) else datasets[0]
-        filepath = xarray_service.get_model_dataset_path(model_file)
-        if not filepath:
+        target_model = model_filename if (model_filename and model_filename in models) else models[0]
+
+        # 3. Colocate Model onto Argo Lat, Lon, Depths
+        lat = argo_profile["latitude"]
+        lon = argo_profile["longitude"]
+        obs_depths = argo_profile["depths"]
+        obs_vals = argo_profile["temperature"] if variable == "temp" else argo_profile.get("salinity", [])
+
+        if not obs_vals or len(obs_vals) == 0:
             return None
 
-        try:
-            ds = xr.open_dataset(filepath, engine="h5netcdf" if filepath.endswith(".nc4") else "netcdf4")
-            var_name = variable if variable in ds else ("temp" if "temp" in ds else list(ds.data_vars.keys())[0])
-            
-            obs_depths = np.array(profile["depths"])
-            obs_vals = np.array(profile["temperature"] if var_name == "temp" else (profile.get("salinity") or profile["temperature"]))
-            
-            lat = profile["latitude"]
-            lon = profile["longitude"]
+        interp_result = xarray_service.interpolate_profile_at_point(
+            filename=target_model,
+            variable=variable,
+            lat=lat,
+            lon=lon,
+            time_idx=0,
+            query_depths=obs_depths
+        )
 
-            # Interpolate model field at float (lat, lon) position
-            model_field = ds[var_name].isel(time=0) # Shape: (depth, lat, lon)
-            
-            # Spatial interpolation at (lat, lon)
-            model_profile = model_field.interp(lat=lat, lon=lon, method="nearest").values
-            model_grid_depths = ds["depth"].values if "depth" in ds else (ds["s_rho"].values if "s_rho" in ds else np.linspace(0, 2000, len(model_profile)))
+        if not interp_result:
+            return None
 
-            # Interpolate model vertical column onto exact Argo depth levels
-            model_interp_vals = np.interp(obs_depths, model_grid_depths, model_profile)
-            
-            # Compute Residuals (Delta = Model - Obs)
-            residuals = model_interp_vals - obs_vals
-            
-            # Calculate Statistical Validation Metrics
-            valid_mask = ~np.isnan(residuals)
-            n_samples = int(np.sum(valid_mask))
-            
-            if n_samples > 0:
-                bias = float(np.mean(residuals[valid_mask]))
-                mae = float(np.mean(np.abs(residuals[valid_mask])))
-                rmse = float(np.sqrt(np.mean(residuals[valid_mask] ** 2)))
-                
-                # Pearson Correlation Coefficient r
-                if n_samples > 1 and np.std(obs_vals[valid_mask]) > 0 and np.std(model_interp_vals[valid_mask]) > 0:
-                    r_matrix = np.corrcoef(obs_vals[valid_mask], model_interp_vals[valid_mask])
-                    pearson_r = float(r_matrix[0, 1])
-                else:
-                    pearson_r = 1.0
-            else:
-                bias, mae, rmse, pearson_r = 0.0, 0.0, 0.0, 0.0
+        depths, model_vals = interp_result
 
-            result = {
-                "platform_number": profile["platform_number"],
-                "cycle_number": profile["cycle_number"],
-                "timestamp": profile["timestamp"],
-                "latitude": profile["latitude"],
-                "longitude": profile["longitude"],
-                "depths": [float(d) for d in obs_depths],
-                "obs_values": [float(v) for v in obs_vals],
-                "model_interpolated_values": [float(m) for m in model_interp_vals],
-                "residuals": [float(r) for r in residuals],
-                "variable": var_name,
-                "metrics": {
-                    "bias": bias,
-                    "mae": mae,
-                    "rmse": rmse,
-                    "pearson_r": pearson_r,
-                    "sample_count": n_samples
-                }
+        # 4. Compute Statistical Validation Metrics
+        obs_arr = np.array(obs_vals, dtype=np.float64)
+        mod_arr = np.array(model_vals, dtype=np.float64)
+        
+        valid_mask = ~np.isnan(obs_arr) & ~np.isnan(mod_arr)
+        if not np.any(valid_mask):
+            return None
+
+        obs_clean = obs_arr[valid_mask]
+        mod_clean = mod_arr[valid_mask]
+        
+        residuals = mod_clean - obs_clean
+        bias = float(np.mean(residuals))
+        mae = float(np.mean(np.abs(residuals)))
+        rmse = float(np.sqrt(np.mean(residuals ** 2)))
+        
+        # Pearson correlation
+        if len(obs_clean) > 1 and np.std(obs_clean) > 0 and np.std(mod_clean) > 0:
+            r = float(np.corrcoef(obs_clean, mod_clean)[0, 1])
+        else:
+            r = 1.0
+
+        full_residuals = [round(float(m - o), 3) for m, o in zip(model_vals, obs_vals)]
+
+        return {
+            "platform_number": platform_number,
+            "cycle_number": argo_profile["cycle_number"],
+            "timestamp": argo_profile["timestamp"],
+            "latitude": lat,
+            "longitude": lon,
+            "depths": depths,
+            "obs_values": obs_vals,
+            "model_interpolated_values": model_vals,
+            "residuals": full_residuals,
+            "variable": variable,
+            "metrics": {
+                "bias": round(bias, 4),
+                "mae": round(mae, 4),
+                "rmse": round(rmse, 4),
+                "pearson_r": round(r, 4),
+                "sample_count": int(np.sum(valid_mask)),
             }
-            
-            ds.close()
-            return result
-        except Exception as e:
-            print(f"Error computing comparison profile: {e}")
-            return None
+        }
 
-comparison_service = ComparisonService()
+comparison_service = OceanComparisonService()
