@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, Response
 from app.services.xarray_service import xarray_service
+from app.schemas.ocean import DatasetMetadataResponse
 
 router = APIRouter()
 
@@ -14,18 +15,63 @@ def list_model_datasets():
         }
     return {"datasets": datasets}
 
-@router.get("/slice")
-def get_model_slice(
-    filename: str = Query(..., description="Name of NetCDF file in datasets/model/"),
-    variable: str = Query("temp", description="Variable name (e.g., temp, salt, u, v)"),
-    time_idx: int = Query(0, description="Time index"),
-    depth_idx: int = Query(0, description="Depth/s_rho level index")
-):
-    buffer = xarray_service.extract_2d_slice_buffer(filename, variable, time_idx, depth_idx)
-    if not buffer:
+@router.get("/metadata", response_model=DatasetMetadataResponse)
+def get_model_metadata(filename: str = Query(..., description="Name of NetCDF file in datasets/model/")):
+    meta = xarray_service.get_metadata(filename)
+    if not meta:
         raise HTTPException(
-            status_code=404, 
-            detail=f"REAL DATASET REQUIRED: Dataset '{filename}' or variable '{variable}' unavailable at source."
+            status_code=404,
+            detail=f"REAL DATASET REQUIRED: Dataset '{filename}' unavailable at source."
+        )
+    return meta
+
+@router.get("/volume3d")
+def get_model_volume_3d(
+    filename: str = Query(..., description="Name of NetCDF file in datasets/model/"),
+    variable: str = Query("temp", description="Variable name (temp, salt, u, v, chl)"),
+    time_idx: int = Query(0, description="Time step index"),
+    dim_x: int = Query(64, description="Resolution X cap"),
+    dim_y: int = Query(64, description="Resolution Y cap"),
+    dim_z: int = Query(32, description="Resolution Z cap")
+):
+    result = xarray_service.extract_3d_volume_buffer(filename, variable, time_idx, (dim_x, dim_y, dim_z))
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail=f"REAL DATASET REQUIRED: Failed to extract 3D volume for '{filename}' and variable '{variable}'"
         )
         
-    return Response(content=buffer, media_type="application/octet-stream")
+    buffer, meta = result
+    
+    headers = {
+        "X-Data-Min": str(meta["min_val"]),
+        "X-Data-Max": str(meta["max_val"]),
+        "X-Dim-X": str(meta["dim_x"]),
+        "X-Dim-Y": str(meta["dim_y"]),
+        "X-Dim-Z": str(meta["dim_z"]),
+        "X-Variable": meta["variable"],
+        "X-Units": meta["units"],
+    }
+    
+    return Response(content=buffer, media_type="application/octet-stream", headers=headers)
+
+@router.get("/slice2d")
+def get_model_slice_2d(
+    filename: str = Query(..., description="Name of NetCDF file in datasets/model/"),
+    variable: str = Query("temp", description="Variable name"),
+    time_idx: int = Query(0, description="Time index"),
+    depth_idx: int = Query(0, description="Depth level index")
+):
+    result = xarray_service.extract_2d_slice_buffer(filename, variable, time_idx, depth_idx)
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail=f"REAL DATASET REQUIRED: Dataset '{filename}' or variable '{variable}' unavailable."
+        )
+    buffer, meta = result
+    headers = {
+        "X-Data-Min": str(meta["min_val"]),
+        "X-Data-Max": str(meta["max_val"]),
+        "X-Variable": meta["variable"],
+    }
+    return Response(content=buffer, media_type="application/octet-stream", headers=headers)

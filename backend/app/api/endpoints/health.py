@@ -17,7 +17,7 @@ def check_health():
     if not argo_datasets:
         missing.append("ARGO_FLOAT_PROFILES_NETCDF (datasets/argo/*.nc)")
         
-    status = "healthy" if available else "REAL DATASET REQUIRED"
+    status = "healthy" if (model_datasets and argo_datasets) else "REAL DATASET REQUIRED"
     
     return DatasetHealthStatus(
         status=status,

@@ -1,20 +1,21 @@
-from fastapi import APIRouter
-from app.services.xarray_service import xarray_service
+from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Query
+from app.services.argo_service import argo_service
+from app.schemas.ocean import ArgoFloatSummary, ArgoProfileResponse
 
 router = APIRouter()
 
-@router.get("/argo")
-def get_argo_observations():
-    datasets = xarray_service.list_available_argo_datasets()
-    if not datasets:
-        return {
-            "status": "REAL DATASET REQUIRED",
-            "message": "No real Argo profiling float NetCDF files found in datasets/argo/",
-            "action": "Download real Argo profile NetCDF files from ftp://ftp.ifremer.fr/ifremer/argo",
-            "features": []
-        }
-    return {
-        "status": "available",
-        "datasets": datasets,
-        "features": []
-    }
+@router.get("/argo", response_model=List[ArgoFloatSummary])
+def list_argo_floats():
+    floats = argo_service.get_floats_summary()
+    return floats
+
+@router.get("/argo/{platform_number}/profile", response_model=ArgoProfileResponse)
+def get_argo_profile(platform_number: str, cycle_number: Optional[int] = Query(None)):
+    profile = argo_service.get_float_profile(platform_number, cycle_number)
+    if not profile:
+        raise HTTPException(
+            status_code=404,
+            detail=f"REAL DATASET REQUIRED: Argo profile for float {platform_number} (cycle={cycle_number}) not found."
+        )
+    return profile

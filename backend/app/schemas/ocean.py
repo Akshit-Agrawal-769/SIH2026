@@ -8,14 +8,23 @@ class DatasetHealthStatus(BaseModel):
     data_policy: str = "STRICT NO MOCK DATA"
 
 class DatasetMetadataResponse(BaseModel):
-    dataset_id: str
+    filename: str
     title: str
     source: str
-    variables: List[str]
-    dimensions: Dict[str, int]
-    time_range: List[str]
-    depth_levels: List[float]
     bounds: Dict[str, float]
+    depth_levels: List[float]
+    time_range: List[str]
+    variables: List[str]
+    variable_info: Dict[str, Any]
+    dimensions: Dict[str, int]
+
+class ArgoFloatSummary(BaseModel):
+    platform_number: str
+    filename: str
+    profiles_count: int
+    latest_position: Dict[str, float]
+    cycles: List[int]
+    trajectory: List[Dict[str, Any]]
 
 class ArgoProfileResponse(BaseModel):
     platform_number: str
@@ -45,4 +54,5 @@ class ModelVsObsComparisonResponse(BaseModel):
     obs_values: List[float]
     model_interpolated_values: List[float]
     residuals: List[float]
+    variable: str
     metrics: ComparisonMetrics
