@@ -1,12 +1,21 @@
-from fastapi import APIRouter
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Query
+from app.services.comparison_service import comparison_service
+from app.schemas.ocean import ModelVsObsComparisonResponse
 
 router = APIRouter()
 
-@router.get("/profile")
-def compare_model_vs_obs(platform_number: str = "", cycle_number: int = 0):
-    return {
-        "status": "REAL DATASET REQUIRED",
-        "message": "Model vs Observation residual calculation requires active real NetCDF model and Argo profile datasets.",
-        "platform_number": platform_number,
-        "cycle_number": cycle_number
-    }
+@router.get("/profile", response_model=ModelVsObsComparisonResponse)
+def compare_model_vs_obs(
+    platform_number: str = Query(..., description="Argo float WMO platform number"),
+    cycle_number: Optional[int] = Query(None, description="Cycle number"),
+    variable: str = Query("temp", description="Variable (temp, salt)"),
+    model_filename: Optional[str] = Query(None, description="Model filename")
+):
+    result = comparison_service.compare_float_profile(platform_number, cycle_number, variable, model_filename)
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail=f"REAL DATASET REQUIRED: Unable to perform model-vs-observation comparison for float {platform_number}."
+        )
+    return result

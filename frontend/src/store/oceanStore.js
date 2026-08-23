@@ -58,7 +58,8 @@ export const useOceanStore = create((set, get) => ({
 
       // 3. Argo floats
       const argoRes = await fetch('/api/v1/observations/argo');
-      const argoFloats = await argoRes.json();
+      const argoData = await argoRes.json();
+      const argoFloats = Array.isArray(argoData) ? argoData : [];
       set({ argoFloats, isLoading: false });
     } catch (err) {
       console.error('Error fetching initial ocean data:', err);
