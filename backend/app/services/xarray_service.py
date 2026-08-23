@@ -25,13 +25,6 @@ class XarrayDataService:
         files = glob.glob(os.path.join(model_dir, "*.nc")) + glob.glob(os.path.join(model_dir, "*.nc4"))
         return [os.path.basename(f) for f in files]
 
-    def list_available_argo_datasets(self) -> List[str]:
-        argo_dir = os.path.join(self.datasets_dir, "argo")
-        if not os.path.exists(argo_dir):
-            return []
-        files = glob.glob(os.path.join(argo_dir, "*.nc"))
-        return [os.path.basename(f) for f in files]
-
     def get_model_dataset_path(self, filename: str) -> Optional[str]:
         path = os.path.join(self.datasets_dir, "model", filename)
         return path if os.path.exists(path) else None

@@ -13,8 +13,7 @@
     "react-dom": "^18.2.0",
     "three": "^0.160.0",
     "@types/three": "^0.160.0",
-    "zustand": "^4.5.0",
-    "lucide-react": "^0.312.0"
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.48",
