@@ -56,8 +56,16 @@ def get_model_volume_3d(
         "X-Dim-X": str(meta["dim_x"]),
         "X-Dim-Y": str(meta["dim_y"]),
         "X-Dim-Z": str(meta["dim_z"]),
+        "X-Min-Lon": str(meta["min_lon"]),
+        "X-Max-Lon": str(meta["max_lon"]),
+        "X-Min-Lat": str(meta["min_lat"]),
+        "X-Max-Lat": str(meta["max_lat"]),
+        "X-Min-Depth": str(meta["min_depth"]),
+        "X-Max-Depth": str(meta["max_depth"]),
         "X-Variable": meta["variable"],
         "X-Units": meta["units"],
+        "X-Has-Nan": str(meta["has_nan"]),
+        "X-Nan-Value": str(meta["nan_value"]),
     }
     
     return Response(content=buffer, media_type="application/octet-stream", headers=headers)

@@ -238,9 +238,16 @@ export const OceanViewer = () => {
       floatGroup.remove(floatGroup.children[0]);
     }
 
+    const minLon = volumeMeta?.minLon ?? 58.0;
+    const maxLon = volumeMeta?.maxLon ?? 96.0;
+    const minLat = volumeMeta?.minLat ?? 4.0;
+    const maxLat = volumeMeta?.maxLat ?? 26.0;
+
     argoFloats.forEach((float) => {
-      const normX = ((float.latest_position.longitude - 58.0) / (96.0 - 58.0)) - 0.5;
-      const normZ = ((float.latest_position.latitude - 4.0) / (26.0 - 4.0)) - 0.5;
+      const lonSpan = maxLon > minLon ? (maxLon - minLon) : 1.0;
+      const latSpan = maxLat > minLat ? (maxLat - minLat) : 1.0;
+      const normX = ((float.latest_position.longitude - minLon) / lonSpan) - 0.5;
+      const normZ = ((float.latest_position.latitude - minLat) / latSpan) - 0.5;
       const surfaceY = 0.3 * verticalExaggeration;
 
       const marker = new THREE.Group();

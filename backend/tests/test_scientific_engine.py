@@ -254,3 +254,26 @@ def test_4d_spatio_temporal_colocation():
     assert comp["metrics"]["rmse"] >= 0.0
     assert comp["metrics"]["mae"] >= 0.0
     assert len(comp["residuals"]) == len(comp["depths"])
+
+
+def test_extract_3d_volume_preserves_physical_coordinates_and_nan_sentinel():
+    """Verifies that 3D volume buffer extraction preserves physical bounds, units, scientific min/max, and NaN sentinels."""
+    models = xarray_service.list_available_model_datasets()
+    assert len(models) > 0
+    filename = models[0]
+
+    buffer, meta = xarray_service.extract_3d_volume_buffer(filename, variable="temp", time_idx=0, target_shape=(32, 32, 16))
+    assert buffer is not None
+    assert "min_lon" in meta
+    assert "max_lon" in meta
+    assert "min_lat" in meta
+    assert "max_lat" in meta
+    assert "min_depth" in meta
+    assert "max_depth" in meta
+    assert "min_val" in meta
+    assert "max_val" in meta
+    assert "has_nan" in meta
+    assert meta["nan_value"] == -1.0
+    assert meta["min_lon"] < meta["max_lon"]
+    assert meta["min_lat"] < meta["max_lat"]
+    assert meta["min_depth"] <= meta["max_depth"]

@@ -46,6 +46,15 @@ def test_model_volume3d_binary():
     assert response.headers["content-type"] == "application/octet-stream"
     assert "x-data-min" in response.headers
     assert "x-data-max" in response.headers
+    assert "x-min-lon" in response.headers
+    assert "x-max-lon" in response.headers
+    assert "x-min-lat" in response.headers
+    assert "x-max-lat" in response.headers
+    assert "x-min-depth" in response.headers
+    assert "x-max-depth" in response.headers
+    assert "x-has-nan" in response.headers
+    assert "x-nan-value" in response.headers
+    assert "x-units" in response.headers
     assert len(response.content) == 32 * 32 * 16 * 4  # 32x32x16 Float32 bytes
 
 def test_observations_argo_floats():
