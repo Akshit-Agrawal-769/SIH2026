@@ -94,6 +94,14 @@ export const useOceanStore = create((set, get) => ({
       const dimX = parseInt(res.headers.get('X-Dim-X') || '64');
       const dimY = parseInt(res.headers.get('X-Dim-Y') || '64');
       const dimZ = parseInt(res.headers.get('X-Dim-Z') || '32');
+      const minLon = parseFloat(res.headers.get('X-Min-Lon') || '60');
+      const maxLon = parseFloat(res.headers.get('X-Max-Lon') || '95');
+      const minLat = parseFloat(res.headers.get('X-Min-Lat') || '5');
+      const maxLat = parseFloat(res.headers.get('X-Max-Lat') || '25');
+      const minDepth = parseFloat(res.headers.get('X-Min-Depth') || '0');
+      const maxDepth = parseFloat(res.headers.get('X-Max-Depth') || '2000');
+      const hasNan = res.headers.get('X-Has-Nan') === 'True';
+      const nanValue = parseFloat(res.headers.get('X-Nan-Value') || '-1.0');
       const units = res.headers.get('X-Units') || '';
 
       const arrayBuffer = await res.arrayBuffer();
@@ -101,7 +109,11 @@ export const useOceanStore = create((set, get) => ({
 
       set({
         volumeBuffer: float32,
-        volumeMeta: { minVal, maxVal, dimX, dimY, dimZ, variable, units },
+        volumeMeta: {
+          minVal, maxVal, dimX, dimY, dimZ,
+          minLon, maxLon, minLat, maxLat, minDepth, maxDepth,
+          hasNan, nanValue, variable, units
+        },
       });
     } catch (err) {
       console.error('Error fetching 3D volume buffer:', err);

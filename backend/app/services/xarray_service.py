@@ -90,8 +90,8 @@ class XarrayDataService:
     ) -> Optional[Tuple[bytes, Dict[str, Any]]]:
         """
         Extracts 3D volumetric array, regularizes to target_shape (nx, ny, nz),
-        normalizes data to [0.0, 1.0] for WebGL2 Data3DTexture rendering,
-        and returns the raw Float32 byte buffer along with scaling metadata.
+        normalizes data to [0.0, 1.0] for WebGL2 Data3DTexture rendering (with -1.0 for missing/NaN cells),
+        and returns Float32 byte buffer along with complete physical coordinate metadata.
         """
         filepath = self.get_model_dataset_path(filename)
         if not filepath:
@@ -106,14 +106,62 @@ class XarrayDataService:
                 da = ds[var_key]
                 
                 # Squeeze time dimension
-                if "time" in da.dims:
-                    t_len = da.sizes["time"]
-                    da_3d = da.isel(time=min(max(0, time_idx), t_len - 1))
+                t_dim = next((k for k in ["time", "ocean_time", "time_counter"] if k in da.dims), None)
+                if t_dim and t_dim in da.dims:
+                    t_len = da.sizes[t_dim]
+                    valid_time_idx = min(max(0, time_idx), t_len - 1)
+                    da_3d = da.isel({t_dim: valid_time_idx})
                 else:
+                    valid_time_idx = 0
                     da_3d = da
 
                 raw_data = da_3d.values.astype(np.float32)
-                raw_data = np.nan_to_num(raw_data, nan=np.nan)
+
+                # Extract Physical Spatial Bounds
+                lon_key = next((k for k in ["lon", "longitude", "lon_rho", "x", "nav_lon"] if k in ds.coords or k in ds.data_vars), None)
+                lat_key = next((k for k in ["lat", "latitude", "lat_rho", "y", "nav_lat"] if k in ds.coords or k in ds.data_vars), None)
+                depth_key = next((k for k in ["depth", "s_rho", "lev", "level", "z", "deptht"] if k in ds.coords or k in ds.dims), None)
+
+                min_lon = float(np.nanmin(ds[lon_key].values)) if lon_key else 0.0
+                max_lon = float(np.nanmax(ds[lon_key].values)) if lon_key else 1.0
+                min_lat = float(np.nanmin(ds[lat_key].values)) if lat_key else 0.0
+                max_lat = float(np.nanmax(ds[lat_key].values)) if lat_key else 1.0
+
+                # Extract Physical Vertical Depth Bounds
+                min_depth = 0.0
+                max_depth = 2000.0
+                is_native_s = ("s_rho" in ds.dims or "s_rho" in ds.coords or "Cs_r" in ds)
+                if is_native_s and "s_rho" in ds and "Cs_r" in ds and "h" in ds and "hc" in ds and "Vtransform" in ds:
+                    s_rho = ds["s_rho"].values
+                    Cs_r = ds["Cs_r"].values
+                    hc = float(ds["hc"].values)
+                    Vtransform = int(ds["Vtransform"].values)
+
+                    # Local bathymetry max depth across domain
+                    h_max = float(np.nanmax(ds["h"].values))
+
+                    # Check for local zeta at requested time
+                    zeta_val = 0.0
+                    zeta_key = next((k for k in ["zeta", "ssh", "zo"] if k in ds or k in da_3d.coords), None)
+                    if zeta_key:
+                        try:
+                            zeta_da = ds[zeta_key]
+                            z_tdim = next((k for k in ["time", "ocean_time", "time_counter"] if k in zeta_da.dims), None)
+                            if z_tdim and z_tdim in zeta_da.dims:
+                                z_t_idx = min(max(0, time_idx), zeta_da.sizes[z_tdim] - 1)
+                                zeta_da = zeta_da.isel({z_tdim: z_t_idx})
+                            zeta_val = float(np.nanmean(zeta_da.values))
+                        except Exception:
+                            zeta_val = 0.0
+
+                    z_bottom = calculate_roms_vertical_depths(s_rho[0], Cs_r[0], h_max, hc, zeta=zeta_val, Vtransform=Vtransform)
+                    z_surface = calculate_roms_vertical_depths(s_rho[-1], Cs_r[-1], h_max, hc, zeta=zeta_val, Vtransform=Vtransform)
+                    min_depth = abs(float(z_surface))
+                    max_depth = abs(float(z_bottom))
+                elif depth_key and depth_key in ds:
+                    depth_vals = np.abs(ds[depth_key].values.flatten())
+                    min_depth = float(np.nanmin(depth_vals))
+                    max_depth = float(np.nanmax(depth_vals))
 
                 # Reshape/Interpolate to target 3D texture shape (Z, Y, X)
                 nx_tgt, ny_tgt, nz_tgt = target_shape[0], target_shape[1], target_shape[2]
@@ -125,11 +173,13 @@ class XarrayDataService:
                     y_in = np.linspace(0, 1, ny_curr)
                     x_in = np.linspace(0, 1, nx_curr)
                     
-                    if np.isnan(np.nanmean(raw_data)):
+                    valid_raw = raw_data[~np.isnan(raw_data)]
+                    if len(valid_raw) == 0:
                         return None
-                    mean_val = float(np.nanmean(raw_data))
+                    fill_val = float(np.mean(valid_raw))
+
                     interp = RegularGridInterpolator(
-                        (z_in, y_in, x_in), raw_data, bounds_error=False, fill_value=mean_val
+                        (z_in, y_in, x_in), raw_data, bounds_error=False, fill_value=fill_val
                     )
                     
                     z_out = np.linspace(0, 1, nz_tgt)
@@ -141,16 +191,20 @@ class XarrayDataService:
                 else:
                     vol_interp = np.zeros((nz_tgt, ny_tgt, nx_tgt), dtype=np.float32)
 
-                valid_mask = ~np.isnan(vol_interp)
+                nan_mask = np.isnan(vol_interp)
+                has_nan = bool(np.any(nan_mask))
+                valid_mask = ~nan_mask
+
                 min_val = float(np.min(vol_interp[valid_mask])) if np.any(valid_mask) else 0.0
                 max_val = float(np.max(vol_interp[valid_mask])) if np.any(valid_mask) else 1.0
 
                 if max_val == min_val:
                     max_val += 1e-5
 
-                # Normalize to [0.0, 1.0] for WebGL 3D texture rendering
+                # Normalize valid scientific data to [0.0, 1.0] for WebGL
                 vol_norm = np.clip((vol_interp - min_val) / (max_val - min_val), 0.0, 1.0).astype(np.float32)
-                vol_norm = np.nan_to_num(vol_norm, nan=0.0)
+                # Encode missing/NaN ocean cells as -1.0 so GPU shader skips them
+                vol_norm[nan_mask] = -1.0
 
                 buffer = vol_norm.tobytes()
 
@@ -160,9 +214,17 @@ class XarrayDataService:
                     "dim_x": nx_tgt,
                     "dim_y": ny_tgt,
                     "dim_z": nz_tgt,
+                    "min_lon": min_lon,
+                    "max_lon": max_lon,
+                    "min_lat": min_lat,
+                    "max_lat": max_lat,
+                    "min_depth": min_depth,
+                    "max_depth": max_depth,
                     "variable": variable,
                     "units": da.attrs.get("units", ""),
                     "long_name": da.attrs.get("long_name", variable),
+                    "has_nan": has_nan,
+                    "nan_value": -1.0,
                 }
 
                 return buffer, metadata
