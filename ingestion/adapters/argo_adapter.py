@@ -17,41 +17,41 @@ from ingestion.adapters.base_adapter import BaseOceanAdapter
 
 
 def decode_argo_qc_flags(qc_data: Any, length: int) -> List[int]:
-    """Decodes Argo QC character/byte array into a list of integers."""
+    """Decodes Argo QC character/byte array into a list of integers. Missing or unparseable QC returns 0 (No QC / Unknown)."""
     if qc_data is None:
-        return [1] * length
+        return [0] * length
     if isinstance(qc_data, (bytes, np.bytes_)):
-        return [int(chr(c)) if chr(c).isdigit() else 4 for c in qc_data]
+        return [int(chr(c)) if chr(c).isdigit() else 0 for c in qc_data]
     if isinstance(qc_data, str):
-        return [int(c) if c.isdigit() else 4 for c in qc_data]
+        return [int(c) if c.isdigit() else 0 for c in qc_data]
     if isinstance(qc_data, np.ndarray):
         result = []
         for val in qc_data.flatten():
             if isinstance(val, (bytes, np.bytes_)):
                 char = val.decode('utf-8', errors='ignore').strip()
-                result.append(int(char) if char.isdigit() else 4)
+                result.append(int(char) if char.isdigit() else 0)
             elif isinstance(val, (int, np.integer)):
                 result.append(int(val))
             elif isinstance(val, str) and val.isdigit():
                 result.append(int(val))
             else:
-                result.append(4)
+                result.append(0)
         return result
-    return [1] * length
+    return [0] * length
 
 
-def decode_argo_timestamp(juld_val: Any, ref_date_str: Optional[str] = "1950-01-01T00:00:00Z") -> str:
-    """Converts Argo JULD (days since reference date) into an ISO 8601 UTC string."""
+def decode_argo_timestamp(juld_val: Any, ref_date_str: Optional[str] = "1950-01-01T00:00:00Z") -> Optional[str]:
+    """Converts Argo JULD (days since reference date) into an ISO 8601 UTC string. Returns None if missing or invalid."""
     try:
         if pd.isna(juld_val) or juld_val is None:
-            return "2026-08-23T00:00:00Z"
+            return None
         if isinstance(juld_val, (np.datetime64, pd.Timestamp)):
             return str(pd.to_datetime(juld_val).strftime("%Y-%m-%dT%H:%M:%SZ"))
         ref_dt = pd.to_datetime(ref_date_str if ref_date_str else "1950-01-01T00:00:00Z")
         argo_dt = ref_dt + pd.to_timedelta(float(juld_val), unit="D")
         return argo_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     except Exception:
-        return "2026-08-23T00:00:00Z"
+        return None
 
 
 class ArgoGDACAdapter(BaseOceanAdapter):
@@ -90,8 +90,10 @@ class ArgoGDACAdapter(BaseOceanAdapter):
             n_prof = ds.sizes.get("N_PROF", 1)
             n_levels = ds.sizes.get("N_LEVELS", 0)
 
-            lats = ds["LATITUDE"].values if "LATITUDE" in ds else np.array([12.0])
-            lons = ds["LONGITUDE"].values if "LONGITUDE" in ds else np.array([75.0])
+            if "LATITUDE" not in ds or "LONGITUDE" not in ds:
+                raise ValueError("ARGO_COORDINATE_MISSING: Dataset lacks required LATITUDE or LONGITUDE variable.")
+            lats = ds["LATITUDE"].values
+            lons = ds["LONGITUDE"].values
 
             return {
                 "platform_number": wmo,
@@ -110,7 +112,7 @@ class ArgoGDACAdapter(BaseOceanAdapter):
         Parses profiles in the NetCDF file:
         - Prioritizes adjusted variables (TEMP_ADJUSTED, PRES_ADJUSTED, PSAL_ADJUSTED).
         - Computes TEOS-10 depth: z = -gsw.z_from_p(pressure, latitude).
-        - Filters QC flags: accepts QC in {1, 2}, rejects QC in {3, 4, 9}.
+        - Filters QC flags: accepts QC in {1, 2}, rejects QC in {3, 4, 9, 0}.
         """
         profiles = []
         with xr.open_dataset(self.file_path) as ds:
@@ -142,10 +144,17 @@ class ArgoGDACAdapter(BaseOceanAdapter):
             psal_var = "PSAL_ADJUSTED" if has_psal_adj else ("PSAL" if "PSAL" in ds else None)
             psal_qc_var = f"{psal_var}_QC" if psal_var else None
 
+            if "LATITUDE" not in ds or "LONGITUDE" not in ds:
+                return []
+
             for prof_idx in range(n_prof):
                 try:
-                    lat = float(ds["LATITUDE"].values[prof_idx]) if "LATITUDE" in ds else 12.0
-                    lon = float(ds["LONGITUDE"].values[prof_idx]) if "LONGITUDE" in ds else 75.0
+                    lat_val = ds["LATITUDE"].values[prof_idx]
+                    lon_val = ds["LONGITUDE"].values[prof_idx]
+                    if np.isnan(lat_val) or np.isnan(lon_val):
+                        continue
+                    lat = float(lat_val)
+                    lon = float(lon_val)
 
                     if np.isnan(lat) or np.isnan(lon):
                         continue

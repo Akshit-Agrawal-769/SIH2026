@@ -39,7 +39,7 @@ class ArgoDataService:
                         "latitude": p["latitude"],
                         "longitude": p["longitude"],
                         "timestamp": p["timestamp"],
-                        "depth_max": max(p["depths"]) if p["depths"] else 0.0
+                        "depth_max": max(p["depths"]) if p["depths"] else None
                     }
                     for p in profiles
                 ]

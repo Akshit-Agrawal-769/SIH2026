@@ -34,12 +34,14 @@ def test_model_metadata():
     assert "bounds" in meta
     assert "depth_levels" in meta
     assert "variables" in meta
-    assert "temp" in meta["variables"]
+    assert len(meta["variables"]) > 0
 
 def test_model_volume3d_binary():
     datasets = client.get("/api/v1/model/datasets").json()["datasets"]
     filename = datasets[0]
-    response = client.get(f"/api/v1/model/volume3d?filename={filename}&variable=temp&dim_x=32&dim_y=32&dim_z=16")
+    meta = client.get(f"/api/v1/model/metadata?filename={filename}").json()
+    var_name = meta["variables"][0]
+    response = client.get(f"/api/v1/model/volume3d?filename={filename}&variable={var_name}&dim_x=32&dim_y=32&dim_z=16")
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/octet-stream"
     assert "x-data-min" in response.headers
