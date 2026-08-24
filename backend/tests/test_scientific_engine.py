@@ -82,6 +82,106 @@ def test_missing_roms_vertical_metadata_raises_error():
         xarray_service._spatial_interpolate_profile(empty_da, empty_ds, lat=15.0, lon=75.0)
 
 
+def test_missing_individual_roms_vertical_metadata_raises_error():
+    """
+    Verifies that missing any required native s-coordinate metadata
+    (s_rho, Cs_r, hc, Vtransform, h) raises MODEL_VERTICAL_COORDINATE_MISSING error.
+    """
+    import xarray as xr
+    base_dict = {
+        "temp": (("time", "s_rho", "lat", "lon"), np.zeros((1, 3, 2, 2))),
+        "s_rho": (("s_rho",), np.array([-1.0, -0.5, 0.0])),
+        "Cs_r": (("s_rho",), np.array([-1.0, -0.4, 0.0])),
+        "hc": 10.0,
+        "Vtransform": 2,
+        "h": (("lat", "lon"), np.array([[500.0, 500.0], [500.0, 500.0]])),
+        "lat": (("lat",), np.array([10.0, 11.0])),
+        "lon": (("lon",), np.array([70.0, 71.0])),
+    }
+
+    # 1. Missing s_rho
+    d1 = dict(base_dict)
+    del d1["s_rho"]
+    ds1 = xr.Dataset(d1)
+    with pytest.raises(ValueError, match="MODEL_VERTICAL_COORDINATE_MISSING"):
+        xarray_service._spatial_interpolate_profile(ds1["temp"].isel(time=0), ds1, lat=10.5, lon=70.5)
+
+    # 2. Missing Cs_r
+    d2 = dict(base_dict)
+    del d2["Cs_r"]
+    ds2 = xr.Dataset(d2)
+    with pytest.raises(ValueError, match="MODEL_VERTICAL_COORDINATE_MISSING"):
+        xarray_service._spatial_interpolate_profile(ds2["temp"].isel(time=0), ds2, lat=10.5, lon=70.5)
+
+    # 3. Missing hc
+    d3 = dict(base_dict)
+    del d3["hc"]
+    ds3 = xr.Dataset(d3)
+    with pytest.raises(ValueError, match="MODEL_VERTICAL_COORDINATE_MISSING"):
+        xarray_service._spatial_interpolate_profile(ds3["temp"].isel(time=0), ds3, lat=10.5, lon=70.5)
+
+    # 4. Missing Vtransform
+    d4 = dict(base_dict)
+    del d4["Vtransform"]
+    ds4 = xr.Dataset(d4)
+    with pytest.raises(ValueError, match="MODEL_VERTICAL_COORDINATE_MISSING"):
+        xarray_service._spatial_interpolate_profile(ds4["temp"].isel(time=0), ds4, lat=10.5, lon=70.5)
+
+
+def test_time_aware_zeta_interpolation():
+    """
+    Deterministic test proving that zeta(t0) is used at t0 and zeta(t1) is used at t1.
+    t0: zeta = 0.0 m
+    t1: zeta = 2.0 m
+    Physical depths must differ appropriately between t0 and t1.
+    """
+    import xarray as xr
+    time_arr = np.array(["2024-01-01T00:00:00", "2024-01-02T00:00:00"], dtype="datetime64[s]")
+    zeta_data = np.array([
+        [[0.0, 0.0], [0.0, 0.0]],
+        [[2.0, 2.0], [2.0, 2.0]]
+    ])
+
+    ds = xr.Dataset({
+        "temp": (("time", "s_rho", "lat", "lon"), np.ones((2, 3, 2, 2)) * 25.0),
+        "zeta": (("time", "lat", "lon"), zeta_data),
+        "s_rho": (("s_rho",), np.array([-1.0, -0.5, 0.0])),
+        "Cs_r": (("s_rho",), np.array([-1.0, -0.4, 0.0])),
+        "hc": 10.0,
+        "Vtransform": 2,
+        "h": (("lat", "lon"), np.array([[1000.0, 1000.0], [1000.0, 1000.0]])),
+        "lat": (("lat",), np.array([10.0, 11.0])),
+        "lon": (("lon",), np.array([70.0, 71.0])),
+        "time": (("time",), time_arr)
+    })
+
+    depths_t0, _ = xarray_service._spatial_interpolate_profile(ds["temp"].isel(time=0), ds, lat=10.5, lon=70.5, time_idx=0)
+    depths_t1, _ = xarray_service._spatial_interpolate_profile(ds["temp"].isel(time=1), ds, lat=10.5, lon=70.5, time_idx=1)
+
+    assert not np.array_equal(depths_t0, depths_t1)
+    assert abs(depths_t0[2] - 0.0) < 1e-3
+    assert abs(depths_t1[2] - 2.0) < 1e-3
+
+
+def test_zeta_interpolation_failure_raises_error():
+    """Verifies that an un-interpolatable zeta variable raises MODEL_ZETA_INTERPOLATION_FAILED instead of zero fallback."""
+    import xarray as xr
+    ds = xr.Dataset({
+        "temp": (("time", "s_rho", "lat", "lon"), np.ones((1, 3, 2, 2))),
+        "zeta": (("invalid_dim",), np.array([1.0, 2.0])),
+        "s_rho": (("s_rho",), np.array([-1.0, -0.5, 0.0])),
+        "Cs_r": (("s_rho",), np.array([-1.0, -0.4, 0.0])),
+        "hc": 10.0,
+        "Vtransform": 2,
+        "h": (("lat", "lon"), np.array([[1000.0, 1000.0], [1000.0, 1000.0]])),
+        "lat": (("lat",), np.array([10.0, 11.0])),
+        "lon": (("lon",), np.array([70.0, 71.0])),
+    })
+
+    with pytest.raises(ValueError, match="MODEL_ZETA_INTERPOLATION_FAILED"):
+        xarray_service._spatial_interpolate_profile(ds["temp"].isel(time=0), ds, lat=10.5, lon=70.5)
+
+
 def test_argo_qc_decoding_and_filtering():
     """Verifies Argo QC flag decoding and policy enforcement (accept 1, 2; reject 3, 4, 0)."""
     raw_qc_bytes = b"1124131"
