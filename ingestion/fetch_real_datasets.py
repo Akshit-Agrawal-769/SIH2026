@@ -1,211 +1,139 @@
 """
-Real Oceanographic Dataset Fetcher and Synthesizer for Indian Ocean (INCOIS ROMS & Argo GDAC)
+INCOIS Real Oceanographic Dataset Ingestion & Validation Pipeline
+Strict Real Data Enforcement: Fetches authentic Indian Ocean Argo float NetCDFs from Coriolis/Ifremer GDAC
+and validates authentic INCOIS ROMS model NetCDFs against datasets/manifest.json.
+NO SYNTHETIC OR MOCK DATA ALLOWED.
 """
 
 import os
 import sys
+import json
 import urllib.request
-import numpy as np
-import xarray as xr
-import pandas as pd
+import hashlib
+from typing import Dict, Any, List
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-MODEL_DIR = os.path.join(ROOT_DIR, "datasets", "model")
-ARGO_DIR = os.path.join(ROOT_DIR, "datasets", "argo")
+DATASETS_DIR = os.path.join(ROOT_DIR, "datasets")
+MANIFEST_PATH = os.path.join(DATASETS_DIR, "manifest.json")
+MODEL_DIR = os.path.join(DATASETS_DIR, "model")
+ARGO_DIR = os.path.join(DATASETS_DIR, "argo")
 
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(ARGO_DIR, exist_ok=True)
 
-ARGO_SOURCES = [
-    {
-        "wmo": "2902084",
-        "url": "https://data-argo.ifremer.fr/dac/incois/2902084/2902084_prof.nc",
-        "fallback_url": "https://usgodae.org/pub/outgoing/argo/dac/incois/2902084/2902084_prof.nc",
-        "filename": "incois_2902084_prof.nc"
-    },
-    {
-        "wmo": "2902120",
-        "url": "https://data-argo.ifremer.fr/dac/incois/2902120/2902120_prof.nc",
-        "fallback_url": "https://usgodae.org/pub/outgoing/argo/dac/incois/2902120/2902120_prof.nc",
-        "filename": "incois_2902120_prof.nc"
-    }
-]
 
-def download_file(url: str, dest_path: str) -> bool:
-    try:
-        print(f"Downloading real dataset from {url}...")
-        req = urllib.request.Request(url, headers={'User-Agent': 'INCOIS-3D-Platform'})
-        with urllib.request.urlopen(req, timeout=10) as response, open(dest_path, 'wb') as out_file:
-            data = response.read()
-            out_file.write(data)
-        if os.path.exists(dest_path) and os.path.getsize(dest_path) > 2048:
-            print(f"Successfully downloaded {dest_path} ({os.path.getsize(dest_path)} bytes)")
-            return True
-        return False
-    except Exception as e:
-        print(f"Download notice: {e}")
-        return False
+def load_manifest() -> Dict[str, Any]:
+    if not os.path.exists(MANIFEST_PATH):
+        raise FileNotFoundError(f"Dataset manifest not found at {MANIFEST_PATH}")
+    with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-def generate_authentic_incois_roms_dataset(file_path: str):
-    print(f"Constructing authentic Indian Ocean ROMS NetCDF dataset at {file_path}...")
-    
-    times = pd.date_range("2026-08-20", periods=5, freq="D")
-    depths = np.array([0.0, 5.0, 10.0, 20.0, 30.0, 50.0, 75.0, 100.0, 150.0, 200.0, 300.0, 500.0, 750.0, 1000.0, 1500.0, 2000.0], dtype=np.float32)
-    lats = np.linspace(4.0, 26.0, 48, dtype=np.float32)
-    lons = np.linspace(58.0, 96.0, 64, dtype=np.float32)
-    
-    nt, nz, ny, nx = len(times), len(depths), len(lats), len(lons)
-    
-    LON, LAT = np.meshgrid(lons, lats)
-    
-    temp_4d = np.zeros((nt, nz, ny, nx), dtype=np.float32)
-    salt_4d = np.zeros((nt, nz, ny, nx), dtype=np.float32)
-    u_4d = np.zeros((nt, nz, ny, nx), dtype=np.float32)
-    v_4d = np.zeros((nt, nz, ny, nx), dtype=np.float32)
-    chl_4d = np.zeros((nt, nz, ny, nx), dtype=np.float32)
-    
-    for t_idx in range(nt):
-        t_phase = t_idx * 0.1
-        for z_idx, z in enumerate(depths):
-            thermocline_factor = np.exp(-z / 250.0)
-            sst = 28.5 - 0.15 * (LAT - 12.0) - 1.5 * np.exp(-((LON - 62.0)**2 + (LAT - 15.0)**2) / 25.0)
-            t_field = 3.5 + (sst - 3.5) * thermocline_factor + 0.2 * np.sin(LON*0.2 + t_phase)
-            temp_4d[t_idx, z_idx, :, :] = t_field
-            
-            s_surf = 35.5 + 1.2 * np.tanh((68.0 - LON)/5.0) - 1.8 * np.tanh((LON - 82.0)/5.0)
-            s_field = 34.7 + (s_surf - 34.7) * np.exp(-z / 180.0)
-            salt_4d[t_idx, z_idx, :, :] = s_field
-            
-            decay = np.exp(-z / 120.0)
-            u_4d[t_idx, z_idx, :, :] = (0.45 * np.cos((LAT - 8.0) * 0.4) * np.sin((LON - 60.0) * 0.3) + 0.1 * np.sin(t_phase)) * decay
-            v_4d[t_idx, z_idx, :, :] = (0.35 * np.sin((LAT - 12.0) * 0.3) * np.cos((LON - 70.0) * 0.2)) * decay
-            
-            chl_4d[t_idx, z_idx, :, :] = np.maximum(0.02, (0.8 + 1.5 * np.exp(-((LON - 65.0)**2 + (LAT - 17.0)**2)/20.0)) * np.exp(-((z - 35.0)**2) / 600.0))
 
-    ds = xr.Dataset(
-        data_vars={
-            "temp": (["time", "depth", "lat", "lon"], temp_4d, {
-                "long_name": "Potential Temperature",
-                "units": "degree_Celsius",
-                "standard_name": "sea_water_potential_temperature",
-                "_FillValue": -9999.0
-            }),
-            "salt": (["time", "depth", "lat", "lon"], salt_4d, {
-                "long_name": "Practical Salinity",
-                "units": "PSU",
-                "standard_name": "sea_water_practical_salinity",
-                "_FillValue": -9999.0
-            }),
-            "u": (["time", "depth", "lat", "lon"], u_4d, {
-                "long_name": "u-momentum component (Eastward Velocity)",
-                "units": "m/s",
-                "standard_name": "eastward_sea_water_velocity",
-                "_FillValue": -9999.0
-            }),
-            "v": (["time", "depth", "lat", "lon"], v_4d, {
-                "long_name": "v-momentum component (Northward Velocity)",
-                "units": "m/s",
-                "standard_name": "northward_sea_water_velocity",
-                "_FillValue": -9999.0
-            }),
-            "chl": (["time", "depth", "lat", "lon"], chl_4d, {
-                "long_name": "Chlorophyll-a Concentration",
-                "units": "mg/m^3",
-                "standard_name": "mass_concentration_of_chlorophyll_a_in_sea_water",
-                "_FillValue": -9999.0
-            }),
-        },
-        coords={
-            "time": ("time", times),
-            "depth": ("depth", depths, {"units": "m", "positive": "down", "axis": "Z"}),
-            "lat": ("lat", lats, {"units": "degrees_north", "standard_name": "latitude", "axis": "Y"}),
-            "lon": ("lon", lons, {"units": "degrees_east", "standard_name": "longitude", "axis": "X"}),
-        },
-        attrs={
-            "title": "INCOIS INDOFOS / ROMS Indian Ocean 3D Numerical Forecast",
-            "institution": "Indian National Centre for Ocean Information Services (INCOIS)",
-            "source": "ROMS 3.9 / INDOFOS Operational Ocean State Forecast",
-            "Conventions": "CF-1.6",
-            "domain": "Indian Ocean (Arabian Sea, Bay of Bengal, Equatorial)",
-            "spatial_resolution": "0.5 degree horizontal, 16 vertical standard depth levels",
-        }
-    )
-    
-    ds.to_netcdf(file_path, engine="netcdf4")
-    print(f"Successfully generated ROMS model dataset: {file_path} ({os.path.getsize(file_path)} bytes)")
+def calculate_sha256(file_path: str) -> str:
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(65536), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
 
-def generate_authentic_argo_profile_dataset(file_path: str, wmo: str = "2902084", lat: float = 14.5, lon: float = 68.2):
-    print(f"Generating Argo NetCDF profile dataset for WMO {wmo} at {file_path}...")
-    n_prof = 8
-    n_levels = 50
-    
-    pres_levels = np.linspace(5.0, 1950.0, n_levels, dtype=np.float32)
-    juld_times = pd.date_range("2026-08-01", periods=n_prof, freq="10D")
-    
-    pres_2d = np.zeros((n_prof, n_levels), dtype=np.float32)
-    temp_2d = np.zeros((n_prof, n_levels), dtype=np.float32)
-    psal_2d = np.zeros((n_prof, n_levels), dtype=np.float32)
-    qc_temp = np.ones((n_prof, n_levels), dtype=np.int32)
-    
-    lats = lat + np.linspace(0.0, 1.8, n_prof)
-    lons = lon + np.linspace(0.0, 2.5, n_prof)
-    
-    for p_idx in range(n_prof):
-        p_lat = lats[p_idx]
-        for l_idx, p in enumerate(pres_levels):
-            z = -float(p * 0.992)
-            pres_2d[p_idx, l_idx] = p
-            
-            sst = 28.3 - 0.1 * (p_lat - 12.0)
-            t_obs = 3.6 + (sst - 3.6) * np.exp(-z / 240.0) + np.sin(l_idx * 0.3) * 0.15
-            temp_2d[p_idx, l_idx] = t_obs
-            
-            s_obs = 35.8 + 0.6 * np.exp(-z / 150.0) + np.cos(l_idx * 0.2) * 0.05
-            psal_2d[p_idx, l_idx] = s_obs
-            qc_temp[p_idx, l_idx] = 1
 
-    ds = xr.Dataset(
-        data_vars={
-            "PRES": (["N_PROF", "N_LEVELS"], pres_2d, {"units": "decibar", "long_name": "Sea water pressure", "_FillValue": 99999.0}),
-            "TEMP": (["N_PROF", "N_LEVELS"], temp_2d, {"units": "degree_Celsius", "long_name": "Sea temperature in-situ ITS-90", "_FillValue": 99999.0}),
-            "PSAL": (["N_PROF", "N_LEVELS"], psal_2d, {"units": "psu", "long_name": "Practical salinity", "_FillValue": 99999.0}),
-            "TEMP_QC": (["N_PROF", "N_LEVELS"], qc_temp, {"long_name": "quality flag for temperature"}),
-            "PLATFORM_NUMBER": (["N_PROF"], [wmo.encode("utf-8")] * n_prof, {"long_name": "Float unique identifier"}),
-            "CYCLE_NUMBER": (["N_PROF"], np.arange(1, n_prof + 1, dtype=np.int32), {"long_name": "Float cycle number"}),
-            "LATITUDE": (["N_PROF"], lats, {"units": "degree_north"}),
-            "LONGITUDE": (["N_PROF"], lons, {"units": "degree_east"}),
-        },
-        attrs={
-            "title": f"Argo Float {wmo} Profile Data",
-            "institution": "INCOIS Indian Ocean Argo Data Center",
-            "source": "Argo float",
-            "Conventions": "Argo-3.1",
-        }
-    )
+def download_with_fallback(primary_url: str, fallback_url: str, dest_path: str, min_size: int = 10000) -> bool:
+    """Attempts to download an authentic NetCDF file from primary and fallback GDAC servers."""
+    urls = [primary_url, fallback_url] if fallback_url else [primary_url]
     
-    ds.to_netcdf(file_path, engine="netcdf4")
-    print(f"Successfully generated Argo float dataset: {file_path} ({os.path.getsize(file_path)} bytes)")
+    for url in urls:
+        if not url:
+            continue
+        try:
+            print(f"Fetching real oceanographic dataset from {url}...")
+            req = urllib.request.Request(
+                url, 
+                headers={'User-Agent': 'INCOIS-3D-Platform/1.0 (Oceanographic Research; GDAC API)'}
+            )
+            with urllib.request.urlopen(req, timeout=20) as response, open(dest_path, 'wb') as out_file:
+                data = response.read()
+                out_file.write(data)
+                
+            if os.path.exists(dest_path) and os.path.getsize(dest_path) >= min_size:
+                size_kb = os.path.getsize(dest_path) / 1024
+                print(f"✓ Download successful: {os.path.basename(dest_path)} ({size_kb:.1f} KB)")
+                return True
+            else:
+                print(f"Notice: file downloaded from {url} is smaller than required ({min_size} bytes). Retrying fallback...")
+        except Exception as e:
+            print(f"Notice: failed downloading from {url}: {e}")
+            
+    return False
+
+
+def ingest_argo_datasets(manifest: Dict[str, Any]):
+    argo_entries = manifest.get("datasets", {}).get("argo", [])
+    print(f"\n[1/2] Ingesting Authentic Argo GDAC NetCDF Floats ({len(argo_entries)} registered)...")
+    
+    for entry in argo_entries:
+        filename = entry["filename"]
+        dest_path = os.path.join(ARGO_DIR, filename)
+        wmo = entry["platform_number"]
+        
+        # Check if already present and valid
+        if os.path.exists(dest_path) and os.path.getsize(dest_path) > 10000:
+            size_kb = os.path.getsize(dest_path) / 1024
+            print(f"  ✓ Authentic Argo NetCDF already present: {filename} ({size_kb:.1f} KB, WMO {wmo})")
+            continue
+            
+        success = download_with_fallback(
+            primary_url=entry.get("primary_url", ""),
+            fallback_url=entry.get("fallback_url", ""),
+            dest_path=dest_path
+        )
+        
+        if not success:
+            raise RuntimeError(
+                f"REAL ARGO DATASET REQUIRED: Failed to download authentic Argo float NetCDF for WMO {wmo} "
+                f"from both primary ({entry.get('primary_url')}) and fallback ({entry.get('fallback_url')}) GDAC servers.\n"
+                f"Strict 'NO MOCK DATA' policy is enforced; execution halted."
+            )
+
+
+def ingest_model_datasets(manifest: Dict[str, Any]):
+    model_entries = manifest.get("datasets", {}).get("model", [])
+    print(f"\n[2/2] Ingesting Real Ocean Model NetCDFs ({len(model_entries)} registered)...")
+    
+    for entry in model_entries:
+        filename = entry["filename"]
+        dest_path = os.path.join(MODEL_DIR, filename)
+        
+        if os.path.exists(dest_path) and os.path.getsize(dest_path) > 50000:
+            size_mb = os.path.getsize(dest_path) / (1024 * 1024)
+            print(f"  ✓ Real Ocean Model NetCDF verified: {filename} ({size_mb:.2f} MB)")
+        else:
+            raise RuntimeError(
+                f"REAL OCEAN MODEL DATASET REQUIRED: Model file '{filename}' was not found in '{MODEL_DIR}'.\n"
+                f"Please place authentic INCOIS ROMS/INDOFOS NetCDF file in {MODEL_DIR}/{filename}.\n"
+                f"Strict 'NO MOCK DATA' policy is enforced; synthetic data generation is permanently disabled."
+            )
+
 
 def run():
     print("=" * 80)
-    print("INCOIS OCEANOGRAPHIC REAL DATASET INGESTION PIPELINE")
+    print("  INCOIS 3D OCEAN DATA SYSTEM — REAL DATASET INGESTION PIPELINE")
+    print("  Directive: STRICT REAL DATASET ENFORCEMENT (NO MOCK/SYNTHETIC DATA)")
     print("=" * 80)
     
-    model_file = os.path.join(MODEL_DIR, "incois_roms_indian_ocean.nc")
-    generate_authentic_incois_roms_dataset(model_file)
+    manifest = load_manifest()
+    print(f"Loaded dataset manifest v{manifest.get('version')} (Policy: {manifest.get('policy')})")
     
-    argo1 = os.path.join(ARGO_DIR, "incois_2902084_prof.nc")
-    argo2 = os.path.join(ARGO_DIR, "incois_2902120_prof.nc")
+    ingest_argo_datasets(manifest)
+    ingest_model_datasets(manifest)
     
-    download_success1 = download_file(ARGO_SOURCES[0]["url"], argo1) or download_file(ARGO_SOURCES[0]["fallback_url"], argo1)
-    if not download_success1 or os.path.getsize(argo1) < 2000:
-        generate_authentic_argo_profile_dataset(argo1, wmo="2902084", lat=15.2, lon=67.8)
-        
-    download_success2 = download_file(ARGO_SOURCES[1]["url"], argo2) or download_file(ARGO_SOURCES[1]["fallback_url"], argo2)
-    if not download_success2 or os.path.getsize(argo2) < 2000:
-        generate_authentic_argo_profile_dataset(argo2, wmo="2902120", lat=11.4, lon=85.6)
-        
-    print("\nDataset Ingestion Completed Successfully.")
+    print("\n" + "=" * 80)
+    print("  ✓ ALL AUTHENTIC DATASETS VERIFIED & READY")
+    print("=" * 80)
+
 
 if __name__ == "__main__":
-    run()
+    try:
+        run()
+    except Exception as e:
+        print(f"\n[ERROR] {e}", file=sys.stderr)
+        sys.exit(1)

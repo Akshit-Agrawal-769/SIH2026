@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, HTTPException, Query, Response
 from app.services.xarray_service import xarray_service
 from app.schemas.ocean import DatasetMetadataResponse
@@ -17,11 +18,14 @@ def list_model_datasets():
 
 @router.get("/metadata", response_model=DatasetMetadataResponse)
 def get_model_metadata(filename: str = Query(..., description="Name of NetCDF file in datasets/model/")):
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename parameter: Path traversal forbidden.")
+
     meta = xarray_service.get_metadata(filename)
     if not meta:
         raise HTTPException(
             status_code=404,
-            detail=f"REAL DATASET REQUIRED: Dataset '{filename}' unavailable at source."
+            detail=f"REAL DATASET REQUIRED: Dataset '{filename}' not found or invalid format."
         )
     return meta
 
@@ -29,11 +33,14 @@ def get_model_metadata(filename: str = Query(..., description="Name of NetCDF fi
 def get_model_volume_3d(
     filename: str = Query(..., description="Name of NetCDF file in datasets/model/"),
     variable: str = Query("temp", description="Variable name (temp, salt, u, v, chl)"),
-    time_idx: int = Query(0, description="Time step index"),
-    dim_x: int = Query(64, description="Resolution X cap"),
-    dim_y: int = Query(64, description="Resolution Y cap"),
-    dim_z: int = Query(32, description="Resolution Z cap")
+    time_idx: int = Query(0, ge=0, description="Time step index"),
+    dim_x: int = Query(64, ge=16, le=256, description="Resolution X cap"),
+    dim_y: int = Query(64, ge=16, le=256, description="Resolution Y cap"),
+    dim_z: int = Query(32, ge=8, le=128, description="Resolution Z cap")
 ):
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename parameter: Path traversal forbidden.")
+
     result = xarray_service.extract_3d_volume_buffer(filename, variable, time_idx, (dim_x, dim_y, dim_z))
     if not result:
         raise HTTPException(
@@ -59,9 +66,12 @@ def get_model_volume_3d(
 def get_model_slice_2d(
     filename: str = Query(..., description="Name of NetCDF file in datasets/model/"),
     variable: str = Query("temp", description="Variable name"),
-    time_idx: int = Query(0, description="Time index"),
-    depth_idx: int = Query(0, description="Depth level index")
+    time_idx: int = Query(0, ge=0, description="Time index"),
+    depth_idx: int = Query(0, ge=0, description="Depth level index")
 ):
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename parameter: Path traversal forbidden.")
+
     result = xarray_service.extract_2d_slice_buffer(filename, variable, time_idx, depth_idx)
     if not result:
         raise HTTPException(

@@ -1,0 +1,65 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-08-24T12:00:00Z",
+  "policy": "STRICT NO MOCK DATA",
+  "datasets": {
+    "model": [
+      {
+        "id": "incois_roms_indian_ocean",
+        "filename": "incois_roms_indian_ocean.nc",
+        "title": "INCOIS INDOFOS / ROMS Indian Ocean 3D Numerical Forecast",
+        "institution": "Indian National Centre for Ocean Information Services (INCOIS)",
+        "source": "ROMS 3.9 / INDOFOS Operational Ocean State Forecast",
+        "conventions": "CF-1.6",
+        "domain": "Indian Ocean (Arabian Sea, Bay of Bengal, Equatorial)",
+        "spatial_bounds": {
+          "min_lon": 58.0,
+          "max_lon": 96.0,
+          "min_lat": 4.0,
+          "max_lat": 26.0
+        },
+        "variables": ["temp", "salt", "u", "v", "chl"],
+        "vertical_coordinate_type": "standard_depth_and_s_rho",
+        "provenance": {
+          "provider": "INCOIS Ocean Modeling Framework",
+          "license": "Open Data / Government of India",
+          "citation": "INCOIS INDOFOS Ocean State Forecast System (2026)"
+        }
+      }
+    ],
+    "argo": [
+      {
+        "id": "argo_2902084",
+        "platform_number": "2902084",
+        "filename": "incois_2902084_prof.nc",
+        "title": "Argo Profiling Float 2902084 (Arabian Sea)",
+        "dac": "INCOIS / Coriolis GDAC",
+        "primary_url": "https://data-argo.ifremer.fr/dac/incois/2902084/2902084_prof.nc",
+        "fallback_url": "https://usgodae.org/pub/outgoing/argo/dac/incois/2902084/2902084_prof.nc",
+        "qc_policy": "QC Flags 1 (Good) and 2 (Probably Good) accepted. QC 3, 4 rejected.",
+        "variables": ["PRES", "TEMP", "PSAL", "PRES_ADJUSTED", "TEMP_ADJUSTED", "PSAL_ADJUSTED"],
+        "provenance": {
+          "provider": "International Argo Program / Coriolis GDAC",
+          "license": "Argo Open Data Policy (CC-BY 4.0)",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Argo GDAC)."
+        }
+      },
+      {
+        "id": "argo_2902120",
+        "platform_number": "2902120",
+        "filename": "incois_2902120_prof.nc",
+        "title": "Argo Profiling Float 2902120 (Bay of Bengal)",
+        "dac": "INCOIS / Coriolis GDAC",
+        "primary_url": "https://data-argo.ifremer.fr/dac/incois/2902120/2902120_prof.nc",
+        "fallback_url": "https://usgodae.org/pub/outgoing/argo/dac/incois/2902120/2902120_prof.nc",
+        "qc_policy": "QC Flags 1 (Good) and 2 (Probably Good) accepted. QC 3, 4 rejected.",
+        "variables": ["PRES", "TEMP", "PSAL", "PRES_ADJUSTED", "TEMP_ADJUSTED", "PSAL_ADJUSTED"],
+        "provenance": {
+          "provider": "International Argo Program / Coriolis GDAC",
+          "license": "Argo Open Data Policy (CC-BY 4.0)",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Argo GDAC)."
+        }
+      }
+    ]
+  }
+}

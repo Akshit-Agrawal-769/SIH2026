@@ -1,11 +1,10 @@
 """
 INCOIS 3D Ocean Data Visualization System
-Milestone 1 — Task 1: Real Data Validation Script
+Real Data Validation Script
 
 This script verifies real ocean model NetCDF files (ROMS/INDOFOS) and real Argo profiling
 float NetCDF files. It inspects CF metadata, curvilinear coordinate dimensions, depth/pressure
-conversions (using gsw TEOS-10), missing fill values, and exports one empirical Float32
-binary slice for WebGL validation.
+conversions (using gsw TEOS-10), QC flags, and physical scalar bounds.
 
 STRICT RULE: NO MOCK DATA. If datasets are absent, it reports REAL DATASET REQUIRED.
 """
@@ -14,6 +13,12 @@ import os
 import sys
 import argparse
 import numpy as np
+
+# Ensure project root is in sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 
 def validate_ocean_model(file_path: str):
     print("=" * 80)
@@ -27,65 +32,39 @@ def validate_ocean_model(file_path: str):
         return False
 
     try:
-        import xarray as xr
-        ds = xr.open_dataset(file_path, engine="h5netcdf" if file_path.endswith(".nc4") else "netcdf4")
+        from ingestion.adapters.roms_adapter import ROMSModelAdapter
+        
+        adapter = ROMSModelAdapter(file_path)
+        meta = adapter.extract_metadata()
         
         print("\n--- GLOBAL METADATA ---")
-        print(f"Title: {ds.attrs.get('title', 'N/A')}")
-        print(f"Conventions: {ds.attrs.get('Conventions', 'N/A')}")
-        print(f"Source: {ds.attrs.get('source', 'INCOIS Model')}")
+        print(f"Title: {meta.get('title', 'N/A')}")
+        print(f"Source: {meta.get('source', 'INCOIS Model')}")
+        print(f"Grid Type: {meta.get('grid_type', 'N/A')}")
+        print(f"Native S-Coordinates: {meta.get('is_native_s_coord', False)}")
         
         print("\n--- DIMENSIONS ---")
-        for dim_name, dim_size in ds.sizes.items():
+        for dim_name, dim_size in meta.get("dimensions", {}).items():
             print(f"  - {dim_name}: {dim_size}")
             
         print("\n--- CORE VARIABLES ---")
-        for var_name in ["temp", "salt", "u", "v", "w", "chl", "temperature", "salinity"]:
-            if var_name in ds.variables:
-                v = ds.variables[var_name]
-                print(f"  [FOUND] {var_name}: shape={v.shape}, dtype={v.dtype}, units={v.attrs.get('units', 'N/A')}")
+        for var_name, vinfo in meta.get("variable_info", {}).items():
+            print(f"  [FOUND] {var_name}: shape={vinfo['shape']}, units={vinfo['units']}, name={vinfo['long_name']}")
                 
-        print("\n--- COORDINATES & GRID SYSTEM ---")
-        if "lat" in ds and "lon" in ds:
-            lat_shape = ds["lat"].shape
-            lon_shape = ds["lon"].shape
-            if len(lat_shape) == 2:
-                print(f"  [GRID TYPE] Curvilinear 2D Grid detected. Lat shape: {lat_shape}, Lon shape: {lon_shape}")
-            else:
-                print(f"  [GRID TYPE] Regular 1D Grid detected. Lat shape: {lat_shape}, Lon shape: {lon_shape}")
+        print("\n--- SPATIAL BOUNDS & VERTICAL EXTENT ---")
+        bounds = meta.get("bounds", {})
+        print(f"  Longitude: [{bounds.get('min_lon', 0.0):.2f}°E, {bounds.get('max_lon', 0.0):.2f}°E]")
+        print(f"  Latitude:  [{bounds.get('min_lat', 0.0):.2f}°N, {bounds.get('max_lat', 0.0):.2f}°N]")
+        depths = meta.get("depth_levels", [])
+        if depths:
+            print(f"  Depth Range: {min(depths):.1f}m to {max(depths):.1f}m ({len(depths)} vertical levels)")
 
-        # Extract 1 sample surface slice for validation
-        target_var = "temp" if "temp" in ds else ("temperature" if "temperature" in ds else None)
-        if target_var:
-            da = ds[target_var]
-            isel_dict = {}
-            if "time" in da.dims:
-                isel_dict["time"] = 0
-            if "s_rho" in da.dims:
-                isel_dict["s_rho"] = 0
-            elif "depth" in da.dims:
-                isel_dict["depth"] = 0
-                
-            slice_data = da.isel(**isel_dict).values
-            slice_f32 = np.nan_to_num(slice_data, nan=-9999.0).astype(np.float32)
-            
-            output_bin = os.path.join(os.path.dirname(file_path), "test_surface_slice.bin")
-            slice_f32.tofile(output_bin)
-            
-            print("\n--- EMPIRICAL SURFACE SLICE STATISTICS ---")
-            print(f"  - Shape: {slice_f32.shape}")
-            print(f"  - Data Type: {slice_f32.dtype}")
-            print(f"  - Min Val: {np.nanmin(slice_data):.4f}")
-            print(f"  - Max Val: {np.nanmax(slice_data):.4f}")
-            print(f"  - Mean Val: {np.nanmean(slice_data):.4f}")
-            print(f"  - Exported Float32 Binary: {output_bin} ({os.path.getsize(output_bin)} bytes)")
-
-        ds.close()
         return True
 
     except Exception as e:
         print(f"ERROR PARSING NETCDF DATASET: {e}")
         return False
+
 
 def validate_argo_profile(file_path: str):
     print("\n" + "=" * 80)
@@ -95,36 +74,34 @@ def validate_argo_profile(file_path: str):
     if not os.path.exists(file_path):
         print("STATUS: REAL DATASET REQUIRED")
         print(f"REASON: File not found at '{file_path}'.")
-        print("ACTION REQUIRED: Download real Argo NetCDF profile from GDAC (ftp://ftp.ifremer.fr/ifremer/argo).")
+        print("ACTION REQUIRED: Download real Argo NetCDF profile from GDAC (https://data-argo.ifremer.fr/).")
         return False
 
     try:
-        import xarray as xr
-        import gsw
+        from ingestion.adapters.argo_adapter import ArgoGDACAdapter
         
-        ds = xr.open_dataset(file_path)
+        adapter = ArgoGDACAdapter(file_path)
+        meta = adapter.extract_metadata()
+        profiles = adapter.parse_profiles(filter_qc=True)
+        
         print("\n--- ARGO PROFILE METADATA ---")
-        print(f"Platform Number: {ds.get('PLATFORM_NUMBER', {}).values[0] if 'PLATFORM_NUMBER' in ds else 'N/A'}")
-        print(f"Dimensions: N_PROF={ds.sizes.get('N_PROF')}, N_LEVELS={ds.sizes.get('N_LEVELS')}")
+        print(f"Platform Number: {meta.get('platform_number')}")
+        print(f"QC Policy: {meta.get('qc_policy')}")
+        print(f"Valid QC Filtered Profiles: {len(profiles)} / {meta.get('profiles_count')}")
         
-        if "PRES" in ds and "TEMP" in ds:
-            pres = ds["PRES"].values[0] # First profile
-            temp = ds["TEMP"].values[0]
-            lat = float(ds["LATITUDE"].values[0]) if "LATITUDE" in ds else 15.0
-            
-            # Convert pressure (dbar) to depth (m) using gsw TEOS-10
-            depth = -gsw.z_from_p(pres, lat)
-            
-            print("\n--- SAMPLE PROFILE DEPTH CONVERSION (gsw TEOS-10) ---")
-            for i in range(min(10, len(pres))):
-                if not np.isnan(pres[i]):
-                    print(f"  Level {i:02d}: Pressure = {pres[i]:6.1f} dbar -> Calculated Depth = {depth[i]:6.1f} m | Temp = {temp[i]:5.2f} °C")
+        if profiles:
+            first_p = profiles[0]
+            print(f"\n--- SAMPLE PROFILE (Cycle {first_p['cycle_number']}, Time: {first_p['timestamp']}) ---")
+            print(f"  Position: {first_p['latitude']}°N, {first_p['longitude']}°E")
+            print(f"  Depth Range: {min(first_p['depths']):.1f}m to {max(first_p['depths']):.1f}m ({len(first_p['depths'])} valid levels)")
+            for i in range(min(5, len(first_p['depths']))):
+                print(f"    Level {i:02d}: Depth = {first_p['depths'][i]:6.1f} m | Temp = {first_p['temperature'][i]:5.2f} °C | QC = {first_p['qc_flags'][i]}")
                     
-        ds.close()
         return True
     except Exception as e:
         print(f"ERROR PARSING ARGO NETCDF: {e}")
         return False
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="INCOIS Real Oceanographic Data Validation Tool")

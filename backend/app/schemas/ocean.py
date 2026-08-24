@@ -11,6 +11,8 @@ class DatasetMetadataResponse(BaseModel):
     filename: str
     title: str
     source: str
+    grid_type: Optional[str] = "rectilinear"
+    is_native_s_coord: Optional[bool] = False
     bounds: Dict[str, float]
     depth_levels: List[float]
     time_range: List[str]
@@ -34,14 +36,14 @@ class ArgoProfileResponse(BaseModel):
     longitude: float
     depths: List[float]
     temperature: List[float]
-    salinity: Optional[List[float]] = None
+    salinity: Optional[List[Optional[float]]] = None
     qc_flags: List[int]
 
 class ComparisonMetrics(BaseModel):
     bias: float
     mae: float
     rmse: float
-    pearson_r: float
+    pearson_r: Optional[float] = None
     sample_count: int
 
 class ModelVsObsComparisonResponse(BaseModel):

@@ -6,7 +6,6 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React 18](https://img.shields.io/badge/React-18+-61DAFB.svg?logo=react&logoColor=black)](https://reactjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg?logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Three.js / WebGL2](https://img.shields.io/badge/Three.js-WebGL2-black.svg?logo=three.js&logoColor=white)](https://threejs.org)
 
 ---
@@ -22,24 +21,28 @@ A browser-native, high-performance **3D Ocean Data Visualization Platform** that
 
 > [!IMPORTANT]
 > **STRICT NO MOCK DATA POLICY**  
-> This platform strictly ingests and processes real oceanographic datasets. No fake temperatures, hardcoded coordinates, or synthetic float paths exist in production. Pressure-to-depth conversions are calculated using the thermodynamic equation of seawater (**TEOS-10** / `gsw.z_from_p`).
+> This platform strictly ingests and processes real oceanographic datasets. No fake temperatures, hardcoded coordinates, or synthetic float paths exist in production. Pressure-to-depth conversions are calculated using the thermodynamic equation of seawater (**TEOS-10** / `gsw.z_from_p`). See [DATA_POLICY.md](DATA_POLICY.md) and [SCIENTIFIC_METHODS.md](SCIENTIFIC_METHODS.md) for details.
 
 ---
 
-## 2. Core Capabilities & Features
+## 2. Core Capabilities & Architecture
 
-- **3D Volumetric Raymarching**: Custom WebGL2 GLSL fragment shaders for direct raymarching of 3D scalar ocean volumes (`Data3DTexture`) with step-size integration and opacity transfer functions.
-- **Scientific Colormaps**: Real-time switching between standard scientific palettes (**Turbo**, **Viridis**, **Thermal**, **Jet**).
+### Implemented Capabilities:
+- **3D Volumetric Raymarching**: Custom WebGL2 GLSL fragment shaders for direct raymarching of 3D scalar ocean volumes (`Data3DTexture`) with step-size integration and transfer functions.
+- **Scientific Colormaps**: Real-time switching between standard palettes (**Turbo**, **Viridis**, **Thermal**, **Jet**).
 - **Interactive 2D Depth Slicing**: Dynamic depth plane elevation control ($0\text{m} \rightarrow 2000\text{m}$) to inspect horizontal slices at arbitrary ocean levels.
 - **Iso-Surface Extraction**: Real-time 3D iso-surface threshold rendering for oceanographic fronts and thermoclines.
 - **In-Situ Argo Co-Display**: 3D instanced Argo float markers placed at authentic geographic coordinates (Arabian Sea & Bay of Bengal) with interactive raycasting click inspection.
-- **Statistical Model-vs-Obs Validation**: 4D spatio-temporal interpolation colocating model fields onto in-situ float positions and depths, calculating:
+- **4D Spatio-Temporal Colocation**: Model fields interpolated in 4D space-time $(x, y, z, t)$ across bounding model forecast steps $(t_0, t_1)$ onto in-situ float positions and timestamps.
+- **Statistical Model-vs-Obs Validation Scorecard**:
   - Depth-resolved residuals: $\Delta(z) = \text{Model}(z) - \text{Obs}(z)$
   - Root Mean Square Error (RMSE)
   - Mean Absolute Error (MAE)
   - Forecast Bias
   - Pearson Correlation Coefficient ($r$)
-- **Forecast Timeline Playback**: Automated 4D time-step animation with play/pause and step forward controls.
+- **Quality Control (QC) Filtering**: Automatic parsing and rejection of bad or uncalibrated measurements ($QC \notin \{1, 2\}$).
+- **Native ROMS $s$-Coordinate Support**: Computes physical depth $z(x,y,s,t)$ for ROMS terrain-following vertical grids.
+- **Timeline Playback**: Automated 4D time-step animation with play/pause and step controls.
 
 ---
 
@@ -50,16 +53,18 @@ graph TD
     subgraph Data Sources ["Authoritative Data Sources (No Mock Data)"]
         DS1["INCOIS ROMS/INDOFOS Model NetCDF (4D Grid)"]
         DS2["Argo GDAC Profiling Float NetCDF (WMO 2902084 / 2902120)"]
+        MAN["datasets/manifest.json (Provenance & QC Registry)"]
     end
 
     subgraph Scientific Backend ["FastAPI Scientific Engine (Python 3.11+)"]
         XR["xarray Dataset Engine (h5netcdf / netcdf4)"]
-        NORM["Coordinate & Unit Normalizer (gsw TEOS-10)"]
-        INTERP["4D Spatial-Temporal Interpolator"]
-        BIN_GEN["Float32 Binary Buffer & 3D Subvolume Generator"]
+        ROMS_ADAPT["ROMS Grid & s-coordinate Depth Calculator"]
+        ARGO_ADAPT["Argo GDAC Adapter & TEOS-10 / QC Engine"]
+        INTERP["4D Spatio-Temporal Interpolator (Time blending + Spatial KDTree)"]
+        BIN_GEN["Float32 Binary Buffer & 3D Subvolume Streamer"]
     end
 
-    subgraph Frontend Application ["Browser WebGL2 App (React 18 + TypeScript + Three.js)"]
+    subgraph Frontend Application ["Browser WebGL2 App (React 18 + Three.js)"]
         UI["Scientific Control Panel (Variable, Depth, Colormaps)"]
         RENDER["Three.js WebGL2 3D Scene Viewport"]
         
@@ -75,13 +80,15 @@ graph TD
     end
 
     DS1 --> XR
-    DS2 --> NORM
-    XR --> NORM --> INTERP
+    DS2 --> ARGO_ADAPT
+    MAN --> XR
+    XR --> ROMS_ADAPT --> INTERP
+    ARGO_ADAPT --> INTERP
     XR --> BIN_GEN
 
     BIN_GEN --> RAYMARCH
     BIN_GEN --> SLICE
-    NORM --> MARKER
+    ARGO_ADAPT --> MARKER
     INTERP --> PLOT
 
     UI --> RENDER
@@ -92,62 +99,9 @@ graph TD
 
 ---
 
-## 4. Repository Structure
+## 4. Quick Start & How to Run
 
-```
-SIH2026/
-├── backend/                        # FastAPI Scientific Data Gateway
-│   ├── app/
-│   │   ├── api/                    # Endpoints (/health, /model, /observations, /comparison)
-│   │   ├── core/                   # Server configuration & CORS settings
-│   │   ├── services/               # xarray 3D slicing, Argo parser, 4D comparison engine
-│   │   ├── schemas/                # Pydantic data schemas
-│   │   └── main.py                 # FastAPI application entrypoint
-│   ├── tests/                      # Automated pytest test suites
-│   ├── requirements.txt            # Backend dependencies
-│   └── Dockerfile
-├── frontend/                       # React 18 + TypeScript + Three.js WebGL App
-│   ├── src/
-│   │   ├── components/             # ControlPanel, ObservationModal, ColorbarLegend, Header
-│   │   ├── rendering/              # Three.js OceanViewer, Volume Raymarching GLSL shaders
-│   │   ├── store/                  # Zustand state management
-│   │   ├── types/                  # TypeScript interface definitions
-│   │   ├── App.tsx                 # Main application assembly
-│   │   └── main.tsx
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   ├── nginx.conf                  # Nginx reverse proxy configuration for Docker
-│   └── Dockerfile
-├── ingestion/                      # Scientific Data Ingestion & Validation Pipeline
-│   ├── fetch_real_datasets.py      # Real Argo GDAC & ROMS model fetcher
-│   ├── validate_real_data.py       # Real data & TEOS-10 validation script
-│   ├── adapters/                   # ROMS NetCDF & Argo NetCDF adapters
-│   └── requirements.txt
-├── datasets/                       # Real NetCDF Data Storage Directory
-│   ├── model/                      # Real INCOIS ROMS NetCDF files
-│   ├── argo/                       # Real Argo profile NetCDF files
-│   └── README.md
-├── start_dev.sh                    # Single-command startup script (Backend + Frontend)
-├── check_system.py                 # System health and diagnostics utility
-├── docker-compose.yml              # Containerized multi-service deployment
-└── README.md
-```
-
----
-
-## 5. Quick Start & How to Run
-
-### Prerequisites
-- **Python**: 3.11+
-- **Node.js**: 18+ / npm 9+
-- **Docker & Docker Compose** (Optional, for containerized run)
-
----
-
-### Method 1: Single-Command Startup (Recommended)
-
-The easiest way to start both the scientific backend and the WebGL frontend together:
+### Method 1: Single-Command Launch (Recommended)
 
 ```bash
 # Clone the repository
@@ -168,22 +122,14 @@ cd SIH2026
 #### Terminal 1 — Start Scientific Backend:
 ```bash
 cd SIH2026/backend
-
-# Install Python dependencies
 pip install -r requirements.txt
-
-# Start backend server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 #### Terminal 2 — Start WebGL Frontend:
 ```bash
 cd SIH2026/frontend
-
-# Install Node dependencies
 npm install
-
-# Start Vite development server
 npm run dev
 ```
 
@@ -198,12 +144,12 @@ docker-compose up --build
 
 ---
 
-## 6. Dataset Ingestion & Validation
+## 5. Dataset Ingestion & Validation
 
-To fetch fresh real Indian Ocean datasets and verify CF conventions:
+To verify the authentic datasets against the manifest and run TEOS-10 validation:
 
 ```bash
-# 1. Fetch authentic open-access Indian Ocean Argo floats and model data
+# 1. Fetch authentic open-access Indian Ocean Argo floats and verify manifest
 python3 ingestion/fetch_real_datasets.py
 
 # 2. Run real data validator and TEOS-10 conversion check
@@ -212,7 +158,7 @@ python3 ingestion/validate_real_data.py
 
 ---
 
-## 7. System Diagnostics & Automated Testing
+## 6. System Diagnostics & Automated Testing
 
 Run the full system health check and automated test suite:
 
@@ -227,7 +173,7 @@ python3 -m pytest tests/
 
 ---
 
-## 8. REST API Reference
+## 7. REST API Reference
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
@@ -242,6 +188,9 @@ python3 -m pytest tests/
 
 ---
 
-## 9. License
+## 8. License & Documentation
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+- [LICENSE (MIT)](LICENSE)
+- [SCIENTIFIC_METHODS.md](SCIENTIFIC_METHODS.md)
+- [DATA_POLICY.md](DATA_POLICY.md)
+- [datasets/manifest.json](datasets/manifest.json)
