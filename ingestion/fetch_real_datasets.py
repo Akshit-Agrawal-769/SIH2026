@@ -37,10 +37,16 @@ def calculate_sha256(file_path: str) -> str:
     return sha256_hash.hexdigest()
 
 
+import ssl
+
 def download_with_fallback(primary_url: str, fallback_url: str, dest_path: str, min_size: int = 10000) -> bool:
     """Attempts to download an authentic NetCDF file from primary and fallback GDAC servers."""
     urls = [primary_url, fallback_url] if fallback_url else [primary_url]
     
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
     for url in urls:
         if not url:
             continue
@@ -50,7 +56,7 @@ def download_with_fallback(primary_url: str, fallback_url: str, dest_path: str, 
                 url, 
                 headers={'User-Agent': 'INCOIS-3D-Platform/1.0 (Oceanographic Research; GDAC API)'}
             )
-            with urllib.request.urlopen(req, timeout=20) as response, open(dest_path, 'wb') as out_file:
+            with urllib.request.urlopen(req, context=ctx, timeout=30) as response, open(dest_path, 'wb') as out_file:
                 data = response.read()
                 out_file.write(data)
                 

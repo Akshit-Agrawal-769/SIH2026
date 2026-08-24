@@ -53,8 +53,8 @@ class ModelVsObsComparisonResponse(BaseModel):
     latitude: float
     longitude: float
     depths: List[float]
-    obs_values: List[float]
-    model_interpolated_values: List[float]
-    residuals: List[float]
+    obs_values: List[Optional[float]]
+    model_interpolated_values: List[Optional[float]]
+    residuals: List[Optional[float]]
     variable: str
     metrics: ComparisonMetrics

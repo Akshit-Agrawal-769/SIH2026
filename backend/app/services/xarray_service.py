@@ -30,6 +30,24 @@ def geo_to_cartesian(lon_deg: np.ndarray, lat_deg: np.ndarray) -> np.ndarray:
     return np.column_stack((x.flatten(), y.flatten(), z.flatten()))
 
 
+VAR_ALIASES = {
+    "temp": ["temp", "to", "temperature", "TEMP", "thetao"],
+    "salt": ["salt", "so", "salinity", "PSAL"],
+    "u": ["u", "ugo", "uo", "u_eastward"],
+    "v": ["v", "vgo", "vo", "v_northward"],
+    "chl": ["chl", "chla", "chlorophyll", "CHLA"],
+}
+
+
+def resolve_variable_name(ds: xr.Dataset, var_name: str) -> Optional[str]:
+    if var_name in ds:
+        return var_name
+    for alias in VAR_ALIASES.get(var_name.lower(), []):
+        if alias in ds:
+            return alias
+    return None
+
+
 class XarrayDataService:
     
     def __init__(self):
@@ -81,10 +99,11 @@ class XarrayDataService:
 
         try:
             with xr.open_dataset(filepath) as ds:
-                if variable not in ds:
+                var_key = resolve_variable_name(ds, variable)
+                if not var_key:
                     return None
 
-                da = ds[variable]
+                da = ds[var_key]
                 
                 # Squeeze time dimension
                 if "time" in da.dims:
@@ -106,7 +125,9 @@ class XarrayDataService:
                     y_in = np.linspace(0, 1, ny_curr)
                     x_in = np.linspace(0, 1, nx_curr)
                     
-                    mean_val = float(np.nanmean(raw_data)) if not np.isnan(np.nanmean(raw_data)) else 0.0
+                    if np.isnan(np.nanmean(raw_data)):
+                        return None
+                    mean_val = float(np.nanmean(raw_data))
                     interp = RegularGridInterpolator(
                         (z_in, y_in, x_in), raw_data, bounds_error=False, fill_value=mean_val
                     )
@@ -163,10 +184,11 @@ class XarrayDataService:
             
         try:
             with xr.open_dataset(filepath) as ds:
-                if variable not in ds:
+                var_key = resolve_variable_name(ds, variable)
+                if not var_key:
                     return None
                     
-                da = ds[variable]
+                da = ds[var_key]
                 isel_dict = {}
                 if "time" in da.dims:
                     isel_dict["time"] = min(max(0, time_idx), da.sizes["time"] - 1)
@@ -176,7 +198,7 @@ class XarrayDataService:
                     isel_dict["s_rho"] = min(max(0, depth_idx), da.sizes["s_rho"] - 1)
 
                 slice_data = da.isel(**isel_dict).values
-                slice_f32 = np.nan_to_num(slice_data, nan=-9999.0).astype(np.float32)
+                slice_f32 = slice_data.astype(np.float32)
                 min_val = float(np.nanmin(slice_data))
                 max_val = float(np.nanmax(slice_data))
 
@@ -258,7 +280,7 @@ class XarrayDataService:
         elif depth_key and depth_key in ds:
             depth_levels = np.abs(ds[depth_key].values.flatten())
         else:
-            depth_levels = np.array([0.0, 5.0, 10.0, 20.0, 50.0, 75.0, 100.0, 150.0, 200.0, 300.0, 500.0, 750.0, 1000.0, 1500.0, 2000.0])
+            raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Model dataset lacks vertical depth coordinates.")
 
         return depth_levels, val_profile
 
@@ -271,7 +293,7 @@ class XarrayDataService:
         target_timestamp: Optional[str] = None,
         time_idx: int = 0,
         query_depths: Optional[List[float]] = None
-    ) -> Optional[Tuple[List[float], List[float]]]:
+    ) -> Optional[Tuple[List[float], List[Any]]]:
         """
         Performs genuine 4D spatio-temporal interpolation:
         1. Identifies surrounding model forecast timestamps (t0, t1) around target_timestamp
@@ -285,10 +307,11 @@ class XarrayDataService:
 
         try:
             with xr.open_dataset(filepath) as ds:
-                if variable not in ds:
+                var_key = resolve_variable_name(ds, variable)
+                if not var_key:
                     return None
 
-                da = ds[variable]
+                da = ds[var_key]
                 time_key = next((k for k in ["time", "ocean_time", "time_counter"] if k in da.coords or k in da.dims), None)
 
                 # 1. 4D Temporal Interpolation Handling
@@ -330,20 +353,25 @@ class XarrayDataService:
                 # 2. Vertical Interpolation onto Argo Query Depths
                 if query_depths is not None:
                     valid_idx = [i for i, v in enumerate(model_values) if not np.isnan(v)]
-                    if len(valid_idx) < 2:
+                    if len(valid_idx) == 0:
                         return None
                     clean_d = np.array([depth_levels[i] for i in valid_idx])
                     clean_v = np.array([model_values[i] for i in valid_idx])
                     
-                    # Sort depth coordinates monotonically
-                    sort_order = np.argsort(clean_d)
-                    clean_d = clean_d[sort_order]
-                    clean_v = clean_v[sort_order]
-                    
-                    interp_v = np.interp(query_depths, clean_d, clean_v)
-                    return query_depths, [float(round(v, 3)) for v in interp_v]
+                    if len(clean_d) == 1:
+                        # Single vertical level available in model (e.g. surface layer)
+                        # Match depths within 15m tolerance of surface level, otherwise evaluate to NaN
+                        interp_v = np.array([clean_v[0] if abs(qd - clean_d[0]) <= 15.0 else np.nan for qd in query_depths])
+                    else:
+                        # Multi-level vertical interpolation without out-of-bounds extrapolation
+                        sort_order = np.argsort(clean_d)
+                        clean_d = clean_d[sort_order]
+                        clean_v = clean_v[sort_order]
+                        interp_v = np.interp(query_depths, clean_d, clean_v, left=np.nan, right=np.nan)
 
-                return depth_levels.tolist(), [float(round(v, 3)) if not np.isnan(v) else 0.0 for v in model_values]
+                    return query_depths, [float(round(v, 3)) if not np.isnan(v) else None for v in interp_v]
+
+                return depth_levels.tolist(), [float(round(v, 3)) if not np.isnan(v) else None for v in model_values]
 
         except Exception as e:
             print(f"Error in 4D spatio-temporal profile interpolation: {e}")

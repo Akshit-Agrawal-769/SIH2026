@@ -35,12 +35,16 @@ class OceanComparisonService:
         lon = argo_profile["longitude"]
         timestamp = argo_profile["timestamp"]
         obs_depths = argo_profile["depths"]
-        
+
+        if not timestamp:
+            # Cannot perform 4D spatio-temporal colocation without valid observation timestamp
+            return None
+
         # Select observation variable and filter QC
         if variable == "temp":
             obs_vals = argo_profile.get("temperature", [])
         elif variable == "salt":
-            obs_vals = [s if s is not None else np.nan for s in argo_profile.get("salinity", [])]
+            obs_vals = [s if (s is not None and not np.isnan(s)) else np.nan for s in argo_profile.get("salinity", [])]
         else:
             return None
 
@@ -63,8 +67,8 @@ class OceanComparisonService:
         depths, model_vals = interp_result
 
         # 4. Compute Statistical Validation Metrics
-        obs_arr = np.array(obs_vals, dtype=np.float64)
-        mod_arr = np.array(model_vals, dtype=np.float64)
+        obs_arr = np.array([v if v is not None else np.nan for v in obs_vals], dtype=np.float64)
+        mod_arr = np.array([v if v is not None else np.nan for v in model_vals], dtype=np.float64)
         
         valid_mask = ~np.isnan(obs_arr) & ~np.isnan(mod_arr)
         if not np.any(valid_mask):
@@ -86,7 +90,7 @@ class OceanComparisonService:
                 r_val = float(round(corr_matrix[0, 1], 4))
 
         full_residuals = [
-            round(float(m - o), 3) if not np.isnan(o) and not np.isnan(m) else 0.0
+            round(float(m - o), 3) if (o is not None and m is not None and not np.isnan(o) and not np.isnan(m)) else None
             for m, o in zip(model_vals, obs_vals)
         ]
 
@@ -97,8 +101,8 @@ class OceanComparisonService:
             "latitude": lat,
             "longitude": lon,
             "depths": depths,
-            "obs_values": [float(v) if not np.isnan(v) else 0.0 for v in obs_vals],
-            "model_interpolated_values": model_vals,
+            "obs_values": [float(v) if (v is not None and not np.isnan(v)) else None for v in obs_vals],
+            "model_interpolated_values": [float(v) if (v is not None and not np.isnan(v)) else None for v in model_vals],
             "residuals": full_residuals,
             "variable": variable,
             "metrics": {

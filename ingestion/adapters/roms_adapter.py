@@ -97,8 +97,11 @@ class ROMSModelAdapter(BaseOceanAdapter):
             time_key = next((k for k in ["time", "ocean_time", "time_counter"] if k in ds.coords or k in ds.data_vars), None)
             depth_key = next((k for k in ["depth", "lev", "level", "z", "deptht", "s_rho"] if k in ds.coords or k in ds.dims), None)
 
-            lon_vals = ds[lon_key].values if lon_key else np.array([60.0, 95.0])
-            lat_vals = ds[lat_key].values if lat_key else np.array([5.0, 25.0])
+            if not lon_key or not lat_key:
+                raise ValueError("MODEL_SPATIAL_COORDINATE_MISSING: Model NetCDF lacks spatial coordinates (longitude/latitude).")
+
+            lon_vals = ds[lon_key].values
+            lat_vals = ds[lat_key].values
 
             bounds = {
                 "min_lon": float(np.nanmin(lon_vals)),
@@ -123,7 +126,7 @@ class ROMSModelAdapter(BaseOceanAdapter):
                 raw_depths = ds[depth_key].values.flatten().tolist()
                 depth_levels = sorted([abs(float(d)) for d in raw_depths if not np.isnan(d)])
             else:
-                depth_levels = [0.0, 5.0, 10.0, 20.0, 50.0, 75.0, 100.0, 150.0, 200.0, 300.0, 500.0, 750.0, 1000.0, 1500.0, 2000.0]
+                raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Model NetCDF lacks vertical depth coordinates.")
 
             # 3. Resolve Time Series
             time_range: List[str] = []
@@ -134,7 +137,7 @@ class ROMSModelAdapter(BaseOceanAdapter):
                     for t in time_vals
                 ]
             else:
-                time_range = ["2026-08-23T00:00:00Z"]
+                raise ValueError("MODEL_TIME_COORDINATE_MISSING: Model NetCDF lacks time coordinate.")
 
             # 4. Resolve Variables
             variables = []

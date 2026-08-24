@@ -31,7 +31,7 @@ def test_roms_vertical_s_coordinate_transformation():
 
 
 def test_argo_qc_decoding_and_filtering():
-    """Verifies Argo QC flag decoding and policy enforcement (accept 1, 2; reject 3, 4)."""
+    """Verifies Argo QC flag decoding and policy enforcement (accept 1, 2; reject 3, 4, 0)."""
     raw_qc_bytes = b"1124131"
     decoded = decode_argo_qc_flags(raw_qc_bytes, len(raw_qc_bytes))
     assert decoded == [1, 1, 2, 4, 1, 3, 1]
@@ -40,6 +40,10 @@ def test_argo_qc_decoding_and_filtering():
     valid_mask = [qc in [1, 2] for qc in decoded]
     assert valid_mask == [True, True, True, False, True, False, True]
 
+    # Missing QC must return 0 (Unknown/No QC), NOT 1 (Good Data)
+    missing_qc = decode_argo_qc_flags(None, 5)
+    assert missing_qc == [0, 0, 0, 0, 0]
+
 
 def test_argo_timestamp_decoding():
     """Verifies conversion of Argo JULD days-since-reference into ISO8601 UTC timestamp."""
@@ -47,6 +51,10 @@ def test_argo_timestamp_decoding():
     ts = decode_argo_timestamp(juld, "1950-01-01T00:00:00Z")
     assert ts.startswith("2022-")
     assert "T12:00:00Z" in ts
+
+    # Missing/invalid timestamp must return None, NOT a hardcoded fallback date
+    assert decode_argo_timestamp(None) is None
+    assert decode_argo_timestamp(np.nan) is None
 
 
 def test_pearson_correlation_zero_variance_returns_none():
