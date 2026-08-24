@@ -271,11 +271,38 @@ class XarrayDataService:
             Cs_r = ds["Cs_r"].values
             hc = float(ds["hc"].values) if "hc" in ds else 10.0
             
-            # Interpolate local bathymetry h at lat/lon
-            h_val = float(ds["h"].interp({lat_key: lat, lon_key: lon}, method="nearest").values) if not is_curvilinear else float(np.nanmean(ds["h"].values))
+            # Retrieve LOCAL bathymetry h(i, j) at requested (lat, lon)
+            if is_curvilinear:
+                h_arr = ds["h"].values
+                h_val = 0.0
+                for w, (j, i) in zip(weights, unraveled_ij):
+                    h_val += w * float(h_arr[j, i])
+            else:
+                h_val = float(ds["h"].interp({lat_key: lat, lon_key: lon}, method="linear").values)
+
+            # Retrieve LOCAL sea surface height zeta(i, j, t) if available in dataset
+            zeta_val = 0.0
+            zeta_key = next((k for k in ["zeta", "ssh", "zo"] if k in ds or k in da_3d.coords), None)
+            if zeta_key:
+                try:
+                    if is_curvilinear:
+                        z_arr = ds[zeta_key].values
+                        if z_arr.ndim == 3:
+                            z_arr = z_arr[0]
+                        zeta_val = 0.0
+                        for w, (j, i) in zip(weights, unraveled_ij):
+                            zeta_val += w * float(z_arr[j, i])
+                    else:
+                        zeta_da = ds[zeta_key]
+                        if "time" in zeta_da.dims:
+                            zeta_da = zeta_da.isel(time=0)
+                        zeta_val = float(zeta_da.interp({lat_key: lat, lon_key: lon}, method="linear").values)
+                except Exception:
+                    zeta_val = 0.0
+
             Vtransform = int(ds["Vtransform"].values) if "Vtransform" in ds else 2
             
-            z_levels = calculate_roms_vertical_depths(s_rho, Cs_r, np.array([h_val]), hc, Vtransform=Vtransform)
+            z_levels = calculate_roms_vertical_depths(s_rho, Cs_r, h_val, hc, zeta=zeta_val, Vtransform=Vtransform)
             depth_levels = np.abs(z_levels.flatten())
         elif depth_key and depth_key in ds:
             depth_levels = np.abs(ds[depth_key].values.flatten())

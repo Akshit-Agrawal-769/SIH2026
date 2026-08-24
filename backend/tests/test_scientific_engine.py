@@ -30,6 +30,58 @@ def test_roms_vertical_s_coordinate_transformation():
     assert np.all(z_v2[1, :, :] > -h)
 
 
+def test_roms_local_bathymetry_affects_physical_depth():
+    """
+    Deterministic test proving that local bathymetry affects physical depth.
+    Location A: h = 500 m
+    Location B: h = 4000 m
+    Identical s_rho levels -> depths_A != depths_B
+    """
+    s_rho = np.array([-1.0, -0.75, -0.5, -0.25, 0.0])
+    Cs_r = np.array([-1.0, -0.6, -0.3, -0.1, 0.0])
+    hc = 10.0
+
+    # Vtransform = 1
+    depths_A_v1 = calculate_roms_vertical_depths(s_rho, Cs_r, h=500.0, hc=hc, Vtransform=1)
+    depths_B_v1 = calculate_roms_vertical_depths(s_rho, Cs_r, h=4000.0, hc=hc, Vtransform=1)
+    assert not np.array_equal(depths_A_v1, depths_B_v1)
+    assert depths_A_v1[0] == -500.0
+    assert depths_B_v1[0] == -4000.0
+
+    # Vtransform = 2
+    depths_A_v2 = calculate_roms_vertical_depths(s_rho, Cs_r, h=500.0, hc=hc, Vtransform=2)
+    depths_B_v2 = calculate_roms_vertical_depths(s_rho, Cs_r, h=4000.0, hc=hc, Vtransform=2)
+    assert not np.array_equal(depths_A_v2, depths_B_v2)
+    assert depths_A_v2[0] == -500.0
+    assert depths_B_v2[0] == -4000.0
+
+
+def test_roms_local_zeta_sea_surface_elevation_shift():
+    """Verifies that non-zero sea surface height zeta shifts surface and water column depths."""
+    s_rho = np.array([-1.0, -0.5, 0.0])
+    Cs_r = np.array([-1.0, -0.4, 0.0])
+    h = 1000.0
+    hc = 10.0
+
+    depths_flat = calculate_roms_vertical_depths(s_rho, Cs_r, h=h, hc=hc, zeta=0.0, Vtransform=2)
+    depths_elev = calculate_roms_vertical_depths(s_rho, Cs_r, h=h, hc=hc, zeta=1.5, Vtransform=2)
+
+    # Surface level (s=0) must equal zeta
+    assert depths_flat[2] == 0.0
+    assert depths_elev[2] == 1.5
+    assert not np.array_equal(depths_flat, depths_elev)
+
+
+def test_missing_roms_vertical_metadata_raises_error():
+    """Verifies that missing vertical metadata raises ValueError('MODEL_VERTICAL_COORDINATE_MISSING')."""
+    import xarray as xr
+    empty_ds = xr.Dataset({"temp": (("time", "lat", "lon"), np.zeros((1, 5, 5)))})
+    empty_da = empty_ds["temp"].isel(time=0)
+
+    with pytest.raises(ValueError, match="MODEL_VERTICAL_COORDINATE_MISSING"):
+        xarray_service._spatial_interpolate_profile(empty_da, empty_ds, lat=15.0, lon=75.0)
+
+
 def test_argo_qc_decoding_and_filtering():
     """Verifies Argo QC flag decoding and policy enforcement (accept 1, 2; reject 3, 4, 0)."""
     raw_qc_bytes = b"1124131"

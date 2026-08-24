@@ -16,14 +16,15 @@ from ingestion.adapters.base_adapter import BaseOceanAdapter
 def calculate_roms_vertical_depths(
     s_rho: np.ndarray,
     Cs_r: np.ndarray,
-    h: np.ndarray,
+    h: Union[float, np.ndarray],
     hc: float,
-    zeta: Optional[np.ndarray] = None,
+    zeta: Optional[Union[float, np.ndarray]] = None,
     Vtransform: int = 2
 ) -> np.ndarray:
     """
     Computes true physical vertical depths z (meters, negative below surface)
-    for ROMS terrain-following vertical s-coordinates.
+    for ROMS terrain-following vertical s-coordinates based on local bathymetry h
+    and optional local sea surface height zeta.
     
     Vtransform = 1 (ROMS original):
         S(x,y,s) = hc * s + (h(x,y) - hc) * C(s)
@@ -42,17 +43,19 @@ def calculate_roms_vertical_depths(
     else:
         zeta_arr = np.asarray(zeta, dtype=np.float64)
 
-    # Reshape s and Cs for broadcasting with (ny, nx)
-    # s is shape (N,), h is shape (ny, nx) -> target shape (N, ny, nx)
-    s_3d = s_arr[:, np.newaxis, np.newaxis] if h_arr.ndim == 2 else s_arr
-    Cs_3d = Cs_arr[:, np.newaxis, np.newaxis] if h_arr.ndim == 2 else Cs_arr
-    h_3d = h_arr[np.newaxis, :, :] if h_arr.ndim == 2 else h_arr
-    zeta_3d = zeta_arr[np.newaxis, :, :] if zeta_arr.ndim == 2 else zeta_arr
+    if h_arr.ndim == 0:
+        s_3d, Cs_3d, h_3d, zeta_3d = s_arr, Cs_arr, h_arr, zeta_arr
+    elif h_arr.ndim == 1:
+        s_3d, Cs_3d, h_3d, zeta_3d = s_arr[:, None], Cs_arr[:, None], h_arr[None, :], zeta_arr[None, :]
+    elif h_arr.ndim == 2:
+        s_3d, Cs_3d, h_3d, zeta_3d = s_arr[:, None, None], Cs_arr[:, None, None], h_arr[None, :, :], zeta_arr[None, :, :]
+    else:
+        s_3d, Cs_3d, h_3d, zeta_3d = s_arr, Cs_arr, h_arr, zeta_arr
 
     if Vtransform == 1:
         S = hc * s_3d + (h_3d - hc) * Cs_3d
         z = S + zeta_3d * (1.0 + S / np.maximum(h_3d, 1e-4))
-    else:  # Vtransform == 2
+    else:  # Vtransform = 2
         S = (hc * s_3d + h_3d * Cs_3d) / (hc + h_3d)
         z = zeta_3d + (zeta_3d + h_3d) * S
 
