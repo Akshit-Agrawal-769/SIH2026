@@ -115,16 +115,20 @@ class ROMSModelAdapter(BaseOceanAdapter):
 
             # 2. Resolve Vertical Depths (Standard vs Native s_rho)
             depth_levels: List[float] = []
-            if self.has_native_s_coordinates(ds) and "Cs_r" in ds and "h" in ds:
-                s_rho = ds["s_rho"].values if "s_rho" in ds else np.linspace(-1, 0, len(ds["Cs_r"]))
-                Cs_r = ds["Cs_r"].values
-                hc = float(ds["hc"].values) if "hc" in ds else 10.0
-                h_mean = float(np.nanmean(ds["h"].values))
-                Vtransform = int(ds["Vtransform"].values) if "Vtransform" in ds else 2
-                
-                # Representative 1D depth levels from mean bathymetry
-                z_rep = calculate_roms_vertical_depths(s_rho, Cs_r, np.array([h_mean]), hc, Vtransform=Vtransform)
-                depth_levels = sorted([round(float(-z), 2) for z in z_rep.flatten() if not np.isnan(z)])
+            if self.has_native_s_coordinates(ds):
+                if "s_rho" not in ds:
+                    raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Missing s_rho coordinate in model dataset.")
+                if "Cs_r" not in ds:
+                    raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Missing Cs_r coordinate in model dataset.")
+                if "hc" not in ds:
+                    raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Missing hc parameter in model dataset.")
+                if "Vtransform" not in ds:
+                    raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Missing Vtransform parameter in model dataset.")
+                if "h" not in ds:
+                    raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Missing bathymetry h in model dataset.")
+
+                s_rho = ds["s_rho"].values
+                depth_levels = sorted([abs(float(s)) for s in s_rho if not np.isnan(s)])
             elif depth_key and depth_key in ds:
                 raw_depths = ds[depth_key].values.flatten().tolist()
                 depth_levels = sorted([abs(float(d)) for d in raw_depths if not np.isnan(d)])

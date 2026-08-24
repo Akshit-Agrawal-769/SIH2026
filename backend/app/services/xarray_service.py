@@ -218,7 +218,8 @@ class XarrayDataService:
         da_3d: xr.DataArray,
         ds: xr.Dataset,
         lat: float,
-        lon: float
+        lon: float,
+        time_idx: int = 0
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Interpolates 3D DataArray (nz, ny, nx) at specific geographic point (lat, lon).
@@ -266,11 +267,24 @@ class XarrayDataService:
             val_profile = point_da.values.flatten()
 
         # Compute physical depth levels (Standard vs Native ROMS s_rho)
-        if depth_key and "s_rho" in depth_key and "Cs_r" in ds and "h" in ds:
-            s_rho = ds["s_rho"].values if "s_rho" in ds else np.linspace(-1, 0, len(ds["Cs_r"]))
+        is_native_s = ("s_rho" in ds.dims or "s_rho" in ds.coords or "Cs_r" in ds)
+        if is_native_s:
+            if "s_rho" not in ds:
+                raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Missing s_rho coordinate in model dataset.")
+            if "Cs_r" not in ds:
+                raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Missing Cs_r coordinate in model dataset.")
+            if "hc" not in ds:
+                raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Missing hc parameter in model dataset.")
+            if "Vtransform" not in ds:
+                raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Missing Vtransform parameter in model dataset.")
+            if "h" not in ds:
+                raise ValueError("MODEL_VERTICAL_COORDINATE_MISSING: Missing bathymetry h in model dataset.")
+
+            s_rho = ds["s_rho"].values
             Cs_r = ds["Cs_r"].values
-            hc = float(ds["hc"].values) if "hc" in ds else 10.0
-            
+            hc = float(ds["hc"].values)
+            Vtransform = int(ds["Vtransform"].values)
+
             # Retrieve LOCAL bathymetry h(i, j) at requested (lat, lon)
             if is_curvilinear:
                 h_arr = ds["h"].values
@@ -280,28 +294,29 @@ class XarrayDataService:
             else:
                 h_val = float(ds["h"].interp({lat_key: lat, lon_key: lon}, method="linear").values)
 
-            # Retrieve LOCAL sea surface height zeta(i, j, t) if available in dataset
+            # Retrieve LOCAL sea surface height zeta(i, j, time_idx) if available in dataset
             zeta_val = 0.0
             zeta_key = next((k for k in ["zeta", "ssh", "zo"] if k in ds or k in da_3d.coords), None)
             if zeta_key:
                 try:
+                    zeta_da = ds[zeta_key]
+                    t_dim = next((k for k in ["time", "ocean_time", "time_counter"] if k in zeta_da.dims), None)
+                    if t_dim and t_dim in zeta_da.dims:
+                        valid_t_idx = min(max(0, time_idx), zeta_da.sizes[t_dim] - 1)
+                        zeta_da = zeta_da.isel({t_dim: valid_t_idx})
+
                     if is_curvilinear:
-                        z_arr = ds[zeta_key].values
+                        z_arr = zeta_da.values
                         if z_arr.ndim == 3:
                             z_arr = z_arr[0]
                         zeta_val = 0.0
                         for w, (j, i) in zip(weights, unraveled_ij):
                             zeta_val += w * float(z_arr[j, i])
                     else:
-                        zeta_da = ds[zeta_key]
-                        if "time" in zeta_da.dims:
-                            zeta_da = zeta_da.isel(time=0)
                         zeta_val = float(zeta_da.interp({lat_key: lat, lon_key: lon}, method="linear").values)
-                except Exception:
-                    zeta_val = 0.0
+                except Exception as e:
+                    raise ValueError(f"MODEL_ZETA_INTERPOLATION_FAILED: Failed to extract sea surface height '{zeta_key}' at time index {time_idx} and location ({lat}, {lon}): {e}")
 
-            Vtransform = int(ds["Vtransform"].values) if "Vtransform" in ds else 2
-            
             z_levels = calculate_roms_vertical_depths(s_rho, Cs_r, h_val, hc, zeta=zeta_val, Vtransform=Vtransform)
             depth_levels = np.abs(z_levels.flatten())
         elif depth_key and depth_key in ds:
@@ -348,10 +363,11 @@ class XarrayDataService:
 
                     if target_dt <= time_vals[0]:
                         da_3d = da.isel({time_key: 0})
-                        depth_levels, model_values = self._spatial_interpolate_profile(da_3d, ds, lat, lon)
+                        depth_levels, model_values = self._spatial_interpolate_profile(da_3d, ds, lat, lon, time_idx=0)
                     elif target_dt >= time_vals[-1]:
-                        da_3d = da.isel({time_key: len(time_vals) - 1})
-                        depth_levels, model_values = self._spatial_interpolate_profile(da_3d, ds, lat, lon)
+                        t_last = len(time_vals) - 1
+                        da_3d = da.isel({time_key: t_last})
+                        depth_levels, model_values = self._spatial_interpolate_profile(da_3d, ds, lat, lon, time_idx=t_last)
                     else:
                         # Find bounding indices t0, t1
                         t1_idx = int(np.searchsorted(time_vals, target_dt))
@@ -364,18 +380,18 @@ class XarrayDataService:
                         alpha = (target_dt - t0).total_seconds() / total_secs if total_secs > 0 else 0.0
                         alpha = float(np.clip(alpha, 0.0, 1.0))
 
-                        # Extract profiles at t0 and t1
-                        d_0, v_0 = self._spatial_interpolate_profile(da.isel({time_key: t0_idx}), ds, lat, lon)
-                        d_1, v_1 = self._spatial_interpolate_profile(da.isel({time_key: t1_idx}), ds, lat, lon)
+                        # Extract profiles and depths at t0 and t1 using respective time_idx
+                        d_0, v_0 = self._spatial_interpolate_profile(da.isel({time_key: t0_idx}), ds, lat, lon, time_idx=t0_idx)
+                        d_1, v_1 = self._spatial_interpolate_profile(da.isel({time_key: t1_idx}), ds, lat, lon, time_idx=t1_idx)
                         
-                        depth_levels = d_0
-                        # 4D Linear temporal blending
+                        # 4D Linear temporal blending of both depths and values
+                        depth_levels = (1.0 - alpha) * d_0 + alpha * d_1
                         model_values = (1.0 - alpha) * v_0 + alpha * v_1
                 else:
                     # Fallback to integer time index
                     t_idx = min(max(0, time_idx), da.sizes["time"] - 1) if "time" in da.dims else 0
                     da_3d = da.isel(time=t_idx) if "time" in da.dims else da
-                    depth_levels, model_values = self._spatial_interpolate_profile(da_3d, ds, lat, lon)
+                    depth_levels, model_values = self._spatial_interpolate_profile(da_3d, ds, lat, lon, time_idx=t_idx)
 
                 # 2. Vertical Interpolation onto Argo Query Depths
                 if query_depths is not None:
