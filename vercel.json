@@ -6,7 +6,7 @@
   "installCommand": "cd frontend && npm install",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!assets|geography|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

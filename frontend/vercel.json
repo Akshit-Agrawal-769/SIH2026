@@ -3,7 +3,7 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!assets|geography|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]
