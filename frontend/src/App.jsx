@@ -8,6 +8,7 @@ import { DepthSliceBar } from './components/DepthSliceBar';
 import { TimelinePanel } from './components/TimelinePanel';
 import { ObservationModal } from './components/ObservationModal';
 import { DiagnosticsDrawer } from './components/DiagnosticsDrawer';
+import { ShortcutsModal } from './components/ShortcutsModal';
 import { OceanViewer } from './rendering/OceanViewer';
 
 export default function App() {
@@ -15,6 +16,65 @@ export default function App() {
 
   useEffect(() => {
     fetchInitialData();
+
+    const handleKeyDown = (e) => {
+      // Don't trigger when typing in inputs or selects
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target?.tagName)) return;
+
+      const store = useOceanStore.getState();
+      switch (e.key) {
+        case '1':
+          store.triggerCameraAction('cinematic');
+          break;
+        case '2':
+          store.triggerCameraAction('platform');
+          break;
+        case '3':
+          store.triggerCameraAction('geospatial');
+          break;
+        case '4':
+          store.triggerCameraAction('subsurface');
+          break;
+        case '5':
+          store.triggerCameraAction('iso');
+          break;
+        case ' ':
+          e.preventDefault();
+          store.toggleTimelinePlayback();
+          break;
+        case '[':
+          store.stepTimeIndex(-1);
+          break;
+        case ']':
+          store.stepTimeIndex(1);
+          break;
+        case 'l':
+        case 'L':
+          store.toggleControlPanel();
+          break;
+        case 'i':
+        case 'I':
+          store.toggleInspector();
+          break;
+        case 'd':
+        case 'D':
+          store.toggleDiagnostics();
+          break;
+        case '?':
+          store.toggleShortcutsModal();
+          break;
+        case 'Escape':
+          if (store.isModalOpen) store.closeModal();
+          if (store.isShortcutsModalOpen) store.toggleShortcutsModal();
+          if (store.isDiagnosticsOpen) store.toggleDiagnostics();
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   return (
@@ -49,6 +109,9 @@ export default function App() {
 
       {/* 6. SYSTEM & DATASET DIAGNOSTICS DRAWER */}
       <DiagnosticsDrawer />
+
+      {/* 7. ACCESSIBLE KEYBOARD SHORTCUTS MODAL */}
+      <ShortcutsModal />
     </div>
   );
 }

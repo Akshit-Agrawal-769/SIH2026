@@ -20,15 +20,56 @@ export const useOceanStore = create((set, get) => ({
   enableSlice: false,
   verticalExaggeration: 1.0,
 
+  // Sea State Environmental Simulation
+  seaState: 'moderate', // 'calm' | 'moderate' | 'rough' | 'storm'
+
+  // Environmental & Marine Infrastructure Layers
+  layers: {
+    oceanSurface: true,
+    currentVectors: true,
+    volumeRaymarch: true,
+    depthSlice: false,
+    bathymetricFloor: true,
+    argoSensors: true,
+    marinePlatform: true,
+    weatherOverlay: false,
+  },
+
+  // Marine Station Telemetry
+  platformTelemetry: {
+    id: 'INCOIS_OCEAN_STATION_01',
+    name: 'INCOIS Moored Marine Intelligence Station (Arabian Sea)',
+    type: 'moored_station',
+    latitude: 14.50,
+    longitude: 68.20,
+    depth: 0.0,
+    status: 'operational',
+    battery_level: 98,
+    sea_surface_temp: 28.45,
+    salinity: 35.82,
+    wave_height_hs: 1.65,
+    wave_period_tp: 7.2,
+    current_speed: 0.42,
+    current_direction: 245,
+    wind_speed: 14.2,
+    wind_direction: 230,
+    atmospheric_pressure: 1012.4,
+    last_transmission_utc: '2026-08-25T18:00:00Z',
+  },
+  selectedPlatform: null,
+
   // 3D Volume Binary Buffer & Headers Metadata
   volumeBuffer: null,
   volumeMeta: null,
+
+  // Real-Time 3D Cursor Probe Sample
+  cursorProbe: null, // { lon, lat, depth, scalarVal, unit }
 
   // Argo In-Situ Floats & Inspection
   argoFloats: [],
   selectedFloat: null,
   selectedCycle: null,
-  activeInspectorTab: 'argo', // 'argo' | 'metadata'
+  activeInspectorTab: 'argo', // 'argo' | 'telemetry' | 'metadata'
 
   // Model vs Observation Validation Profile
   comparisonData: null,
@@ -41,18 +82,38 @@ export const useOceanStore = create((set, get) => ({
   isPlayingTimeline: false,
   playbackSpeed: 1.0, // 0.5, 1.0, 2.0
 
-  // Viewport Settings
-  cameraAction: null, // 'reset' | 'top' | 'front' | 'side' | 'iso'
+  // Viewport Settings & Camera Presets
+  cameraAction: null, // 'cinematic' | 'operational' | 'geospatial' | 'subsurface' | 'platform' | 'top' | 'front' | 'side' | 'reset'
   showGrid: true,
   showBoundingBox: true,
   cursorCoords: null, // { lon, lat, depth }
 
-  // Panels & Drawers
+  // Panels, Drawers & Shortcuts
   isDiagnosticsOpen: false,
   isControlPanelOpen: true,
   isInspectorOpen: true,
+  isShortcutsModalOpen: false,
 
   // Actions
+  setSeaState: (seaState) => set({ seaState }),
+
+  toggleLayer: (layerId) => set((state) => ({
+    layers: { ...state.layers, [layerId]: !state.layers[layerId] }
+  })),
+
+  setLayer: (layerId, enabled) => set((state) => ({
+    layers: { ...state.layers, [layerId]: enabled }
+  })),
+
+  selectPlatform: (platform) => set({
+    selectedPlatform: platform,
+    activeInspectorTab: 'telemetry',
+  }),
+
+  setCursorProbe: (probe) => set({ cursorProbe: probe }),
+
+  toggleShortcutsModal: () => set((state) => ({ isShortcutsModalOpen: !state.isShortcutsModalOpen })),
+
   fetchInitialData: async () => {
     try {
       set({ isLoading: true, loadingMessage: 'VERIFYING SYSTEM HEALTH AND DATASETS', errorState: null });

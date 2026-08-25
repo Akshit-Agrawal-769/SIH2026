@@ -1,12 +1,24 @@
 /**
  * OceanSceneController Deep Module
- * Encapsulates the Three.js WebGL2 scene graph, volumetric raymarching shader pipelines,
- * 3D Data3DTexture binding, depth-slicing planes, camera controls, and interactive raycasting.
+ * Encapsulates the Three.js WebGL2 scene graph:
+ * - Volumetric raymarching shader pipelines (Float32 Data3DTexture)
+ * - Realistic Gerstner ocean water surface with specular lighting
+ * - Atmospheric sky dome and sun illumination
+ * - Procedural bathymetric relief floor and contour grids
+ * - Autonomous floating marine intelligence station & mooring infrastructure
+ * - GPU particle current flow streamlines (u, v vectors)
+ * - In-situ Argo profiling floats with acoustic beacon pulses
+ * - Cinematic and tactical camera systems with smooth interpolations
  */
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { VolumeVertexShader, VolumeFragmentShader } from './shaders/VolumeRaymarchingShader';
+import { RealisticWaterSurface } from './environment/RealisticWaterSurface';
+import { AtmosphericSkyDome } from './environment/AtmosphericSkyDome';
+import { BathymetricFloor } from './environment/BathymetricFloor';
+import { MarinePlatform } from './infrastructure/MarinePlatform';
+import { CurrentVectorField } from './layers/CurrentVectorField';
 
 const COLORMAP_CODES = { turbo: 0, viridis: 1, thermal: 2, jet: 3 };
 
@@ -16,35 +28,48 @@ export class OceanSceneController {
     this.onHoverFloat = options.onHoverFloat || (() => {});
     this.onSelectFloat = options.onSelectFloat || (() => {});
     this.onOrbitChange = options.onOrbitChange || (() => {});
+    this.onSelectPlatform = options.onSelectPlatform || (() => {});
+    this.onSampleProbe = options.onSampleProbe || (() => {});
 
     this.argoFloats = [];
     this.selectedFloat = null;
     this.verticalExaggeration = 1.0;
     this.volumeMeta = null;
+    this.volumeBuffer = null;
 
+    this.clock = new THREE.Clock();
     this.animationId = null;
     this.isDisposed = false;
+
+    // Camera target interpolation state
+    this.cameraTargetPos = null;
+    this.controlsTargetPos = null;
+    this.isCameraLerping = false;
 
     this._initScene();
   }
 
   _initScene() {
-    const width = this.container.clientWidth;
-    const height = this.container.clientHeight;
+    const width = this.container.clientWidth || window.innerWidth;
+    const height = this.container.clientHeight || window.innerHeight;
 
-    // 1. Scene & Background
+    // 1. Scene & Atmosphere
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x050811);
+    this.scene.background = new THREE.Color(0x040814);
+    this.scene.fog = new THREE.FogExp2(0x040915, 0.08);
 
     // 2. Camera & OrbitControls
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    this.camera.position.set(1.6, 1.4, 2.2);
+    // Default cinematic perspective looking across the ocean swell
+    this.camera.position.set(1.5, 0.95, 1.85);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.container.innerHTML = '';
     this.container.appendChild(this.renderer.domElement);
@@ -52,27 +77,61 @@ export class OceanSceneController {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
-    this.controls.maxDistance = 7.0;
-    this.controls.minDistance = 0.6;
+    this.controls.maxDistance = 6.5;
+    this.controls.minDistance = 0.4;
     this.controls.target.set(0, 0, 0);
 
-    // 3. Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    // 3. Lighting (Atmospheric Sun & Ocean Ambient)
+    const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.75);
     this.scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0x38bdf8, 1.4);
-    dirLight.position.set(2.5, 4.5, 3.5);
-    this.scene.add(dirLight);
 
-    // 4. Bounding Box
+    this.dirLight = new THREE.DirectionalLight(0xbae6fd, 1.6);
+    this.dirLight.position.set(2.5, 4.5, 3.5);
+    this.dirLight.castShadow = true;
+    this.scene.add(this.dirLight);
+
+    // 4. Atmospheric Sky Dome
+    this.skyDome = new AtmosphericSkyDome();
+    this.scene.add(this.skyDome.mesh);
+
+    // 5. Realistic Ocean Water Surface (Gerstner Waves)
+    this.waterSurface = new RealisticWaterSurface({
+      size: 2.2,
+      segments: 96,
+      yPosition: 0.3 * this.verticalExaggeration,
+    });
+    this.scene.add(this.waterSurface.mesh);
+
+    // 6. Bathymetric Sea Floor Relief
+    this.bathymetricFloor = new BathymetricFloor({
+      size: 2.2,
+      segments: 64,
+      yPosition: -0.3 * this.verticalExaggeration,
+    });
+    this.scene.add(this.bathymetricFloor.group);
+
+    // 7. Floating Oceanographic Intelligence Platform
+    this.marinePlatform = new MarinePlatform({
+      position: new THREE.Vector3(0.18, 0.3 * this.verticalExaggeration, 0.12),
+    });
+    this.scene.add(this.marinePlatform.group);
+
+    // 8. GPU Ocean Surface Current Velocity Streamlines (u, v)
+    this.currentVectors = new CurrentVectorField({
+      count: 2200,
+      yLevel: 0.302 * this.verticalExaggeration,
+    });
+    this.scene.add(this.currentVectors.mesh);
+
+    // 9. Bounding Frame & Reference Grids
     this.boxGeo = new THREE.BoxGeometry(1.0, 0.6 * this.verticalExaggeration, 1.0);
     this.boxEdges = new THREE.EdgesGeometry(this.boxGeo);
     this.boxLine = new THREE.LineSegments(
       this.boxEdges,
-      new THREE.LineBasicMaterial({ color: 0x334155, linewidth: 1 })
+      new THREE.LineBasicMaterial({ color: 0x1e293b, linewidth: 1 })
     );
     this.scene.add(this.boxLine);
 
-    // 5. Surface & Floor Bathymetric Grids
     this.surfaceGrid = new THREE.GridHelper(1.0, 10, 0x0284c7, 0x1e293b);
     this.surfaceGrid.position.y = 0.3 * this.verticalExaggeration;
     this.scene.add(this.surfaceGrid);
@@ -81,7 +140,7 @@ export class OceanSceneController {
     this.floorGrid.position.y = -0.3 * this.verticalExaggeration;
     this.scene.add(this.floorGrid);
 
-    // 6. Volumetric Raymarching Mesh & Shader Material
+    // 10. 3D Volumetric Raymarching Data Texture & Mesh
     this.volGeo = new THREE.BoxGeometry(1.0, 0.6 * this.verticalExaggeration, 1.0);
     this.initialData = new Float32Array(64 * 64 * 32);
     this.volumeTexture = new THREE.Data3DTexture(this.initialData, 64, 64, 32);
@@ -115,14 +174,14 @@ export class OceanSceneController {
     this.volMesh = new THREE.Mesh(this.volGeo, this.volumeMaterial);
     this.scene.add(this.volMesh);
 
-    // 7. 2D Slicing Plane Wireframe
+    // 11. 2D Slicing Plane
     const slicePlaneGeo = new THREE.PlaneGeometry(1.0, 1.0);
     slicePlaneGeo.rotateX(-Math.PI / 2);
     const slicePlaneMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       wireframe: true,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.45,
       side: THREE.DoubleSide,
     });
     this.slicePlane = new THREE.Mesh(slicePlaneGeo, slicePlaneMat);
@@ -130,11 +189,11 @@ export class OceanSceneController {
     this.slicePlane.visible = false;
     this.scene.add(this.slicePlane);
 
-    // 8. Argo Float 3D Markers Group
+    // 12. In-Situ Argo Profiler 3D Markers
     this.floatGroup = new THREE.Group();
     this.scene.add(this.floatGroup);
 
-    // 9. Raycaster Setup & Event Listeners
+    // 13. Raycaster & Pointer Handlers
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
 
@@ -151,7 +210,7 @@ export class OceanSceneController {
       this.resizeObserver.observe(this.container);
     }
 
-    // 10. Start Animation Loop
+    // 14. Start Main Render Loop
     this._animate();
   }
 
@@ -159,10 +218,40 @@ export class OceanSceneController {
     if (this.isDisposed) return;
     this.animationId = requestAnimationFrame(() => this._animate());
 
+    const elapsedTime = this.clock.getElapsedTime();
+
+    // 1. Update Environmental Wave Shaders & Flow Particles
+    if (this.waterSurface) this.waterSurface.update(elapsedTime);
+    if (this.currentVectors) this.currentVectors.update(elapsedTime);
+    if (this.marinePlatform) this.marinePlatform.update(elapsedTime);
+
+    // 2. Animate Acoustic Ping Rings on Argo Float Markers
+    if (this.floatGroup) {
+      this.floatGroup.children.forEach((marker) => {
+        const ring = marker.getObjectByName('pingRing');
+        if (ring) {
+          const pulse = (elapsedTime * 1.5) % 2.0;
+          ring.scale.set(1.0 + pulse * 1.2, 1.0 + pulse * 1.2, 1.0);
+          ring.material.opacity = Math.max(0, 0.8 - pulse * 0.4);
+        }
+      });
+    }
+
+    // 3. Smooth Camera Lerp for Cinematic Transitions
+    if (this.isCameraLerping && this.cameraTargetPos && this.controlsTargetPos) {
+      this.camera.position.lerp(this.cameraTargetPos, 0.05);
+      this.controls.target.lerp(this.controlsTargetPos, 0.05);
+      if (this.camera.position.distanceTo(this.cameraTargetPos) < 0.02) {
+        this.camera.position.copy(this.cameraTargetPos);
+        this.controls.target.copy(this.controlsTargetPos);
+        this.isCameraLerping = false;
+      }
+    }
+
     this.controls.update();
 
-    // Calculate Spherical Camera Angles for HUD
-    const spherical = new THREE.Spherical().setFromVector3(this.camera.position);
+    // Calculate Spherical Camera Angles for HUD Readout
+    const spherical = new THREE.Spherical().setFromVector3(this.camera.position.clone().sub(this.controls.target));
     this.onOrbitChange({
       azimuth: Math.round(THREE.MathUtils.radToDeg(spherical.theta)),
       elevation: Math.round(THREE.MathUtils.radToDeg(Math.PI / 2 - spherical.phi)),
@@ -178,19 +267,75 @@ export class OceanSceneController {
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObjects(this.floatGroup.children, true);
+
+    // Intersect Argo Floats and Marine Platform
+    const targets = [...this.floatGroup.children];
+    if (this.marinePlatform?.group) targets.push(this.marinePlatform.group);
+
+    const intersects = this.raycaster.intersectObjects(targets, true);
     if (intersects.length > 0) {
       let obj = intersects[0].object;
-      while (obj && !obj.userData?.platform_number && obj.parent) {
+      while (obj && !obj.userData?.platform_number && !obj.userData?.type && obj.parent) {
         obj = obj.parent;
       }
+
       if (obj?.userData?.platform_number) {
         const target = this.argoFloats.find(f => f.platform_number === obj.userData.platform_number);
         this.onHoverFloat(target || null);
         this.container.style.cursor = 'pointer';
         return;
       }
+
+      if (obj?.userData?.type === 'platform') {
+        this.container.style.cursor = 'pointer';
+        return;
+      }
     }
+
+    // Raycast surface mesh to sample spatial coordinates and physical scalar field
+    const probeTargets = [];
+    if (this.volMesh) probeTargets.push(this.volMesh);
+    if (this.waterSurface?.mesh) probeTargets.push(this.waterSurface.mesh);
+    const probeIntersects = this.raycaster.intersectObjects(probeTargets, false);
+    if (probeIntersects.length > 0 && this.volumeMeta) {
+      const pt = probeIntersects[0].point;
+      const minLon = this.volumeMeta.minLon ?? 58.0;
+      const maxLon = this.volumeMeta.maxLon ?? 96.0;
+      const minLat = this.volumeMeta.minLat ?? 4.0;
+      const maxLat = this.volumeMeta.maxLat ?? 26.0;
+      const maxDepth = this.volumeMeta.maxDepth ?? 2000;
+
+      const normX = THREE.MathUtils.clamp(pt.x + 0.5, 0.0, 1.0);
+      const normZ = THREE.MathUtils.clamp(pt.z + 0.5, 0.0, 1.0);
+      const normY = THREE.MathUtils.clamp((0.3 * this.verticalExaggeration - pt.y) / (0.6 * this.verticalExaggeration), 0.0, 1.0);
+
+      const lon = minLon + normX * (maxLon - minLon);
+      const lat = minLat + normZ * (maxLat - minLat);
+      const depth = normY * maxDepth;
+
+      let scalarVal = null;
+      if (this.volumeBuffer) {
+        const { dimX, dimY, dimZ, minVal, maxVal } = this.volumeMeta;
+        const ix = Math.min(dimX - 1, Math.max(0, Math.floor(normX * dimX)));
+        const iy = Math.min(dimY - 1, Math.max(0, Math.floor(normZ * dimY)));
+        const iz = Math.min(dimZ - 1, Math.max(0, Math.floor(normY * dimZ)));
+        const idx = iz * (dimX * dimY) + iy * dimX + ix;
+        const raw = this.volumeBuffer[idx];
+        if (raw !== undefined && !isNaN(raw)) {
+          scalarVal = minVal + raw * (maxVal - minVal);
+        }
+      }
+
+      this.onSampleProbe({
+        lon,
+        lat,
+        depth,
+        scalarVal,
+        units: this.volumeMeta.units,
+        variable: this.volumeMeta.variable,
+      });
+    }
+
     this.onHoverFloat(null);
     this.container.style.cursor = 'grab';
   }
@@ -201,17 +346,22 @@ export class OceanSceneController {
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObjects(this.floatGroup.children, true);
+
+    const targets = [...this.floatGroup.children];
+    if (this.marinePlatform?.group) targets.push(this.marinePlatform.group);
+
+    const intersects = this.raycaster.intersectObjects(targets, true);
     if (intersects.length > 0) {
       let obj = intersects[0].object;
-      while (obj && !obj.userData?.platform_number && obj.parent) {
+      while (obj && !obj.userData?.platform_number && !obj.userData?.type && obj.parent) {
         obj = obj.parent;
       }
+
       if (obj?.userData?.platform_number) {
         const target = this.argoFloats.find(f => f.platform_number === obj.userData.platform_number);
-        if (target) {
-          this.onSelectFloat(target);
-        }
+        if (target) this.onSelectFloat(target);
+      } else if (obj?.userData?.type === 'platform') {
+        this.onSelectPlatform(obj.userData);
       }
     }
   }
@@ -220,14 +370,22 @@ export class OceanSceneController {
     if (!this.container || this.isDisposed) return;
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
+    if (w === 0 || h === 0) return;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
   }
 
+  setSeaState(seaState) {
+    if (this.waterSurface) {
+      this.waterSurface.setSeaState(seaState);
+    }
+  }
+
   updateVolumeData(volumeBuffer, volumeMeta) {
     if (!volumeBuffer || !volumeMeta || !this.volumeMaterial) return;
 
+    this.volumeBuffer = volumeBuffer;
     this.volumeMeta = volumeMeta;
     const { dimX, dimY, dimZ } = volumeMeta;
 
@@ -263,6 +421,10 @@ export class OceanSceneController {
       this.verticalExaggeration = verticalExaggeration;
       this.surfaceGrid.position.y = 0.3 * this.verticalExaggeration;
       this.floorGrid.position.y = -0.3 * this.verticalExaggeration;
+      if (this.waterSurface?.mesh) this.waterSurface.mesh.position.y = 0.3 * this.verticalExaggeration;
+      if (this.bathymetricFloor?.group) this.bathymetricFloor.group.position.y = -0.3 * this.verticalExaggeration;
+      if (this.currentVectors) this.currentVectors.setYLevel(0.302 * this.verticalExaggeration);
+      if (this.marinePlatform?.group) this.marinePlatform.group.position.y = 0.3 * this.verticalExaggeration;
       this.updateArgoMarkers(this.argoFloats, this.selectedFloat, this.verticalExaggeration, this.volumeMeta);
     }
 
@@ -279,6 +441,15 @@ export class OceanSceneController {
       const sliceZ = (sliceDepthMeters !== undefined ? sliceDepthMeters : 0) / 2000.0;
       this.slicePlane.position.y = (0.3 - sliceZ * 0.6) * this.verticalExaggeration;
     }
+  }
+
+  setLayerVisibility({ oceanSurface, currentVectors, bathymetricFloor, marinePlatform, argoSensors, volumeRaymarch }) {
+    if (oceanSurface !== undefined && this.waterSurface) this.waterSurface.setVisible(oceanSurface);
+    if (currentVectors !== undefined && this.currentVectors) this.currentVectors.setVisible(currentVectors);
+    if (bathymetricFloor !== undefined && this.bathymetricFloor) this.bathymetricFloor.setVisible(bathymetricFloor);
+    if (marinePlatform !== undefined && this.marinePlatform) this.marinePlatform.setVisible(marinePlatform);
+    if (argoSensors !== undefined && this.floatGroup) this.floatGroup.visible = argoSensors;
+    if (volumeRaymarch !== undefined && this.volMesh) this.volMesh.visible = volumeRaymarch;
   }
 
   updateGridAndBox({ showGrid, showBoundingBox }) {
@@ -299,7 +470,10 @@ export class OceanSceneController {
       const child = this.floatGroup.children[0];
       this.floatGroup.remove(child);
       if (child.geometry) child.geometry.dispose();
-      if (child.material) child.material.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
     }
 
     const minLon = this.volumeMeta?.minLon ?? 58.0;
@@ -318,7 +492,7 @@ export class OceanSceneController {
       const marker = new THREE.Group();
       marker.userData = { platform_number: float.platform_number };
 
-      // Vertical Trajectory Descent Cable
+      // 1. Vertical Profile Descent Trajectory Cable
       const lineGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(normX, surfaceY, normZ),
         new THREE.Vector3(normX, -0.3 * this.verticalExaggeration, normZ),
@@ -332,31 +506,32 @@ export class OceanSceneController {
       line.computeLineDistances();
       marker.add(line);
 
-      // Surface Buoy Marker
-      const buoyGeo = new THREE.CylinderGeometry(0.016, 0.016, 0.045, 16);
+      // 2. High-Visibility Marine Profiler Buoy
+      const buoyGeo = new THREE.CylinderGeometry(0.016, 0.016, 0.042, 16);
       const buoyMat = new THREE.MeshStandardMaterial({
         color: isSelected ? 0x38bdf8 : 0xf59e0b,
         roughness: 0.2,
         metalness: 0.8,
         emissive: isSelected ? 0x0284c7 : 0xd97706,
-        emissiveIntensity: isSelected ? 0.8 : 0.4,
+        emissiveIntensity: isSelected ? 0.9 : 0.4,
       });
       const buoy = new THREE.Mesh(buoyGeo, buoyMat);
-      buoy.position.set(normX, surfaceY + 0.022, normZ);
+      buoy.position.set(normX, surfaceY + 0.02, normZ);
       marker.add(buoy);
 
-      // Surface Halo Ring
-      const haloGeo = new THREE.RingGeometry(0.02, 0.04, 24);
-      haloGeo.rotateX(-Math.PI / 2);
-      const haloMat = new THREE.MeshBasicMaterial({
+      // 3. Acoustic Transmission Pulsing Ring
+      const ringGeo = new THREE.RingGeometry(0.018, 0.032, 24);
+      ringGeo.rotateX(-Math.PI / 2);
+      const ringMat = new THREE.MeshBasicMaterial({
         color: isSelected ? 0x38bdf8 : 0xfbbf24,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: isSelected ? 0.95 : 0.7,
+        opacity: 0.8,
       });
-      const halo = new THREE.Mesh(haloGeo, haloMat);
-      halo.position.set(normX, surfaceY + 0.001, normZ);
-      marker.add(halo);
+      const pingRing = new THREE.Mesh(ringGeo, ringMat);
+      pingRing.name = 'pingRing';
+      pingRing.position.set(normX, surfaceY + 0.002, normZ);
+      marker.add(pingRing);
 
       this.floatGroup.add(marker);
     });
@@ -365,27 +540,54 @@ export class OceanSceneController {
   setCameraPreset(action) {
     if (!this.camera || !this.controls) return;
 
+    this.isCameraLerping = true;
+
     switch (action) {
+      case 'cinematic':
+        // Dramatic low horizon angle across the ocean swell
+        this.cameraTargetPos = new THREE.Vector3(1.4, 0.55, 1.6);
+        this.controlsTargetPos = new THREE.Vector3(0, 0.15, 0);
+        break;
+
+      case 'platform':
+        // Close inspection view focused on the marine intelligence station
+        this.cameraTargetPos = new THREE.Vector3(0.35, 0.42, 0.28);
+        this.controlsTargetPos = new THREE.Vector3(0.18, 0.3 * this.verticalExaggeration, 0.12);
+        break;
+
+      case 'subsurface':
+        // Underwater observation looking up through thermocline
+        this.cameraTargetPos = new THREE.Vector3(0.9, -0.18, 1.2);
+        this.controlsTargetPos = new THREE.Vector3(0, -0.05, 0);
+        break;
+
       case 'top':
-        this.camera.position.set(0, 3.2, 0.001);
-        this.controls.target.set(0, 0, 0);
+      case 'geospatial':
+        // Tactical top-down plan view (North-Up)
+        this.cameraTargetPos = new THREE.Vector3(0, 3.1, 0.001);
+        this.controlsTargetPos = new THREE.Vector3(0, 0, 0);
         break;
+
       case 'front':
-        this.camera.position.set(0, 0.1, 2.8);
-        this.controls.target.set(0, 0, 0);
+        // Front elevation profile
+        this.cameraTargetPos = new THREE.Vector3(0, 0.1, 2.7);
+        this.controlsTargetPos = new THREE.Vector3(0, 0, 0);
         break;
+
       case 'side':
-        this.camera.position.set(2.8, 0.1, 0);
-        this.controls.target.set(0, 0, 0);
+        // Side zonal elevation
+        this.cameraTargetPos = new THREE.Vector3(2.7, 0.1, 0);
+        this.controlsTargetPos = new THREE.Vector3(0, 0, 0);
         break;
+
       case 'iso':
+      case 'operational':
       case 'reset':
       default:
-        this.camera.position.set(1.6, 1.4, 2.2);
-        this.controls.target.set(0, 0, 0);
+        this.cameraTargetPos = new THREE.Vector3(1.6, 1.4, 2.2);
+        this.controlsTargetPos = new THREE.Vector3(0, 0, 0);
         break;
     }
-    this.controls.update();
   }
 
   dispose() {
@@ -399,11 +601,18 @@ export class OceanSceneController {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     }
+
     if (this.renderer?.domElement) {
       this.renderer.domElement.removeEventListener('pointermove', this._handlePointerMove);
       this.renderer.domElement.removeEventListener('pointerdown', this._handlePointerDown);
       this.renderer.dispose();
     }
+
+    if (this.skyDome) this.skyDome.dispose();
+    if (this.waterSurface) this.waterSurface.dispose();
+    if (this.bathymetricFloor) this.bathymetricFloor.dispose();
+    if (this.marinePlatform) this.marinePlatform.dispose();
+    if (this.currentVectors) this.currentVectors.dispose();
 
     if (this.volumeTexture) this.volumeTexture.dispose();
     if (this.volGeo) this.volGeo.dispose();
