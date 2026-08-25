@@ -6,7 +6,8 @@ import {
   Activity,
   Compass,
   Radio,
-  Box
+  Box,
+  Waves
 } from './Icons';
 import { useOceanStore } from '../store/oceanStore';
 
@@ -28,6 +29,8 @@ export const ControlPanel = () => {
     setVerticalExaggeration,
     layers,
     toggleLayer,
+    seaState,
+    setSeaState,
     isControlPanelOpen,
   } = useOceanStore();
 
@@ -57,11 +60,19 @@ export const ControlPanel = () => {
     { id: 'argoSensors', label: 'In-Situ Argo Profiler Network', icon: '📍', color: 'text-purple-300' },
   ];
 
+  const seaStates = [
+    { id: 'calm', label: 'Calm (0.5m)' },
+    { id: 'moderate', label: 'Moderate (1.5m)' },
+    { id: 'rough', label: 'Rough (3.0m)' },
+    { id: 'storm', label: 'Storm (5.0m)' },
+  ];
+
   const resetRenderDefaults = () => {
     setOpacity(1.2);
     setThreshold(0.05);
     setIsoValue(0.65);
     setVerticalExaggeration(1.0);
+    setSeaState('moderate');
   };
 
   return (
@@ -127,7 +138,37 @@ export const ControlPanel = () => {
         </div>
       </div>
 
-      {/* 2. Variable Selector */}
+      {/* 2. Sea State Dynamics */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
+          <div className="flex items-center gap-1">
+            <Waves className="w-3 h-3 text-sky-400" />
+            <span>SEA STATE / SWELL</span>
+          </div>
+          <span className="text-sky-300 font-bold uppercase">{seaState}</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-1 font-mono text-[10px]">
+          {seaStates.map((s) => {
+            const isSelected = seaState === s.id;
+            return (
+              <button
+                key={s.id}
+                onClick={() => setSeaState(s.id)}
+                className={`px-1.5 py-1 border text-center transition-all ${
+                  isSelected
+                    ? 'bg-[#10243e] border-sky-500 text-sky-200 font-bold'
+                    : 'bg-[#0b1322] border-[#1e293b] text-slate-400 hover:bg-[#131f33] hover:text-slate-200'
+                }`}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Variable Selector */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
           <span>STATE VARIABLE / FIELD</span>
@@ -161,7 +202,7 @@ export const ControlPanel = () => {
         </div>
       </div>
 
-      {/* 3. 3D Render Mode */}
+      {/* 4. 3D Render Mode */}
       <div className="flex flex-col gap-1">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400">
           3D SHADING MODE
@@ -190,7 +231,7 @@ export const ControlPanel = () => {
         </div>
       </div>
 
-      {/* 4. Colormap Transfer Function */}
+      {/* 5. Colormap Transfer Function */}
       <div className="flex flex-col gap-1">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400">
           COLORMAP TRANSFER
@@ -219,7 +260,7 @@ export const ControlPanel = () => {
         </div>
       </div>
 
-      {/* 5. Transfer Function Parameters & Sliders */}
+      {/* 6. Transfer Function Parameters & Sliders */}
       <div className="p-2 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-2">
         <div className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 border-b border-[#1e293b] pb-1">
           SHADING PARAMETERS

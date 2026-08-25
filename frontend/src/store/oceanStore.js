@@ -20,6 +20,9 @@ export const useOceanStore = create((set, get) => ({
   enableSlice: false,
   verticalExaggeration: 1.0,
 
+  // Sea State Environmental Simulation
+  seaState: 'moderate', // 'calm' | 'moderate' | 'rough' | 'storm'
+
   // Environmental & Marine Infrastructure Layers
   layers: {
     oceanSurface: true,
@@ -59,6 +62,9 @@ export const useOceanStore = create((set, get) => ({
   volumeBuffer: null,
   volumeMeta: null,
 
+  // Real-Time 3D Cursor Probe Sample
+  cursorProbe: null, // { lon, lat, depth, scalarVal, unit }
+
   // Argo In-Situ Floats & Inspection
   argoFloats: [],
   selectedFloat: null,
@@ -82,12 +88,15 @@ export const useOceanStore = create((set, get) => ({
   showBoundingBox: true,
   cursorCoords: null, // { lon, lat, depth }
 
-  // Panels & Drawers
+  // Panels, Drawers & Shortcuts
   isDiagnosticsOpen: false,
   isControlPanelOpen: true,
   isInspectorOpen: true,
+  isShortcutsModalOpen: false,
 
   // Actions
+  setSeaState: (seaState) => set({ seaState }),
+
   toggleLayer: (layerId) => set((state) => ({
     layers: { ...state.layers, [layerId]: !state.layers[layerId] }
   })),
@@ -100,6 +109,10 @@ export const useOceanStore = create((set, get) => ({
     selectedPlatform: platform,
     activeInspectorTab: 'telemetry',
   }),
+
+  setCursorProbe: (probe) => set({ cursorProbe: probe }),
+
+  toggleShortcutsModal: () => set((state) => ({ isShortcutsModalOpen: !state.isShortcutsModalOpen })),
 
   fetchInitialData: async () => {
     try {

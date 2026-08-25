@@ -42,6 +42,33 @@ export class RealisticWaterSurface {
     }
   }
 
+  setSeaState(state) {
+    if (!this.uniforms) return;
+    switch (state) {
+      case 'calm':
+        this.uniforms.u_waveHeight.value = 0.018;
+        this.uniforms.u_waveSpeed.value = 0.45;
+        this.uniforms.u_roughness.value = 0.08;
+        break;
+      case 'rough':
+        this.uniforms.u_waveHeight.value = 0.085;
+        this.uniforms.u_waveSpeed.value = 0.95;
+        this.uniforms.u_roughness.value = 0.25;
+        break;
+      case 'storm':
+        this.uniforms.u_waveHeight.value = 0.15;
+        this.uniforms.u_waveSpeed.value = 1.35;
+        this.uniforms.u_roughness.value = 0.38;
+        break;
+      case 'moderate':
+      default:
+        this.uniforms.u_waveHeight.value = 0.045;
+        this.uniforms.u_waveSpeed.value = 0.65;
+        this.uniforms.u_roughness.value = 0.15;
+        break;
+    }
+  }
+
   setWaveHeight(height) {
     if (this.uniforms?.u_waveHeight) {
       this.uniforms.u_waveHeight.value = height;

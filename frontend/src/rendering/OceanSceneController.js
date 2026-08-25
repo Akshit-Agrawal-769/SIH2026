@@ -29,11 +29,13 @@ export class OceanSceneController {
     this.onSelectFloat = options.onSelectFloat || (() => {});
     this.onOrbitChange = options.onOrbitChange || (() => {});
     this.onSelectPlatform = options.onSelectPlatform || (() => {});
+    this.onSampleProbe = options.onSampleProbe || (() => {});
 
     this.argoFloats = [];
     this.selectedFloat = null;
     this.verticalExaggeration = 1.0;
     this.volumeMeta = null;
+    this.volumeBuffer = null;
 
     this.clock = new THREE.Clock();
     this.animationId = null;
@@ -290,6 +292,50 @@ export class OceanSceneController {
       }
     }
 
+    // Raycast surface mesh to sample spatial coordinates and physical scalar field
+    const probeTargets = [];
+    if (this.volMesh) probeTargets.push(this.volMesh);
+    if (this.waterSurface?.mesh) probeTargets.push(this.waterSurface.mesh);
+    const probeIntersects = this.raycaster.intersectObjects(probeTargets, false);
+    if (probeIntersects.length > 0 && this.volumeMeta) {
+      const pt = probeIntersects[0].point;
+      const minLon = this.volumeMeta.minLon ?? 58.0;
+      const maxLon = this.volumeMeta.maxLon ?? 96.0;
+      const minLat = this.volumeMeta.minLat ?? 4.0;
+      const maxLat = this.volumeMeta.maxLat ?? 26.0;
+      const maxDepth = this.volumeMeta.maxDepth ?? 2000;
+
+      const normX = THREE.MathUtils.clamp(pt.x + 0.5, 0.0, 1.0);
+      const normZ = THREE.MathUtils.clamp(pt.z + 0.5, 0.0, 1.0);
+      const normY = THREE.MathUtils.clamp((0.3 * this.verticalExaggeration - pt.y) / (0.6 * this.verticalExaggeration), 0.0, 1.0);
+
+      const lon = minLon + normX * (maxLon - minLon);
+      const lat = minLat + normZ * (maxLat - minLat);
+      const depth = normY * maxDepth;
+
+      let scalarVal = null;
+      if (this.volumeBuffer) {
+        const { dimX, dimY, dimZ, minVal, maxVal } = this.volumeMeta;
+        const ix = Math.min(dimX - 1, Math.max(0, Math.floor(normX * dimX)));
+        const iy = Math.min(dimY - 1, Math.max(0, Math.floor(normZ * dimY)));
+        const iz = Math.min(dimZ - 1, Math.max(0, Math.floor(normY * dimZ)));
+        const idx = iz * (dimX * dimY) + iy * dimX + ix;
+        const raw = this.volumeBuffer[idx];
+        if (raw !== undefined && !isNaN(raw)) {
+          scalarVal = minVal + raw * (maxVal - minVal);
+        }
+      }
+
+      this.onSampleProbe({
+        lon,
+        lat,
+        depth,
+        scalarVal,
+        units: this.volumeMeta.units,
+        variable: this.volumeMeta.variable,
+      });
+    }
+
     this.onHoverFloat(null);
     this.container.style.cursor = 'grab';
   }
@@ -330,9 +376,16 @@ export class OceanSceneController {
     this.renderer.setSize(w, h);
   }
 
+  setSeaState(seaState) {
+    if (this.waterSurface) {
+      this.waterSurface.setSeaState(seaState);
+    }
+  }
+
   updateVolumeData(volumeBuffer, volumeMeta) {
     if (!volumeBuffer || !volumeMeta || !this.volumeMaterial) return;
 
+    this.volumeBuffer = volumeBuffer;
     this.volumeMeta = volumeMeta;
     const { dimX, dimY, dimZ } = volumeMeta;
 

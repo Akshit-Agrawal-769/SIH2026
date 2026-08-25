@@ -144,6 +144,16 @@ export const Header = () => {
           <span className="hidden sm:inline text-[11px]">DIAGNOSTICS</span>
         </button>
 
+        {/* Shortcuts Reference Toggle */}
+        <button
+          onClick={() => useOceanStore.getState().toggleShortcutsModal()}
+          title="Keyboard Shortcuts & Operations Help (?)"
+          className="flex items-center gap-1 px-2 py-1 text-xs font-mono border bg-[#0c1424] border-[#1e293b] text-slate-400 hover:text-sky-300 hover:border-sky-500 transition-colors"
+        >
+          <span className="font-bold text-sky-400">?</span>
+          <span className="hidden sm:inline text-[11px]">HELP</span>
+        </button>
+
         {/* Backend Health Status */}
         <div className="flex items-center gap-2 px-2 py-1 bg-[#0c1424] border border-[#1e293b] text-xs font-mono">
           <span className="hidden xl:inline text-[10px] text-slate-400 uppercase tracking-wider">
