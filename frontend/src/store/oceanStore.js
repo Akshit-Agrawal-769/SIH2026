@@ -195,25 +195,27 @@ export const useOceanStore = create((set, get) => ({
   },
 
   fetchVolumeData: async () => {
-    const { activeDataset, variable, timeIndex } = get();
+    const { activeDataset, variable, timeIndex, metadata } = get();
     if (!activeDataset) return;
     try {
-      set({ isLoading: true, loadingMessage: `STREAMING SCIENTIFIC FLOAT32 BUFFER (${variable.toUpperCase()}, T+${timeIndex * 24}h)` });
+      const timeLabel = metadata?.time_range?.[timeIndex] || `Step ${timeIndex + 1}`;
+      set({ isLoading: true, loadingMessage: `STREAMING SCIENTIFIC FLOAT32 BUFFER (${variable.toUpperCase()}, ${timeLabel})` });
       const url = `/api/v1/model/volume3d?filename=${encodeURIComponent(activeDataset)}&variable=${variable}&time_idx=${timeIndex}&dim_x=64&dim_y=64&dim_z=32`;
       const res = await fetch(url);
       if (!res.ok) {
         throw new Error(`Volume fetch failed with status ${res.status}`);
       }
 
+      const currentBounds = metadata?.bounds || {};
       const minVal = parseFloat(res.headers.get('X-Data-Min') || '0');
       const maxVal = parseFloat(res.headers.get('X-Data-Max') || '1');
       const dimX = parseInt(res.headers.get('X-Dim-X') || '64', 10);
       const dimY = parseInt(res.headers.get('X-Dim-Y') || '64', 10);
       const dimZ = parseInt(res.headers.get('X-Dim-Z') || '32', 10);
-      const minLon = parseFloat(res.headers.get('X-Min-Lon') || '58');
-      const maxLon = parseFloat(res.headers.get('X-Max-Lon') || '96');
-      const minLat = parseFloat(res.headers.get('X-Min-Lat') || '4');
-      const maxLat = parseFloat(res.headers.get('X-Max-Lat') || '26');
+      const minLon = parseFloat(res.headers.get('X-Min-Lon') || String(currentBounds.min_lon ?? 30.0));
+      const maxLon = parseFloat(res.headers.get('X-Max-Lon') || String(currentBounds.max_lon ?? 120.0));
+      const minLat = parseFloat(res.headers.get('X-Min-Lat') || String(currentBounds.min_lat ?? -30.0));
+      const maxLat = parseFloat(res.headers.get('X-Max-Lat') || String(currentBounds.max_lat ?? 30.0));
       const minDepth = parseFloat(res.headers.get('X-Min-Depth') || '0');
       const maxDepth = parseFloat(res.headers.get('X-Max-Depth') || '2000');
       const hasNan = res.headers.get('X-Has-Nan') === 'True';

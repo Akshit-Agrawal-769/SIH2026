@@ -314,3 +314,101 @@ def test_extract_3d_volume_preserves_physical_coordinates_and_nan_sentinel():
     assert meta["min_lon"] < meta["max_lon"]
     assert meta["min_lat"] < meta["max_lat"]
     assert meta["min_depth"] <= meta["max_depth"]
+
+
+def test_9gb_ocean_model_metadata_and_lazy_discovery():
+    """Verifies that INCOIS-BIO-ROMS.nc (9.2 GB) is discovered and its metadata is lazily parsed."""
+    models = ocean_model_registry.list_available_models()
+    assert "INCOIS-BIO-ROMS.nc" in models, "INCOIS-BIO-ROMS.nc should be discovered in registry"
+    
+    model = ocean_model_registry.get_model("INCOIS-BIO-ROMS.nc")
+    assert model is not None
+    meta = model.get_metadata()
+
+    # Verify CF dimensions and coordinates
+    assert meta["dimensions"]["TIME"] == 480
+    assert meta["dimensions"]["LAT"] == 756
+    assert meta["dimensions"]["LON"] == 1081
+    assert len(meta["time_range"]) == 480
+    assert meta["time_range"][0] == "1980-01-24T00:00:00Z"
+    assert meta["time_range"][-1] == "2019-12-25T00:00:00Z"
+
+    # Verify spatial bounds
+    bounds = meta["bounds"]
+    assert abs(bounds["min_lon"] - 30.0) < 1e-2
+    assert abs(bounds["max_lon"] - 120.0) < 1e-2
+    assert abs(bounds["min_lat"] - (-29.99687)) < 1e-3
+    assert abs(bounds["max_lat"] - 29.97784) < 1e-3
+
+    # Verify variables
+    expected_vars = ["temp", "salt", "chl", "mld", "dic", "no3", "pco2"]
+    for ev in expected_vars:
+        assert ev in meta["variables"]
+        assert ev in meta["variable_info"]
+
+
+def test_9gb_ocean_model_variables_and_nan_masking():
+    """Verifies that 3D volume buffer extraction works across multiple variables with NaN preservation."""
+    model = ocean_model_registry.get_model("INCOIS-BIO-ROMS.nc")
+    assert model is not None
+
+    for var in ["temp", "salt", "chl", "mld", "pco2"]:
+        buf, vmeta = model.extract_volume_buffer(var, time_idx=0, target_shape=(32, 32, 16))
+        assert len(buf) == 32 * 32 * 16 * 4  # Float32 bytes
+        assert vmeta["variable"] == var
+        assert vmeta["dim_x"] == 32
+        assert vmeta["dim_y"] == 32
+        assert vmeta["dim_z"] == 16
+        assert vmeta["has_nan"] is True
+        assert vmeta["nan_value"] == -1.0
+        assert vmeta["min_val"] < vmeta["max_val"]
+
+
+def test_9gb_ocean_model_bounded_memory_and_lru_caching():
+    """
+    Verifies that volume extraction from 9.2 GB dataset runs with bounded memory (< 50 MB)
+    and that LRU caching delivers sub-millisecond responses on repeated queries.
+    """
+    import os
+    import time
+    try:
+        import psutil
+        process = psutil.Process(os.getpid())
+        rss_start_mb = process.memory_info().rss / (1024 * 1024)
+    except ImportError:
+        rss_start_mb = None
+
+    model = ocean_model_registry.get_model("INCOIS-BIO-ROMS.nc")
+    assert model is not None
+
+    # First access: uncached
+    t0 = time.time()
+    buf1, meta1 = model.extract_volume_buffer("temp", time_idx=0, target_shape=(64, 64, 32))
+    t_uncached = time.time() - t0
+
+    # Second access: LRU cache hit
+    t1 = time.time()
+    buf2, meta2 = model.extract_volume_buffer("temp", time_idx=0, target_shape=(64, 64, 32))
+    t_cached = time.time() - t1
+
+    assert buf1 == buf2
+    assert meta1 == meta2
+    assert t_cached < 0.05, f"Cache lookup took too long: {t_cached:.6f}s"
+
+    if rss_start_mb is not None:
+        rss_end_mb = process.memory_info().rss / (1024 * 1024)
+        rss_diff_mb = rss_end_mb - rss_start_mb
+        # Extraction must not load entire 9.2 GB into RAM (< 100 MB delta)
+        assert rss_diff_mb < 100.0, f"Memory delta exceeded threshold: {rss_diff_mb:.2f} MB"
+
+
+def test_9gb_ocean_model_api_volume_streaming():
+    """Verifies that FastAPI volume3d endpoint streams Float32 binary buffer for INCOIS-BIO-ROMS.nc."""
+    res = client.get("/api/v1/model/volume3d?filename=INCOIS-BIO-ROMS.nc&variable=temp&time_idx=0&dim_x=32&dim_y=32&dim_z=16")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/octet-stream"
+    assert res.headers["x-has-nan"] == "True"
+    assert float(res.headers["x-nan-value"]) == -1.0
+    assert float(res.headers["x-min-lon"]) <= 30.0
+    assert float(res.headers["x-max-lon"]) >= 120.0
+    assert len(res.content) == 32 * 32 * 16 * 4

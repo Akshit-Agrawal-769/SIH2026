@@ -16,6 +16,7 @@ export const Header = () => {
     selectDataset,
     variable,
     timeIndex,
+    metadata,
     isDiagnosticsOpen,
     toggleDiagnostics,
     isControlPanelOpen,
@@ -25,12 +26,19 @@ export const Header = () => {
   } = useOceanStore();
 
   const getVarLabel = (v) => {
+    if (metadata?.variable_info?.[v]?.long_name) {
+      return `${v.toUpperCase()} (${metadata.variable_info[v].long_name.split('(')[0].trim()})`;
+    }
     switch (v) {
-      case 'temp': return 'TEMP (theta)';
-      case 'salt': return 'PSAL (Sp)';
+      case 'temp': return 'TEMP (SST)';
+      case 'salt': return 'PSAL (SSS)';
       case 'u': return 'U-VEL (u)';
       case 'v': return 'V-VEL (v)';
       case 'chl': return 'CHLA (chl)';
+      case 'mld': return 'MLD (depth)';
+      case 'dic': return 'DIC (carbon)';
+      case 'no3': return 'NO3 (nitrate)';
+      case 'pco2': return 'pCO2 (atm)';
       default: return v?.toUpperCase() || 'TEMP';
     }
   };
@@ -82,7 +90,9 @@ export const Header = () => {
           <Compass className="w-3 h-3 text-teal-400 shrink-0" />
           <span className="text-slate-400">DOMAIN:</span>
           <span className="text-slate-200">
-            58.00°E—96.00°E, 4.00°N—26.00°N
+            {metadata?.bounds
+              ? `${metadata.bounds.min_lon.toFixed(1)}°E—${metadata.bounds.max_lon.toFixed(1)}°E, ${metadata.bounds.min_lat.toFixed(1)}°N—${metadata.bounds.max_lat.toFixed(1)}°N`
+              : '30.0°E—120.0°E, -30.0°N—30.0°N'}
           </span>
         </div>
 
@@ -93,9 +103,11 @@ export const Header = () => {
             {getVarLabel(variable)}
           </span>
           <span className="text-slate-600">|</span>
-          <span className="text-slate-400">STEP:</span>
+          <span className="text-slate-400">DATE:</span>
           <span className="text-teal-300 font-bold">
-            T+{timeIndex * 24}h
+            {metadata?.time_range?.[timeIndex]
+              ? metadata.time_range[timeIndex].split('T')[0]
+              : `Step ${timeIndex + 1}`}
           </span>
         </div>
       </div>

@@ -250,11 +250,11 @@ export const InspectorPanel = () => {
                 <div className="grid grid-cols-2 gap-1 font-mono text-[10px] text-slate-300">
                   <div className="bg-[#070c18] p-1 border border-[#1e293b]">
                     <span className="text-slate-500 block text-[9px]">LONGITUDE</span>
-                    {metadata.bounds?.min_lon ?? 58.0}°E — {metadata.bounds?.max_lon ?? 96.0}°E
+                    {metadata.bounds?.min_lon?.toFixed(1) ?? '30.0'}°E — {metadata.bounds?.max_lon?.toFixed(1) ?? '120.0'}°E
                   </div>
                   <div className="bg-[#070c18] p-1 border border-[#1e293b]">
                     <span className="text-slate-500 block text-[9px]">LATITUDE</span>
-                    {metadata.bounds?.min_lat ?? 4.0}°N — {metadata.bounds?.max_lat ?? 26.0}°N
+                    {metadata.bounds?.min_lat?.toFixed(1) ?? '-30.0'}°N — {metadata.bounds?.max_lat?.toFixed(1) ?? '30.0'}°N
                   </div>
                 </div>
               </div>
@@ -264,15 +264,15 @@ export const InspectorPanel = () => {
                 <div className="grid grid-cols-3 gap-1 font-mono text-center text-[10px]">
                   <div className="bg-[#070c18] p-1 border border-[#1e293b]">
                     <span className="text-slate-500 block text-[9px]">Nx (Lon)</span>
-                    <strong className="text-sky-300 tabular-nums">{metadata.dimensions?.lon || volumeMeta?.dimX || 64}</strong>
+                    <strong className="text-sky-300 tabular-nums">{metadata.dimensions?.LON || metadata.dimensions?.lon || volumeMeta?.dimX || 64}</strong>
                   </div>
                   <div className="bg-[#070c18] p-1 border border-[#1e293b]">
                     <span className="text-slate-500 block text-[9px]">Ny (Lat)</span>
-                    <strong className="text-sky-300 tabular-nums">{metadata.dimensions?.lat || volumeMeta?.dimY || 64}</strong>
+                    <strong className="text-sky-300 tabular-nums">{metadata.dimensions?.LAT || metadata.dimensions?.lat || volumeMeta?.dimY || 64}</strong>
                   </div>
                   <div className="bg-[#070c18] p-1 border border-[#1e293b]">
-                    <span className="text-slate-500 block text-[9px]">Nz (Depth)</span>
-                    <strong className="text-sky-300 tabular-nums">{metadata.dimensions?.depth || volumeMeta?.dimZ || 32}</strong>
+                    <span className="text-slate-500 block text-[9px]">Nt (Time)</span>
+                    <strong className="text-sky-300 tabular-nums">{metadata.dimensions?.TIME || metadata.dimensions?.time || metadata.dimensions?.depth || volumeMeta?.dimZ || 32}</strong>
                   </div>
                 </div>
               </div>

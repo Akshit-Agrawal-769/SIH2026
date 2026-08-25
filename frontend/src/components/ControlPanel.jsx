@@ -31,18 +31,29 @@ export const ControlPanel = () => {
     toggleLayer,
     seaState,
     setSeaState,
+    metadata,
     isControlPanelOpen,
   } = useOceanStore();
 
   if (!isControlPanelOpen) return null;
 
-  const variables = [
-    { id: 'temp', label: 'Potential Temperature', code: 'TEMP', units: '°C' },
-    { id: 'salt', label: 'Practical Salinity', code: 'PSAL', units: 'PSU' },
-    { id: 'u', label: 'Zonal Velocity', code: 'U-VEL', units: 'm/s' },
-    { id: 'v', label: 'Meridional Velocity', code: 'V-VEL', units: 'm/s' },
-    { id: 'chl', label: 'Chlorophyll-a', code: 'CHLA', units: 'mg/m³' },
-  ];
+  const variables = metadata?.variables && metadata.variables.length > 0
+    ? metadata.variables.map((v) => {
+        const vinfo = metadata.variable_info?.[v];
+        return {
+          id: v,
+          label: vinfo?.long_name || v.toUpperCase(),
+          code: (vinfo?.raw_name || v).toUpperCase().slice(0, 8),
+          units: vinfo?.units || '',
+        };
+      })
+    : [
+        { id: 'temp', label: 'Potential Temperature', code: 'TEMP', units: '°C' },
+        { id: 'salt', label: 'Practical Salinity', code: 'PSAL', units: 'PSU' },
+        { id: 'u', label: 'Zonal Velocity', code: 'U-VEL', units: 'm/s' },
+        { id: 'v', label: 'Meridional Velocity', code: 'V-VEL', units: 'm/s' },
+        { id: 'chl', label: 'Chlorophyll-a', code: 'CHLA', units: 'mg/m³' },
+      ];
 
   const colormaps = [
     { id: 'turbo', label: 'Turbo', gradient: 'linear-gradient(to right, #30123b, #4184f3, #1ae4b6, #a2fc3c, #fb8022, #7a0403)' },

@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -18,6 +18,8 @@ class Settings(BaseSettings):
         "DATASETS_DIR", 
         os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../datasets"))
     )
+
+    OCEAN_DATASET_PATH: Optional[str] = os.getenv("OCEAN_DATASET_PATH", None)
 
     model_config = SettingsConfigDict(case_sensitive=True)
 
