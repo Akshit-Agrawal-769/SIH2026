@@ -1,0 +1,20 @@
+# Datasets & Large Binaries (Client-only Vercel frontend build)
+datasets/
+*.nc
+*.nc4
+*.bin
+*.shp
+*.dbf
+*.shx
+
+# Backend & Ingestion Pipelines (Kept on server-side compute)
+backend/
+ingestion/
+__pycache__/
+*.py
+
+# Test Caches & Logs
+.pytest_cache/
+.coverage
+htmlcov/
+*.log

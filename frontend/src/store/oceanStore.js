@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
 export const useOceanStore = create((set, get) => ({
   // Multi-Page Navigation
   // 'home' | 'explorer' | 'coordinates' | 'argo' | 'comparison' | 'analytics' | 'data' | 'methodology'
@@ -136,7 +138,7 @@ export const useOceanStore = create((set, get) => ({
       // 1. Health check
       let health = null;
       try {
-        const healthRes = await fetch('/api/v1/health');
+        const healthRes = await fetch(`${API_BASE}/api/v1/health`);
         if (healthRes.ok) {
           health = await healthRes.json();
           set({ health });
@@ -148,7 +150,7 @@ export const useOceanStore = create((set, get) => ({
       // 2. Available model datasets
       let datasets = [];
       try {
-        const modelRes = await fetch('/api/v1/model/datasets');
+        const modelRes = await fetch(`${API_BASE}/api/v1/model/datasets`);
         if (modelRes.ok) {
           const modelData = await modelRes.json();
           datasets = modelData.datasets || [];
@@ -160,7 +162,7 @@ export const useOceanStore = create((set, get) => ({
 
       // 3. Argo in-situ floats
       try {
-        const argoRes = await fetch('/api/v1/observations/argo');
+        const argoRes = await fetch(`${API_BASE}/api/v1/observations/argo`);
         if (argoRes.ok) {
           const argoData = await argoRes.json();
           const argoFloats = Array.isArray(argoData) ? argoData : [];
@@ -195,7 +197,7 @@ export const useOceanStore = create((set, get) => ({
     if (!dataset) return;
     try {
       set({ activeDataset: dataset, isLoading: true, loadingMessage: `LOADING MODEL METADATA: ${dataset}`, errorState: null });
-      const metaRes = await fetch(`/api/v1/model/metadata?filename=${encodeURIComponent(dataset)}`);
+      const metaRes = await fetch(`${API_BASE}/api/v1/model/metadata?filename=${encodeURIComponent(dataset)}`);
       if (!metaRes.ok) {
         throw new Error(`Model metadata fetch failed with status ${metaRes.status}`);
       }
@@ -215,7 +217,7 @@ export const useOceanStore = create((set, get) => ({
     try {
       const timeLabel = metadata?.time_range?.[timeIndex] || `Step ${timeIndex + 1}`;
       set({ isLoading: true, loadingMessage: `STREAMING SCIENTIFIC FLOAT32 BUFFER (${variable.toUpperCase()}, ${timeLabel})` });
-      const url = `/api/v1/model/volume3d?filename=${encodeURIComponent(activeDataset)}&variable=${variable}&time_idx=${timeIndex}&dim_x=64&dim_y=64&dim_z=32`;
+      const url = `${API_BASE}/api/v1/model/volume3d?filename=${encodeURIComponent(activeDataset)}&variable=${variable}&time_idx=${timeIndex}&dim_x=64&dim_y=64&dim_z=32`;
       const res = await fetch(url);
       if (!res.ok) {
         throw new Error(`Volume fetch failed with status ${res.status}`);
@@ -323,7 +325,7 @@ export const useOceanStore = create((set, get) => ({
     const compVar = (variable === 'salt' || variable === 'temp') ? variable : 'temp';
     try {
       set({ isLoading: true, loadingMessage: `CALCULATING 4D RESIDUALS FOR WMO ${platformNumber}` });
-      let url = `/api/v1/comparison/profile?platform_number=${encodeURIComponent(platformNumber)}&variable=${compVar}`;
+      let url = `${API_BASE}/api/v1/comparison/profile?platform_number=${encodeURIComponent(platformNumber)}&variable=${compVar}`;
       if (activeDataset) {
         url += `&model_filename=${encodeURIComponent(activeDataset)}`;
       }
