@@ -1,7 +1,12 @@
 import React from 'react';
 import {
   RotateCcw,
-  Sliders
+  Sliders,
+  Layers,
+  Activity,
+  Compass,
+  Radio,
+  Box
 } from './Icons';
 import { useOceanStore } from '../store/oceanStore';
 
@@ -21,6 +26,8 @@ export const ControlPanel = () => {
     setIsoValue,
     verticalExaggeration,
     setVerticalExaggeration,
+    layers,
+    toggleLayer,
     isControlPanelOpen,
   } = useOceanStore();
 
@@ -39,6 +46,15 @@ export const ControlPanel = () => {
     { id: 'viridis', label: 'Viridis', gradient: 'linear-gradient(to right, #440154, #3b528b, #21908d, #5dc963, #fde725)' },
     { id: 'thermal', label: 'Thermal', gradient: 'linear-gradient(to right, #0d2673, #19b2cc, #f2d933, #e6331a)' },
     { id: 'jet', label: 'Jet', gradient: 'linear-gradient(to right, #000080, #00ffff, #ffff00, #ff0000)' },
+  ];
+
+  const layerItems = [
+    { id: 'oceanSurface', label: 'Realistic Ocean Surface (Swell)', icon: '🌊', color: 'text-sky-300' },
+    { id: 'currentVectors', label: 'Current Velocity Streamlines (u,v)', icon: '💨', color: 'text-teal-300' },
+    { id: 'volumeRaymarch', label: '3D Volumetric Scalar Field', icon: '🧊', color: 'text-indigo-300' },
+    { id: 'bathymetricFloor', label: 'Bathymetric Seabed & Relief', icon: '⛰️', color: 'text-emerald-300' },
+    { id: 'marinePlatform', label: 'Moored Intelligence Platform', icon: '📡', color: 'text-amber-300' },
+    { id: 'argoSensors', label: 'In-Situ Argo Profiler Network', icon: '📍', color: 'text-purple-300' },
   ];
 
   const resetRenderDefaults = () => {
@@ -67,10 +83,54 @@ export const ControlPanel = () => {
         </button>
       </div>
 
-      {/* 1. Variable Selector */}
+      {/* 1. Environmental Layers Stack */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
-          <span>VARIABLE / FIELD</span>
+          <div className="flex items-center gap-1">
+            <Layers className="w-3 h-3 text-sky-400" />
+            <span>ENVIRONMENTAL LAYERS</span>
+          </div>
+          <span className="text-amber-400 font-bold tabular-nums">
+            {Object.values(layers).filter(Boolean).length}/6
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-0.5">
+          {layerItems.map((item) => {
+            const isEnabled = !!layers[item.id];
+            return (
+              <button
+                key={item.id}
+                onClick={() => toggleLayer(item.id)}
+                className={`flex items-center justify-between px-2 py-1 text-left border transition-all ${
+                  isEnabled
+                    ? 'bg-[#0f1f33] border-sky-500/70 text-slate-100'
+                    : 'bg-[#0b1322] border-[#1e293b] text-slate-500 hover:bg-[#131f33] hover:text-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="text-[11px]">{item.icon}</span>
+                  <span className={`text-[10px] font-mono truncate ${isEnabled ? item.color : 'text-slate-500'}`}>
+                    {item.label}
+                  </span>
+                </div>
+                <span className={`text-[9px] font-mono font-bold px-1 py-0.2 border shrink-0 ${
+                  isEnabled
+                    ? 'bg-sky-500/20 border-sky-500/50 text-sky-300'
+                    : 'bg-[#070c18] border-[#1e293b] text-slate-600'
+                }`}>
+                  {isEnabled ? 'ON' : 'OFF'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 2. Variable Selector */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
+          <span>STATE VARIABLE / FIELD</span>
           <span className="text-sky-400">
             {variables.find(v => v.id === variable)?.units || ''}
           </span>
@@ -101,7 +161,7 @@ export const ControlPanel = () => {
         </div>
       </div>
 
-      {/* 2. 3D Render Mode */}
+      {/* 3. 3D Render Mode */}
       <div className="flex flex-col gap-1">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400">
           3D SHADING MODE
@@ -130,7 +190,7 @@ export const ControlPanel = () => {
         </div>
       </div>
 
-      {/* 3. Colormap Transfer Function */}
+      {/* 4. Colormap Transfer Function */}
       <div className="flex flex-col gap-1">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400">
           COLORMAP TRANSFER
@@ -159,7 +219,7 @@ export const ControlPanel = () => {
         </div>
       </div>
 
-      {/* 4. Transfer Function Parameters & Sliders */}
+      {/* 5. Transfer Function Parameters & Sliders */}
       <div className="p-2 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-2">
         <div className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 border-b border-[#1e293b] pb-1">
           SHADING PARAMETERS

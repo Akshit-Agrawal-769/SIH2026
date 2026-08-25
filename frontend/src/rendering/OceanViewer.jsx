@@ -6,7 +6,10 @@ import {
   Grid,
   Box,
   Crosshair,
-  AlertTriangle
+  AlertTriangle,
+  Compass,
+  Layers,
+  Radio
 } from '../components/Icons';
 
 export const OceanViewer = () => {
@@ -27,9 +30,11 @@ export const OceanViewer = () => {
     sliceDepthMeters,
     enableSlice,
     verticalExaggeration,
+    layers,
     argoFloats,
     selectedFloat,
     selectFloat,
+    selectPlatform,
     isLoading,
     loadingMessage,
     errorState,
@@ -49,6 +54,7 @@ export const OceanViewer = () => {
     const controller = new OceanSceneController(container, {
       onHoverFloat: (f) => setHoveredFloat(f),
       onSelectFloat: (f) => selectFloat(f),
+      onSelectPlatform: (p) => selectPlatform(p),
       onOrbitChange: (stats) => setOrbitStats(stats),
     });
     controllerRef.current = controller;
@@ -57,7 +63,7 @@ export const OceanViewer = () => {
       controller.dispose();
       controllerRef.current = null;
     };
-  }, [selectFloat]);
+  }, [selectFloat, selectPlatform]);
 
   // Sync Camera Actions
   useEffect(() => {
@@ -87,6 +93,12 @@ export const OceanViewer = () => {
     });
   }, [opacity, threshold, isoValue, renderMode, colormap, sliceDepthMeters, enableSlice, verticalExaggeration]);
 
+  // Sync Environmental & Marine Layers Visibility
+  useEffect(() => {
+    if (!controllerRef.current) return;
+    controllerRef.current.setLayerVisibility(layers);
+  }, [layers]);
+
   // Sync Grid and Bounding Box Visibility
   useEffect(() => {
     if (!controllerRef.current) return;
@@ -107,32 +119,39 @@ export const OceanViewer = () => {
       {/* Top-Right Camera Viewport Toolbar */}
       <div className="absolute top-2 right-2 z-20 flex items-center gap-1 p-1 bg-[#080e1a] border border-[#1e293b] text-slate-300 shadow-md">
         <button
+          onClick={() => useOceanStore.getState().triggerCameraAction('cinematic')}
+          title="Cinematic Low-Horizon Ocean Perspective"
+          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors"
+        >
+          CINEMATIC
+        </button>
+        <button
+          onClick={() => useOceanStore.getState().triggerCameraAction('platform')}
+          title="Focus on Moored Intelligence Station"
+          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors text-amber-300 font-bold"
+        >
+          STATION
+        </button>
+        <button
+          onClick={() => useOceanStore.getState().triggerCameraAction('geospatial')}
+          title="Tactical Top-Down Plan View (North Up)"
+          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors"
+        >
+          GEOSPATIAL
+        </button>
+        <button
+          onClick={() => useOceanStore.getState().triggerCameraAction('subsurface')}
+          title="Subsurface Thermocline Profiling View"
+          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors text-teal-300"
+        >
+          SUBSURFACE
+        </button>
+        <button
           onClick={() => useOceanStore.getState().triggerCameraAction('iso')}
           title="Isometric 3D Perspective"
           className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors"
         >
           3D ISO
-        </button>
-        <button
-          onClick={() => useOceanStore.getState().triggerCameraAction('top')}
-          title="Top-Down Plan View (North Up)"
-          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors"
-        >
-          TOP
-        </button>
-        <button
-          onClick={() => useOceanStore.getState().triggerCameraAction('front')}
-          title="Front Elevation View (Depth Profile)"
-          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors"
-        >
-          FRONT
-        </button>
-        <button
-          onClick={() => useOceanStore.getState().triggerCameraAction('side')}
-          title="Side Elevation View (Zonal)"
-          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors"
-        >
-          SIDE
         </button>
         <div className="w-[1px] h-3 bg-[#1e293b] mx-0.5" />
         <button
@@ -163,10 +182,10 @@ export const OceanViewer = () => {
       </div>
 
       {/* Top-Left Viewport Spatial Coordinates & Resolution HUD */}
-      <div className="hidden sm:flex absolute top-2 left-2 z-10 items-center gap-2 px-2 py-1 bg-[#080e1a] border border-[#1e293b] text-[10px] font-mono text-slate-300 shadow-md">
-        <div className="flex items-center gap-1">
-          <Crosshair className="w-3 h-3 text-sky-400" />
-          <span className="text-slate-400">ROMS 3D</span>
+      <div className="hidden sm:flex absolute top-2 left-2 z-10 items-center gap-2 px-2.5 py-1 bg-[#080e1a] border border-[#1e293b] text-[10px] font-mono text-slate-300 shadow-md">
+        <div className="flex items-center gap-1.5 font-bold text-sky-300">
+          <Radio className="w-3 h-3 text-sky-400" />
+          <span>INCOIS OCEAN 3D</span>
         </div>
         <span className="text-slate-600">|</span>
         <div className="text-slate-400">
@@ -176,10 +195,15 @@ export const OceanViewer = () => {
         <div className="text-slate-400">
           Z: <span className="text-slate-200">0—2000 m</span>
         </div>
+        <span className="text-slate-600">|</span>
+        <div className="text-slate-400 flex items-center gap-1">
+          <Layers className="w-3 h-3 text-amber-400" />
+          <span className="text-amber-300">{Object.values(layers).filter(Boolean).length} Active Layers</span>
+        </div>
       </div>
 
       {/* Bottom Viewport Camera Orientation Readout */}
-      <div className="hidden md:flex absolute bottom-2 right-2 z-10 items-center gap-2 px-2 py-0.5 bg-[#080e1a] border border-[#1e293b] text-[9px] font-mono text-slate-400 shadow-md">
+      <div className="hidden md:flex absolute bottom-2 right-2 z-10 items-center gap-2 px-2.5 py-0.5 bg-[#080e1a] border border-[#1e293b] text-[9px] font-mono text-slate-400 shadow-md">
         <span>AZ: <strong className="text-slate-200">{orbitStats.azimuth}°</strong></span>
         <span>EL: <strong className="text-slate-200">{orbitStats.elevation}°</strong></span>
         <span>R: <strong className="text-slate-200">{orbitStats.zoom}x</strong></span>

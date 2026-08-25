@@ -1,7 +1,12 @@
 import React from 'react';
 import {
   TrendingUp,
-  ChevronRight
+  Compass,
+  Radio,
+  Activity,
+  Sliders,
+  Info,
+  Database
 } from './Icons';
 import { useOceanStore } from '../store/oceanStore';
 
@@ -13,10 +18,12 @@ export const InspectorPanel = () => {
     argoFloats,
     selectFloat,
     selectFloatAndCompare,
+    platformTelemetry,
     metadata,
     activeDataset,
     volumeMeta,
     isInspectorOpen,
+    triggerCameraAction,
   } = useOceanStore();
 
   if (!isInspectorOpen) return null;
@@ -24,11 +31,11 @@ export const InspectorPanel = () => {
   return (
     <aside className="w-72 h-full bg-[#080e1a] border-l border-[#1e293b] p-3 text-slate-200 flex flex-col gap-3 text-xs select-none overflow-y-auto custom-scrollbar shrink-0">
 
-      {/* Inspector Tabs */}
-      <div className="grid grid-cols-2 bg-[#0c1424] border border-[#1e293b] text-xs font-mono">
+      {/* 3-Tab Selector */}
+      <div className="grid grid-cols-3 bg-[#0c1424] border border-[#1e293b] text-[10px] font-mono">
         <button
           onClick={() => setActiveInspectorTab('argo')}
-          className={`py-1 text-center font-bold tracking-wider transition-all ${
+          className={`py-1.5 text-center font-bold tracking-wider transition-all ${
             activeInspectorTab === 'argo'
               ? 'bg-[#291b05] text-amber-300 border-b-2 border-amber-500'
               : 'text-slate-400 hover:text-slate-200'
@@ -37,14 +44,24 @@ export const InspectorPanel = () => {
           ARGO IN-SITU
         </button>
         <button
+          onClick={() => setActiveInspectorTab('telemetry')}
+          className={`py-1.5 text-center font-bold tracking-wider transition-all ${
+            activeInspectorTab === 'telemetry'
+              ? 'bg-[#0f2d2a] text-teal-300 border-b-2 border-teal-500'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          STATION
+        </button>
+        <button
           onClick={() => setActiveInspectorTab('metadata')}
-          className={`py-1 text-center font-bold tracking-wider transition-all ${
+          className={`py-1.5 text-center font-bold tracking-wider transition-all ${
             activeInspectorTab === 'metadata'
               ? 'bg-[#0a1e38] text-sky-300 border-b-2 border-sky-500'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          MODEL METADATA
+          METADATA
         </button>
       </div>
 
@@ -142,7 +159,82 @@ export const InspectorPanel = () => {
         </div>
       )}
 
-      {/* Tab 2: Model Metadata Inspector */}
+      {/* Tab 2: Marine Station Telemetry Dashboard */}
+      {activeInspectorTab === 'telemetry' && (
+        <div className="flex flex-col gap-2.5">
+          {/* Station Overview Card */}
+          <div className="p-2.5 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-2 font-mono">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-emerald-400 rounded-none shrink-0" />
+                <span className="text-xs font-bold text-teal-300 uppercase">
+                  {platformTelemetry.id}
+                </span>
+              </div>
+              <span className="text-[9px] px-1 py-0.2 bg-emerald-950 border border-emerald-500/50 text-emerald-300 font-bold">
+                ONLINE
+              </span>
+            </div>
+
+            <div className="text-[10px] text-slate-300 leading-tight">
+              {platformTelemetry.name}
+            </div>
+
+            <div className="grid grid-cols-2 gap-1 text-[10px] bg-[#070c18] p-1.5 border border-[#1e293b]">
+              <div>
+                <span className="text-slate-500 block text-[9px]">POSITION</span>
+                <span className="text-slate-200 font-bold">{platformTelemetry.latitude.toFixed(2)}°N, {platformTelemetry.longitude.toFixed(2)}°E</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[9px]">BATTERY / SOLAR</span>
+                <span className="text-emerald-300 font-bold">{platformTelemetry.battery_level}% Nominal</span>
+              </div>
+            </div>
+
+            {/* Environmental Real-Time Scorecard */}
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-t border-[#1e293b] pt-1.5">
+              REAL-TIME SEA STATE TELEMETRY
+            </div>
+
+            <div className="grid grid-cols-2 gap-1 text-[10px]">
+              <div className="bg-[#070c18] p-1.5 border border-[#1e293b]">
+                <span className="text-slate-500 block text-[9px]">SEA SURFACE TEMP</span>
+                <span className="text-sky-300 font-bold text-xs">{platformTelemetry.sea_surface_temp.toFixed(2)} °C</span>
+              </div>
+              <div className="bg-[#070c18] p-1.5 border border-[#1e293b]">
+                <span className="text-slate-500 block text-[9px]">PRACTICAL SALINITY</span>
+                <span className="text-teal-300 font-bold text-xs">{platformTelemetry.salinity.toFixed(2)} PSU</span>
+              </div>
+              <div className="bg-[#070c18] p-1.5 border border-[#1e293b]">
+                <span className="text-slate-500 block text-[9px]">WAVE HEIGHT (Hs)</span>
+                <span className="text-amber-300 font-bold text-xs">{platformTelemetry.wave_height_hs.toFixed(2)} m</span>
+              </div>
+              <div className="bg-[#070c18] p-1.5 border border-[#1e293b]">
+                <span className="text-slate-500 block text-[9px]">DOMINANT PERIOD (Tp)</span>
+                <span className="text-slate-200 font-bold text-xs">{platformTelemetry.wave_period_tp.toFixed(1)} s</span>
+              </div>
+              <div className="bg-[#070c18] p-1.5 border border-[#1e293b]">
+                <span className="text-slate-500 block text-[9px]">SURFACE CURRENT</span>
+                <span className="text-indigo-300 font-bold text-xs">{platformTelemetry.current_speed.toFixed(2)} m/s @ {platformTelemetry.current_direction}°</span>
+              </div>
+              <div className="bg-[#070c18] p-1.5 border border-[#1e293b]">
+                <span className="text-slate-500 block text-[9px]">SURFACE WIND</span>
+                <span className="text-slate-200 font-bold text-xs">{platformTelemetry.wind_speed.toFixed(1)} kts @ {platformTelemetry.wind_direction}°</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => triggerCameraAction('platform')}
+              className="w-full mt-1 flex items-center justify-center gap-1.5 py-1.5 bg-[#0f2d2a] hover:bg-[#133e3a] border border-teal-500 text-teal-200 font-mono font-bold text-xs transition-colors"
+            >
+              <Compass className="w-3 h-3 text-teal-400" />
+              <span>LOCK CAMERA ON STATION</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: Model Metadata Inspector */}
       {activeInspectorTab === 'metadata' && (
         <div className="flex flex-col gap-2">
           {metadata ? (
