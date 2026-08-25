@@ -1,6 +1,19 @@
 import { create } from 'zustand';
 
 export const useOceanStore = create((set, get) => ({
+  // Multi-Page Navigation
+  // 'home' | 'explorer' | 'coordinates' | 'argo' | 'comparison' | 'analytics' | 'data' | 'methodology'
+  activePage: 'home',
+  setActivePage: (activePage) => {
+    set({ activePage });
+    window.scrollTo(0, 0);
+  },
+
+  // Coordinate Search & Location Focusing
+  isGoToLocationOpen: false,
+  toggleGoToLocationModal: () => set((state) => ({ isGoToLocationOpen: !state.isGoToLocationOpen })),
+  targetCoordinate: null, // { lat, lon, label }
+
   // Datasets & System Health
   health: null,
   datasets: [],
@@ -33,6 +46,7 @@ export const useOceanStore = create((set, get) => ({
     argoSensors: true,
     marinePlatform: true,
     weatherOverlay: false,
+    coastlines: true,
   },
 
   // Marine Station Telemetry
@@ -343,6 +357,16 @@ export const useOceanStore = create((set, get) => ({
   toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
   toggleBoundingBox: () => set((state) => ({ showBoundingBox: !state.showBoundingBox })),
   setCursorCoords: (coords) => set({ cursorCoords: coords }),
+
+  setTargetCoordinate: (coord) => set({ targetCoordinate: coord }),
+  
+  focusCoordinateInExplorer: (lat, lon, label) => {
+    set({
+      activePage: 'explorer',
+      targetCoordinate: { lat, lon, label: label || `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E` },
+      isGoToLocationOpen: false,
+    });
+  },
 
   setActiveInspectorTab: (tab) => set({ activeInspectorTab: tab }),
   toggleDiagnostics: () => set((state) => ({ isDiagnosticsOpen: !state.isDiagnosticsOpen })),

@@ -44,10 +44,12 @@ export const OceanViewer = () => {
     errorState,
     cameraAction,
     clearCameraAction,
+    targetCoordinate,
     showGrid,
     showBoundingBox,
     toggleGrid,
     toggleBoundingBox,
+    toggleGoToLocationModal,
   } = useOceanStore();
 
   // Initialize OceanSceneController on mount
@@ -76,6 +78,12 @@ export const OceanViewer = () => {
     controllerRef.current.setCameraPreset(cameraAction);
     clearCameraAction();
   }, [cameraAction, clearCameraAction]);
+
+  // Sync Focused Target Coordinate
+  useEffect(() => {
+    if (!targetCoordinate || !controllerRef.current) return;
+    controllerRef.current.focusCoordinate(targetCoordinate.lat, targetCoordinate.lon);
+  }, [targetCoordinate]);
 
   // Sync 3D Volume Data Buffer
   useEffect(() => {
@@ -128,7 +136,22 @@ export const OceanViewer = () => {
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
       {/* Top-Right Camera Viewport Toolbar */}
-      <div className="absolute top-2 right-2 z-20 flex items-center gap-1 p-1 bg-[#080e1a] border border-[#1e293b] text-slate-300 shadow-md">
+      <div className="absolute top-2 right-2 z-20 flex items-center gap-1 p-1 bg-[#080e1a]/95 border border-[#1e293b] text-slate-300 shadow-md">
+        <button
+          onClick={() => useOceanStore.getState().triggerCameraAction('fit')}
+          title="Fit Indian Ocean Basin (~3:2 Framing)"
+          className="px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-cyan-500 hover:text-cyan-300 text-[10px] font-mono transition-colors text-cyan-400 font-bold"
+        >
+          FIT DOMAIN
+        </button>
+        <button
+          onClick={() => toggleGoToLocationModal()}
+          title="Jump to Specific Coordinates"
+          className="px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors text-sky-300"
+        >
+          GO TO
+        </button>
+        <div className="w-[1px] h-3 bg-[#1e293b] mx-0.5" />
         <button
           onClick={() => useOceanStore.getState().triggerCameraAction('cinematic')}
           title="Cinematic Low-Horizon Ocean Perspective"
