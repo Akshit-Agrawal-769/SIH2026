@@ -126,7 +126,7 @@ export const VolumeFragmentShader = `
       vec3 uvw = vec3(currentPos.x + 0.5, 0.5 - currentPos.y, currentPos.z + 0.5);
 
       if (uvw.x >= 0.0 && uvw.x <= 1.0 && uvw.y >= 0.0 && uvw.y <= 1.0 && uvw.z >= 0.0 && uvw.z <= 1.0) {
-        
+
         bool sliceClip = false;
         if (u_enableSlice == 1 && uvw.y > u_sliceZ) {
           sliceClip = true;

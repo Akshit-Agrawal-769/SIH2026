@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export const useOceanStore = create((set, get) => ({
-  // Datasets & Health
+  // Datasets & System Health
   health: null,
   datasets: [],
   activeDataset: '',
@@ -9,8 +9,8 @@ export const useOceanStore = create((set, get) => ({
 
   // Scientific Controls
   variable: 'temp',
-  renderMode: 'volume',
-  colormap: 'turbo',
+  renderMode: 'volume', // 'volume' | 'iso'
+  colormap: 'turbo',    // 'turbo' | 'viridis' | 'thermal' | 'jet'
   timeIndex: 0,
   depthIndex: 0,
   opacity: 1.2,
@@ -20,64 +20,116 @@ export const useOceanStore = create((set, get) => ({
   enableSlice: false,
   verticalExaggeration: 1.0,
 
-  // 3D Volume Binary Buffer
+  // 3D Volume Binary Buffer & Headers Metadata
   volumeBuffer: null,
   volumeMeta: null,
 
-  // Argo In-Situ Floats
+  // Argo In-Situ Floats & Inspection
   argoFloats: [],
   selectedFloat: null,
   selectedCycle: null,
+  activeInspectorTab: 'argo', // 'argo' | 'metadata'
 
-  // Validation & Profiling Modal
+  // Model vs Observation Validation Profile
   comparisonData: null,
   isModalOpen: false,
   isLoading: false,
+  loadingMessage: 'INITIALIZING SCIENTIFIC WORKSTATION',
+  errorState: null,
+
+  // Timeline & Playback
   isPlayingTimeline: false,
+  playbackSpeed: 1.0, // 0.5, 1.0, 2.0
+
+  // Viewport Settings
+  cameraAction: null, // 'reset' | 'top' | 'front' | 'side' | 'iso'
+  showGrid: true,
+  showBoundingBox: true,
+  cursorCoords: null, // { lon, lat, depth }
+
+  // Panels & Drawers
+  isDiagnosticsOpen: false,
+  isControlPanelOpen: true,
+  isInspectorOpen: true,
 
   // Actions
   fetchInitialData: async () => {
     try {
-      set({ isLoading: true });
+      set({ isLoading: true, loadingMessage: 'VERIFYING SYSTEM HEALTH AND DATASETS', errorState: null });
+
       // 1. Health check
-      const healthRes = await fetch('/api/v1/health');
-      const health = await healthRes.json();
-      set({ health });
+      let health = null;
+      try {
+        const healthRes = await fetch('/api/v1/health');
+        if (healthRes.ok) {
+          health = await healthRes.json();
+          set({ health });
+        }
+      } catch (e) {
+        console.warn('Health check unreachable:', e);
+      }
 
       // 2. Available model datasets
-      const modelRes = await fetch('/api/v1/model/datasets');
-      const modelData = await modelRes.json();
-      const datasets = modelData.datasets || [];
-      set({ datasets });
+      let datasets = [];
+      try {
+        const modelRes = await fetch('/api/v1/model/datasets');
+        if (modelRes.ok) {
+          const modelData = await modelRes.json();
+          datasets = modelData.datasets || [];
+          set({ datasets });
+        }
+      } catch (e) {
+        console.warn('Model datasets unreachable:', e);
+      }
+
+      // 3. Argo in-situ floats
+      try {
+        const argoRes = await fetch('/api/v1/observations/argo');
+        if (argoRes.ok) {
+          const argoData = await argoRes.json();
+          const argoFloats = Array.isArray(argoData) ? argoData : [];
+          set({ argoFloats });
+          if (argoFloats.length > 0) {
+            set({ selectedFloat: argoFloats[0], selectedCycle: argoFloats[0].cycles?.[0] || null });
+          }
+        }
+      } catch (e) {
+        console.warn('Argo floats unreachable:', e);
+      }
 
       if (datasets.length > 0) {
         const active = datasets[0];
         set({ activeDataset: active });
         await get().selectDataset(active);
+      } else {
+        set({
+          isLoading: false,
+          errorState: health?.missing_datasets?.length > 0
+            ? 'REAL DATASET REQUIRED: ' + health.missing_datasets.join(', ')
+            : 'REAL DATASET REQUIRED: No model NetCDF files in datasets/model/'
+        });
       }
-
-      // 3. Argo floats
-      const argoRes = await fetch('/api/v1/observations/argo');
-      const argoData = await argoRes.json();
-      const argoFloats = Array.isArray(argoData) ? argoData : [];
-      set({ argoFloats, isLoading: false });
     } catch (err) {
       console.error('Error fetching initial ocean data:', err);
-      set({ isLoading: false });
+      set({ isLoading: false, errorState: 'BACKEND CONNECTION LOST' });
     }
   },
 
   selectDataset: async (dataset) => {
+    if (!dataset) return;
     try {
-      set({ activeDataset: dataset, isLoading: true });
+      set({ activeDataset: dataset, isLoading: true, loadingMessage: `LOADING MODEL METADATA: ${dataset}`, errorState: null });
       const metaRes = await fetch(`/api/v1/model/metadata?filename=${encodeURIComponent(dataset)}`);
+      if (!metaRes.ok) {
+        throw new Error(`Model metadata fetch failed with status ${metaRes.status}`);
+      }
       const metadata = await metaRes.json();
-      set({ metadata });
+      set({ metadata, timeIndex: 0 });
       await get().fetchVolumeData();
       set({ isLoading: false });
     } catch (err) {
       console.error('Error selecting dataset:', err);
-      set({ isLoading: false });
+      set({ isLoading: false, errorState: 'MODEL METADATA UNAVAILABLE' });
     }
   },
 
@@ -85,19 +137,22 @@ export const useOceanStore = create((set, get) => ({
     const { activeDataset, variable, timeIndex } = get();
     if (!activeDataset) return;
     try {
+      set({ isLoading: true, loadingMessage: `STREAMING SCIENTIFIC FLOAT32 BUFFER (${variable.toUpperCase()}, T+${timeIndex * 24}h)` });
       const url = `/api/v1/model/volume3d?filename=${encodeURIComponent(activeDataset)}&variable=${variable}&time_idx=${timeIndex}&dim_x=64&dim_y=64&dim_z=32`;
       const res = await fetch(url);
-      if (!res.ok) throw new Error('Volume fetch failed');
+      if (!res.ok) {
+        throw new Error(`Volume fetch failed with status ${res.status}`);
+      }
 
       const minVal = parseFloat(res.headers.get('X-Data-Min') || '0');
       const maxVal = parseFloat(res.headers.get('X-Data-Max') || '1');
-      const dimX = parseInt(res.headers.get('X-Dim-X') || '64');
-      const dimY = parseInt(res.headers.get('X-Dim-Y') || '64');
-      const dimZ = parseInt(res.headers.get('X-Dim-Z') || '32');
-      const minLon = parseFloat(res.headers.get('X-Min-Lon') || '60');
-      const maxLon = parseFloat(res.headers.get('X-Max-Lon') || '95');
-      const minLat = parseFloat(res.headers.get('X-Min-Lat') || '5');
-      const maxLat = parseFloat(res.headers.get('X-Max-Lat') || '25');
+      const dimX = parseInt(res.headers.get('X-Dim-X') || '64', 10);
+      const dimY = parseInt(res.headers.get('X-Dim-Y') || '64', 10);
+      const dimZ = parseInt(res.headers.get('X-Dim-Z') || '32', 10);
+      const minLon = parseFloat(res.headers.get('X-Min-Lon') || '58');
+      const maxLon = parseFloat(res.headers.get('X-Max-Lon') || '96');
+      const minLat = parseFloat(res.headers.get('X-Min-Lat') || '4');
+      const maxLat = parseFloat(res.headers.get('X-Max-Lat') || '26');
       const minDepth = parseFloat(res.headers.get('X-Min-Depth') || '0');
       const maxDepth = parseFloat(res.headers.get('X-Max-Depth') || '2000');
       const hasNan = res.headers.get('X-Has-Nan') === 'True';
@@ -114,26 +169,40 @@ export const useOceanStore = create((set, get) => ({
           minLon, maxLon, minLat, maxLat, minDepth, maxDepth,
           hasNan, nanValue, variable, units
         },
+        isLoading: false,
+        errorState: null,
       });
     } catch (err) {
       console.error('Error fetching 3D volume buffer:', err);
+      set({ isLoading: false, errorState: 'MODEL 3D VOLUME DATA UNAVAILABLE' });
     }
   },
 
   setVariable: (variable) => {
     set({ variable });
     get().fetchVolumeData();
-    if (get().selectedFloat) {
+    if (get().isModalOpen && get().selectedFloat) {
       get().fetchComparison(get().selectedFloat.platform_number, get().selectedCycle || undefined);
     }
   },
 
   setRenderMode: (renderMode) => set({ renderMode }),
   setColormap: (colormap) => set({ colormap }),
+
   setTimeIndex: (timeIndex) => {
     set({ timeIndex });
     get().fetchVolumeData();
   },
+
+  stepTimeIndex: (delta) => {
+    const { timeIndex, metadata } = get();
+    const maxTime = metadata?.time_range?.length || 5;
+    let nextIndex = timeIndex + delta;
+    if (nextIndex < 0) nextIndex = maxTime - 1;
+    if (nextIndex >= maxTime) nextIndex = 0;
+    get().setTimeIndex(nextIndex);
+  },
+
   setDepthIndex: (depthIndex) => set({ depthIndex }),
   setOpacity: (opacity) => set({ opacity }),
   setThreshold: (threshold) => set({ threshold }),
@@ -147,28 +216,73 @@ export const useOceanStore = create((set, get) => ({
     set({ isPlayingTimeline: isPlaying });
   },
 
+  setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
+
   selectFloat: async (float) => {
-    set({ selectedFloat: float, selectedCycle: float.cycles[0] || null });
-    await get().fetchComparison(float.platform_number, float.cycles[0]);
+    if (!float) return;
+    const firstCycle = float.cycles?.[0] ?? null;
+    set({ selectedFloat: float, selectedCycle: firstCycle, activeInspectorTab: 'argo' });
+  },
+
+  selectFloatAndCompare: async (float) => {
+    if (!float) return;
+    const firstCycle = float.cycles?.[0] ?? null;
+    set({ selectedFloat: float, selectedCycle: firstCycle, activeInspectorTab: 'argo' });
+    await get().fetchComparison(float.platform_number, firstCycle);
+  },
+
+  setSelectedCycle: (cycle) => {
+    set({ selectedCycle: cycle });
+    const { selectedFloat, isModalOpen } = get();
+    if (isModalOpen && selectedFloat) {
+      get().fetchComparison(selectedFloat.platform_number, cycle);
+    }
   },
 
   fetchComparison: async (platformNumber, cycle) => {
     const { variable, activeDataset } = get();
+    // Comparison endpoint only supports temp and salt
+    const compVar = (variable === 'salt' || variable === 'temp') ? variable : 'temp';
     try {
-      set({ isLoading: true });
-      let url = `/api/v1/comparison/profile?platform_number=${encodeURIComponent(platformNumber)}&variable=${variable}&model_filename=${encodeURIComponent(activeDataset)}`;
+      set({ isLoading: true, loadingMessage: `CALCULATING 4D RESIDUALS FOR WMO ${platformNumber}` });
+      let url = `/api/v1/comparison/profile?platform_number=${encodeURIComponent(platformNumber)}&variable=${compVar}`;
+      if (activeDataset) {
+        url += `&model_filename=${encodeURIComponent(activeDataset)}`;
+      }
       if (cycle !== undefined && cycle !== null) {
         url += `&cycle_number=${cycle}`;
       }
       const res = await fetch(url);
-      if (!res.ok) throw new Error('Failed to fetch comparison');
+      if (!res.ok) {
+        throw new Error(`Comparison failed with status ${res.status}`);
+      }
       const comparisonData = await res.json();
-      set({ comparisonData, isModalOpen: true, isLoading: false });
+      set({ comparisonData, isModalOpen: true, isLoading: false, errorState: null });
     } catch (err) {
       console.error('Error fetching comparison profile:', err);
-      set({ isLoading: false });
+      set({ isLoading: false, errorState: 'ARGO PROFILE COMPARISON UNAVAILABLE' });
     }
   },
 
   closeModal: () => set({ isModalOpen: false }),
+  openModal: () => {
+    const { selectedFloat, selectedCycle } = get();
+    if (selectedFloat) {
+      get().fetchComparison(selectedFloat.platform_number, selectedCycle);
+    }
+  },
+
+  triggerCameraAction: (action) => {
+    set({ cameraAction: action });
+  },
+  clearCameraAction: () => set({ cameraAction: null }),
+
+  toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
+  toggleBoundingBox: () => set((state) => ({ showBoundingBox: !state.showBoundingBox })),
+  setCursorCoords: (coords) => set({ cursorCoords: coords }),
+
+  setActiveInspectorTab: (tab) => set({ activeInspectorTab: tab }),
+  toggleDiagnostics: () => set((state) => ({ isDiagnosticsOpen: !state.isDiagnosticsOpen })),
+  toggleControlPanel: () => set((state) => ({ isControlPanelOpen: !state.isControlPanelOpen })),
+  toggleInspector: () => set((state) => ({ isInspectorOpen: !state.isInspectorOpen })),
 }));
