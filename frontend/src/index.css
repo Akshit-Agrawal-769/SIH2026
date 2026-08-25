@@ -5,13 +5,13 @@
 :root {
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --bg-space: #040711;
-  --bg-panel: rgba(10, 16, 30, 0.92);
-  --bg-panel-solid: #0a101e;
-  --bg-surface: rgba(15, 23, 42, 0.85);
-  --bg-surface-elevated: rgba(22, 33, 58, 0.9);
-  --border-subtle: rgba(51, 65, 85, 0.45);
-  --border-medium: rgba(71, 85, 105, 0.6);
-  --border-accent: rgba(56, 189, 248, 0.6);
+  --bg-panel: #090e1a;
+  --bg-panel-solid: #090e1a;
+  --bg-surface: #0f172a;
+  --bg-surface-elevated: #162138;
+  --border-subtle: #1e293b;
+  --border-medium: #334155;
+  --border-accent: #0284c7;
   --accent-cyan: #06b6d4;
   --accent-sky: #38bdf8;
   --accent-teal: #14b8a6;
@@ -37,27 +37,28 @@ html, body, #root {
   font-variant-numeric: tabular-nums;
 }
 
+/* Crisp Scientific Scrollbars */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.7);
+  background: #090e1a;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.35);
-  border-radius: 2px;
+  background: #1e293b;
+  border-radius: 1px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(56, 189, 248, 0.7);
+  background: #334155;
 }
 
-/* Scientific Instrument Slider Styling */
+/* Scientific Instrument Slider Styling - Crisp & Flat */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   background: #1e293b;
-  border-radius: 4px;
+  border-radius: 1px;
   height: 4px;
   outline: none;
 }
@@ -66,40 +67,28 @@ input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 12px;
   height: 12px;
-  border-radius: 50%;
+  border-radius: 1px;
   background: #38bdf8;
-  border: 2px solid #0f172a;
-  box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+  border: 1px solid #0f172a;
   cursor: pointer;
-  transition: transform 0.1s ease, background-color 0.1s ease;
+  transition: background-color 0.1s ease;
 }
 input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.25);
   background: #7dd3fc;
 }
 input[type="range"]::-moz-range-thumb {
   width: 12px;
   height: 12px;
-  border-radius: 50%;
+  border-radius: 1px;
   background: #38bdf8;
-  border: 2px solid #0f172a;
-  box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+  border: 1px solid #0f172a;
   cursor: pointer;
 }
 
-/* Scientific Grid Texture for Viewport Overlays */
+/* Subtle Bathymetric Grid Pattern */
 .bg-grid-pattern {
-  background-size: 24px 24px;
+  background-size: 20px 20px;
   background-image:
-    linear-gradient(to right, rgba(56, 189, 248, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
-}
-
-/* Status Indicator Pulse Animation */
-@keyframes status-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.9); }
-}
-.animate-status {
-  animation: status-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    linear-gradient(to right, rgba(51, 65, 85, 0.15) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(51, 65, 85, 0.15) 1px, transparent 1px);
 }

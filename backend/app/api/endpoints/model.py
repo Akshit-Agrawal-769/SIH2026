@@ -1,13 +1,13 @@
 import os
 from fastapi import APIRouter, HTTPException, Query, Response
-from app.services.xarray_service import xarray_service
+from app.services.ocean_model import ocean_model_registry
 from app.schemas.ocean import DatasetMetadataResponse
 
 router = APIRouter()
 
 @router.get("/datasets")
 def list_model_datasets():
-    datasets = xarray_service.list_available_model_datasets()
+    datasets = ocean_model_registry.list_available_models()
     if not datasets:
         return {
             "status": "REAL DATASET REQUIRED",
@@ -21,13 +21,13 @@ def get_model_metadata(filename: str = Query(..., description="Name of NetCDF fi
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename parameter: Path traversal forbidden.")
 
-    meta = xarray_service.get_metadata(filename)
-    if not meta:
+    model = ocean_model_registry.get_model(filename)
+    if not model:
         raise HTTPException(
             status_code=404,
             detail=f"REAL DATASET REQUIRED: Dataset '{filename}' not found or invalid format."
         )
-    return meta
+    return model.get_metadata()
 
 @router.get("/volume3d")
 def get_model_volume_3d(
@@ -41,7 +41,14 @@ def get_model_volume_3d(
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename parameter: Path traversal forbidden.")
 
-    result = xarray_service.extract_3d_volume_buffer(filename, variable, time_idx, (dim_x, dim_y, dim_z))
+    model = ocean_model_registry.get_model(filename)
+    if not model:
+        raise HTTPException(
+            status_code=404,
+            detail=f"REAL DATASET REQUIRED: Dataset '{filename}' not found or invalid format."
+        )
+
+    result = model.extract_volume_buffer(variable, time_idx, (dim_x, dim_y, dim_z))
     if not result:
         raise HTTPException(
             status_code=404,
@@ -80,7 +87,14 @@ def get_model_slice_2d(
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename parameter: Path traversal forbidden.")
 
-    result = xarray_service.extract_2d_slice_buffer(filename, variable, time_idx, depth_idx)
+    model = ocean_model_registry.get_model(filename)
+    if not model:
+        raise HTTPException(
+            status_code=404,
+            detail=f"REAL DATASET REQUIRED: Dataset '{filename}' not found or invalid format."
+        )
+
+    result = model.extract_slice_buffer(variable, time_idx, depth_idx)
     if not result:
         raise HTTPException(
             status_code=404,

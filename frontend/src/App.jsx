@@ -18,29 +18,30 @@ export default function App() {
   }, []);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none">
+    <div className="relative w-screen h-screen overflow-hidden bg-[#040711] text-slate-100 flex flex-col font-sans select-none">
       {/* 1. TOP SYSTEM COMMAND HEADER */}
       <Header />
 
-      {/* 2. MAIN 3D OCEAN VIEWPORT & FLOATING HUD RAILS */}
-      <main className="relative flex-1 w-full h-full overflow-hidden">
-        {/* Central WebGL2 3D Canvas */}
-        <OceanViewer />
-
+      {/* 2. MAIN 3D OCEAN WORKSTATION VIEWPORT & DOCKED RAILS */}
+      <div className="relative flex-1 w-full h-full flex overflow-hidden">
         {/* Left Variable & Rendering Control Rail */}
         <ControlPanel />
 
+        {/* Central WebGL2 3D Canvas Viewport */}
+        <main className="relative flex-1 h-full overflow-hidden">
+          <OceanViewer />
+          {/* Floating Scientific Colorbar Legend */}
+          <ColorbarLegend />
+        </main>
+
         {/* Right Data & Metadata Inspector Panel */}
         <InspectorPanel />
+      </div>
 
-        {/* Floating Scientific Colorbar Legend */}
-        <ColorbarLegend />
-      </main>
-
-      {/* 3. PRECISION DEPTH SLICING STRIP */}
+      {/* 3. DOCKED BOTTOM CONTROL DECK: PRECISION DEPTH SLICING STRIP */}
       <DepthSliceBar />
 
-      {/* 4. SCIENTIFIC TIMELINE & PLAYBACK FOOTER */}
+      {/* 4. DOCKED BOTTOM CONTROL DECK: SCIENTIFIC TIMELINE & PLAYBACK FOOTER */}
       <TimelinePanel />
 
       {/* 5. MODEL VS OBSERVATION COMPARISON MODAL */}
