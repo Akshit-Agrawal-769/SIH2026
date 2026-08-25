@@ -5,6 +5,7 @@ export const ColorbarLegend = () => {
   const volumeMeta = useOceanStore((state) => state.volumeMeta);
   const colormap = useOceanStore((state) => state.colormap);
   const variable = useOceanStore((state) => state.variable);
+  const metadata = useOceanStore((state) => state.metadata);
 
   if (!volumeMeta) return null;
 
@@ -27,13 +28,25 @@ export const ColorbarLegend = () => {
   };
 
   const getVarDetails = () => {
+    const vinfo = metadata?.variable_info?.[variable];
+    if (vinfo) {
+      return {
+        title: vinfo.long_name || variable.toUpperCase(),
+        symbol: vinfo.raw_name || variable,
+        stdName: vinfo.standard_name || vinfo.raw_name || variable,
+      };
+    }
     switch (variable) {
       case 'temp': return { title: 'Potential Temperature', symbol: 'theta', stdName: 'sea_water_potential_temperature' };
       case 'salt': return { title: 'Practical Salinity', symbol: 'S_p', stdName: 'sea_water_practical_salinity' };
       case 'u': return { title: 'Zonal Velocity', symbol: 'u', stdName: 'eastward_sea_water_velocity' };
       case 'v': return { title: 'Meridional Velocity', symbol: 'v', stdName: 'northward_sea_water_velocity' };
       case 'chl': return { title: 'Chlorophyll-a', symbol: 'Chl-a', stdName: 'mass_concentration_of_chlorophyll_a' };
-      default: return { title: variable, symbol: variable, stdName: variable };
+      case 'mld': return { title: 'Mixed Layer Depth', symbol: 'MLD', stdName: 'ocean_mixed_layer_thickness' };
+      case 'dic': return { title: 'Dissolved Inorganic Carbon', symbol: 'DIC', stdName: 'mole_concentration_of_dissolved_inorganic_carbon' };
+      case 'no3': return { title: 'Nitrate Concentration', symbol: 'NO3', stdName: 'mole_concentration_of_nitrate' };
+      case 'pco2': return { title: 'Surface Partial Pressure CO2', symbol: 'pCO2', stdName: 'surface_partial_pressure_of_co2' };
+      default: return { title: variable.toUpperCase(), symbol: variable, stdName: variable };
     }
   };
 

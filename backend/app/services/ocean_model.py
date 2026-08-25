@@ -1,16 +1,18 @@
 """
 Ocean Model Deep Module & In-Process Registry
 Consolidates:
-1. NetCDF dataset lifecycle, coordinate resolution, and variable aliasing.
+1. NetCDF dataset lifecycle, case-insensitive coordinate resolution, and dynamic variable aliasing.
 2. Curvilinear (2D lon_rho/lat_rho) and rectilinear (1D lon/lat) spatial projection via spherical KD-Tree.
 3. Terrain-following ROMS s-coordinate physical depth calculations with local bathymetry and time-aware zeta.
 4. 4D spatio-temporal colocation across bounding forecast time steps (t0, t1).
 5. 3D volumetric Float32 binary buffer generation with NaN sentinels for WebGL2 Data3DTexture rendering.
 6. 2D depth slice buffer extraction.
+7. Bounded in-memory LRU cache for memory safety and sub-millisecond response on repeated requests.
 """
 
 import os
 import glob
+from collections import OrderedDict
 from typing import List, Dict, Any, Optional, Tuple, Union
 import numpy as np
 import xarray as xr
@@ -41,11 +43,20 @@ def geo_to_cartesian(lon_deg: np.ndarray, lat_deg: np.ndarray) -> np.ndarray:
 
 
 VAR_ALIASES = {
-    "temp": ["temp", "to", "temperature", "TEMP", "thetao"],
-    "salt": ["salt", "so", "salinity", "PSAL"],
+    "temp": ["temp", "to", "temperature", "TEMP", "thetao", "sst", "SST", "Sea_surface_temperature"],
+    "salt": ["salt", "so", "salinity", "PSAL", "sss", "SSS", "Sea_surface_salinity"],
     "u": ["u", "ugo", "uo", "u_eastward"],
     "v": ["v", "vgo", "vo", "v_northward"],
-    "chl": ["chl", "chla", "chlorophyll", "CHLA"],
+    "w": ["w", "w_velocity"],
+    "chl": ["chl", "chla", "chlorophyll", "CHLA", "CHL", "Sea_surface_chlorophyll_concentration"],
+    "mld": ["mld", "mlotst", "MLD", "mixed_layer_depth", "Mixed_layer_depth"],
+    "dic": ["dic", "DIC", "dissolved_inorganic_carbon", "Sea_surface_dissolved_inorganic_carbon"],
+    "no3": ["no3", "NO3", "nitrate", "Sea_surface_nitrate_concentration"],
+    "pco2": ["pco2", "pCO2", "pCO2_Original", "pCO2_Int", "pCO2_Clim", "Surface_partial_pressure_of_CO2"],
+    "pco2_int": ["pCO2_Int"],
+    "pco2_clim": ["pCO2_Clim"],
+    "pco2_orig": ["pCO2_Original"],
+    "deviant_uncertainty": ["Deviant_uncertainty", "uncertaintes_of_deviants"],
 }
 
 
@@ -104,7 +115,8 @@ class OceanModel:
     def __init__(self, dataset_or_path: Union[str, xr.Dataset]):
         if isinstance(dataset_or_path, str):
             self.file_path = dataset_or_path
-            self._ds = xr.open_dataset(dataset_or_path)
+            # Open lazily without decoding all variables into memory
+            self._ds = xr.open_dataset(dataset_or_path, decode_times=True)
             self._owns_dataset = True
         else:
             self.file_path = None
@@ -113,14 +125,26 @@ class OceanModel:
 
         self._kd_tree = None
         self._kd_shape = None
+        self._volume_cache: OrderedDict[Tuple, Tuple[bytes, Dict[str, Any]]] = OrderedDict()
+        self._max_cache_size = 32
         self._init_coordinates()
 
     def _init_coordinates(self):
         ds = self._ds
-        self.lon_key = next((k for k in ["lon", "longitude", "lon_rho", "x", "nav_lon"] if k in ds.coords or k in ds.data_vars or k in ds.dims), None)
-        self.lat_key = next((k for k in ["lat", "latitude", "lat_rho", "y", "nav_lat"] if k in ds.coords or k in ds.data_vars or k in ds.dims), None)
-        self.depth_key = next((k for k in ["depth", "s_rho", "lev", "level", "z", "deptht"] if k in ds.coords or k in ds.dims), None)
-        self.time_key = next((k for k in ["time", "ocean_time", "time_counter"] if k in ds.coords or k in ds.dims or k in ds.data_vars), None)
+        # Search coords, data_vars, and sizes with case-insensitive matching
+        all_keys = list(ds.coords.keys()) + list(ds.data_vars.keys()) + list(ds.sizes.keys())
+
+        def find_coord(candidates: List[str]) -> Optional[str]:
+            for c in candidates:
+                for k in all_keys:
+                    if str(k).lower() == c.lower():
+                        return str(k)
+            return None
+
+        self.lon_key = find_coord(["lon", "longitude", "lon_rho", "x", "nav_lon"])
+        self.lat_key = find_coord(["lat", "latitude", "lat_rho", "y", "nav_lat"])
+        self.depth_key = find_coord(["depth", "s_rho", "lev", "level", "z", "deptht"])
+        self.time_key = find_coord(["time", "ocean_time", "time_counter", "date"])
 
         self.is_curvilinear = False
         if self.lon_key and self.lat_key and self.lon_key in ds and ds[self.lon_key].ndim == 2:
@@ -145,6 +169,9 @@ class OceanModel:
         for alias in VAR_ALIASES.get(var_name.lower(), []):
             if alias in self._ds:
                 return alias
+        for ds_var in self._ds.data_vars:
+            if str(ds_var).lower() == var_name.lower():
+                return str(ds_var)
         return None
 
     def get_metadata(self) -> Dict[str, Any]:
@@ -185,29 +212,44 @@ class OceanModel:
         elif self.depth_key and self.depth_key in ds:
             raw_depths = ds[self.depth_key].values.flatten()
             depth_levels = sorted([abs(float(round(d, 2))) for d in raw_depths if not np.isnan(d)])
+        else:
+            # 2D surface ocean models default to 0.0m surface level
+            depth_levels = [0.0]
 
         times_iso: List[str] = []
         if self.time_key and self.time_key in ds:
             time_vals = pd.to_datetime(ds[self.time_key].values, utc=True)
             times_iso = [t.strftime("%Y-%m-%dT%H:%M:%SZ") for t in time_vals]
 
+        # Dynamically discover all variables without dropping any
         variables_found = []
-        for canonical, aliases in VAR_ALIASES.items():
-            if self.resolve_variable_name(canonical):
+        seen = set()
+        for canonical in VAR_ALIASES:
+            resolved = self.resolve_variable_name(canonical)
+            if resolved and resolved not in seen:
                 variables_found.append(canonical)
+                seen.add(resolved)
+
+        for var_name in ds.data_vars:
+            str_name = str(var_name)
+            if str_name not in seen and str_name not in [self.lon_key, self.lat_key, self.depth_key, self.time_key]:
+                variables_found.append(str_name)
+                seen.add(str_name)
 
         dim_dict = {str(k): int(v) for k, v in ds.sizes.items()}
 
         var_info = {}
         for var in variables_found:
-            actual_key = self.resolve_variable_name(var)
-            if actual_key and actual_key in ds:
+            actual_key = self.resolve_variable_name(var) or var
+            if actual_key in ds:
                 da = ds[actual_key]
                 var_info[var] = {
                     "raw_name": actual_key,
                     "units": str(da.attrs.get("units", "")),
                     "long_name": str(da.attrs.get("long_name", var)),
+                    "standard_name": str(da.attrs.get("standard_name", var)),
                     "shape": list(da.shape),
+                    "dtype": str(da.dtype),
                 }
 
         filename = os.path.basename(self.file_path) if self.file_path else "in_memory_dataset"
@@ -216,7 +258,7 @@ class OceanModel:
             "id": filename.replace(".nc", ""),
             "filename": filename,
             "title": str(ds.attrs.get("title", f"Ocean Model ({filename})")),
-            "source": str(ds.attrs.get("source", "Ocean Numerical Model")),
+            "source": str(ds.attrs.get("source", ds.attrs.get("institute", "Ocean Numerical Model"))),
             "dimensions": dim_dict,
             "bounds": bounds,
             "depth_levels": depth_levels,
@@ -251,11 +293,14 @@ class OceanModel:
             ny, nx = shape
             unraveled_ij = [np.unravel_index(idx, (ny, nx)) for idx in idxs[0]]
 
-            nz = da_3d.shape[0]
+            nz = da_3d.shape[0] if da_3d.ndim == 3 else 1
             val_profile = np.zeros(nz, dtype=np.float64)
 
             for w, (j, i) in zip(weights, unraveled_ij):
-                val_profile += w * da_3d.values[:, j, i]
+                if da_3d.ndim == 3:
+                    val_profile += w * da_3d.values[:, j, i]
+                else:
+                    val_profile += w * da_3d.values[j, i]
         else:
             interp_dict = {}
             if self.lat_key: interp_dict[self.lat_key] = lat
@@ -263,7 +308,7 @@ class OceanModel:
             point_da = da_3d.interp(interp_dict, method="linear")
             val_profile = point_da.values.flatten()
 
-        # Compute physical depth levels (Standard vs Native ROMS s_rho)
+        # Compute physical depth levels (Standard vs Native ROMS s_rho vs Surface 2D)
         if self.is_native_s:
             if "s_rho" not in ds:
                 raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Missing s_rho coordinate in model dataset.")
@@ -296,7 +341,7 @@ class OceanModel:
             if zeta_key:
                 try:
                     zeta_da = ds[zeta_key]
-                    t_dim = next((k for k in ["time", "ocean_time", "time_counter"] if k in zeta_da.dims), None)
+                    t_dim = next((k for k in ["time", "ocean_time", "time_counter", "TIME", "Time"] if k in zeta_da.dims), None)
                     if t_dim and t_dim in zeta_da.dims:
                         valid_t_idx = min(max(0, time_idx), zeta_da.sizes[t_dim] - 1)
                         zeta_da = zeta_da.isel({t_dim: valid_t_idx})
@@ -317,6 +362,10 @@ class OceanModel:
             depth_levels = np.abs(z_levels.flatten())
         elif self.depth_key and self.depth_key in ds:
             depth_levels = np.abs(ds[self.depth_key].values.flatten())
+        elif "depth" in da_3d.dims or "depth" in da_3d.coords:
+            depth_levels = np.abs(da_3d["depth"].values.flatten())
+        elif "MLD" in ds or "mld" in ds or "mlotst" in ds:
+            depth_levels = np.array([0.0])
         else:
             raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Model dataset lacks vertical depth coordinates.")
 
@@ -341,7 +390,7 @@ class OceanModel:
 
         ds = self._ds
         da = ds[var_key]
-        time_key = next((k for k in ["time", "ocean_time", "time_counter"] if k in da.coords or k in da.dims), None)
+        time_key = next((k for k in ["time", "ocean_time", "time_counter", "TIME", "Time"] if k in da.coords or k in da.dims), None)
 
         # 1. Temporal Interpolation Handling
         if time_key and time_key in ds and target_timestamp is not None:
@@ -372,8 +421,9 @@ class OceanModel:
                 depth_levels = (1.0 - alpha) * d_0 + alpha * d_1
                 model_values = (1.0 - alpha) * v_0 + alpha * v_1
         else:
-            t_idx = min(max(0, time_idx), da.sizes["time"] - 1) if "time" in da.dims else 0
-            da_3d = da.isel(time=t_idx) if "time" in da.dims else da
+            t_dim = time_key or "time"
+            t_idx = min(max(0, time_idx), da.sizes[t_dim] - 1) if t_dim in da.dims else 0
+            da_3d = da.isel({t_dim: t_idx}) if t_dim in da.dims else da
             depth_levels, model_values = self._spatial_interpolate_profile_at_point(da_3d, lat, lon, time_idx=t_idx)
 
         # 2. Vertical Interpolation onto Query Depths
@@ -385,7 +435,8 @@ class OceanModel:
             clean_v = np.array([model_values[i] for i in valid_idx])
 
             if len(clean_d) == 1:
-                interp_v = np.array([clean_v[0] if abs(qd - clean_d[0]) <= 15.0 else np.nan for qd in query_depths])
+                # Surface point - return for upper queries or within tolerance
+                interp_v = np.array([clean_v[0] if qd <= 50.0 else np.nan for qd in query_depths])
             else:
                 sort_order = np.argsort(clean_d)
                 clean_d = clean_d[sort_order]
@@ -400,13 +451,20 @@ class OceanModel:
         self,
         variable: str = "temp",
         time_idx: int = 0,
-        target_shape: Tuple[int, int, int] = (64, 64, 32)
+        target_shape: Tuple[int, int, int] = (64, 64, 32),
+        spatial_bounds: Optional[Dict[str, float]] = None,
     ) -> Optional[Tuple[bytes, Dict[str, Any]]]:
         """
-        Extracts 3D volumetric array, regularizes to target_shape (nx, ny, nz),
-        normalizes data to [0.0, 1.0] for WebGL2 Data3DTexture (with -1.0 for NaN cells),
-        and returns Float32 byte buffer along with physical coordinate metadata.
+        Extracts 3D volumetric array lazily without loading the full dataset into memory.
+        Regularizes to target_shape (dim_x, dim_y, dim_z), normalizes data to [0.0, 1.0]
+        for WebGL2 Data3DTexture (with -1.0 for NaN cells), and returns Float32 byte buffer
+        along with physical coordinate metadata.
         """
+        cache_key = (variable, time_idx, target_shape, tuple(sorted(spatial_bounds.items())) if spatial_bounds else None)
+        if cache_key in self._volume_cache:
+            self._volume_cache.move_to_end(cache_key)
+            return self._volume_cache[cache_key]
+
         ds = self._ds
         var_key = self.resolve_variable_name(variable)
         if not var_key:
@@ -414,17 +472,30 @@ class OceanModel:
 
         da = ds[var_key]
 
-        # Squeeze time dimension
-        t_dim = next((k for k in ["time", "ocean_time", "time_counter"] if k in da.dims), None)
+        # 1. Lazy time dimension selection (avoids decompressing all time chunks)
+        t_dim = next((k for k in ["time", "ocean_time", "time_counter", "TIME", "Time"] if k in da.dims), None)
         if t_dim and t_dim in da.dims:
             t_len = da.sizes[t_dim]
             valid_time_idx = min(max(0, time_idx), t_len - 1)
-            da_3d = da.isel({t_dim: valid_time_idx})
+            da_sub = da.isel({t_dim: valid_time_idx})
         else:
             valid_time_idx = 0
-            da_3d = da
+            da_sub = da
 
-        raw_data = da_3d.values.astype(np.float32)
+        # 2. Optional Spatial Subsetting before materialization
+        if spatial_bounds and self.lat_key in da_sub.dims and self.lon_key in da_sub.dims:
+            min_lon = spatial_bounds.get("min_lon")
+            max_lon = spatial_bounds.get("max_lon")
+            min_lat = spatial_bounds.get("min_lat")
+            max_lat = spatial_bounds.get("max_lat")
+            
+            lats = ds[self.lat_key].values
+            lons = ds[self.lon_key].values
+            lat_slice = slice(min_lat, max_lat) if lats[0] < lats[-1] else slice(max_lat, min_lat)
+            lon_slice = slice(min_lon, max_lon) if lons[0] < lons[-1] else slice(max_lon, min_lon)
+            da_sub = da_sub.sel({self.lat_key: lat_slice, self.lon_key: lon_slice})
+
+        raw_data = da_sub.values.astype(np.float32)
 
         # Spatial Bounds
         min_lon = float(np.nanmin(ds[self.lon_key].values)) if self.lon_key else 0.0
@@ -443,11 +514,11 @@ class OceanModel:
             h_max = float(np.nanmax(ds["h"].values))
 
             zeta_val = 0.0
-            zeta_key = next((k for k in ["zeta", "ssh", "zo"] if k in ds or k in da_3d.coords), None)
+            zeta_key = next((k for k in ["zeta", "ssh", "zo"] if k in ds or k in da_sub.coords), None)
             if zeta_key:
                 try:
                     zeta_da = ds[zeta_key]
-                    z_tdim = next((k for k in ["time", "ocean_time", "time_counter"] if k in zeta_da.dims), None)
+                    z_tdim = next((k for k in ["time", "ocean_time", "time_counter", "TIME", "Time"] if k in zeta_da.dims), None)
                     if z_tdim and z_tdim in zeta_da.dims:
                         z_t_idx = min(max(0, time_idx), zeta_da.sizes[z_tdim] - 1)
                         zeta_da = zeta_da.isel({z_tdim: z_t_idx})
@@ -463,6 +534,13 @@ class OceanModel:
             depth_vals = np.abs(ds[self.depth_key].values.flatten())
             min_depth = float(np.nanmin(depth_vals))
             max_depth = float(np.nanmax(depth_vals))
+        elif "MLD" in ds:
+            # For 2D surface datasets with MLD variable, use physical MLD scale
+            try:
+                mld_vals = ds["MLD"].isel(TIME=valid_time_idx).values
+                max_depth = float(np.nanmax(mld_vals)) if np.any(~np.isnan(mld_vals)) else 200.0
+            except Exception:
+                max_depth = 200.0
 
         # Reshape/Interpolate to target 3D texture shape (Z, Y, X)
         nx_tgt, ny_tgt, nz_tgt = target_shape[0], target_shape[1], target_shape[2]
@@ -489,6 +567,43 @@ class OceanModel:
 
             grid_z, grid_y, grid_x = np.meshgrid(z_out, y_out, x_out, indexing="ij")
             vol_interp = interp((grid_z, grid_y, grid_x)).astype(np.float32)
+
+            # Preserve NaNs accurately from the source grid
+            nan_interp = RegularGridInterpolator(
+                (z_in, y_in, x_in), np.isnan(raw_data).astype(np.float32), bounds_error=False, fill_value=1.0
+            )
+            nan_grid = nan_interp((grid_z, grid_y, grid_x)) > 0.5
+            vol_interp[nan_grid] = np.nan
+
+        elif len(shape) == 2:
+            # 2D Surface fields (e.g. SST, SSS, CHL, MLD, pCO2)
+            ny_curr, nx_curr = shape
+            y_in = np.linspace(0, 1, ny_curr)
+            x_in = np.linspace(0, 1, nx_curr)
+
+            valid_raw = raw_data[~np.isnan(raw_data)]
+            if len(valid_raw) == 0:
+                return None
+            fill_val = float(np.mean(valid_raw))
+
+            interp_2d = RegularGridInterpolator(
+                (y_in, x_in), raw_data, bounds_error=False, fill_value=fill_val
+            )
+
+            y_out = np.linspace(0, 1, ny_tgt)
+            x_out = np.linspace(0, 1, nx_tgt)
+            grid_y, grid_x = np.meshgrid(y_out, x_out, indexing="ij")
+            slice_2d = interp_2d((grid_y, grid_x)).astype(np.float32)
+
+            nan_interp_2d = RegularGridInterpolator(
+                (y_in, x_in), np.isnan(raw_data).astype(np.float32), bounds_error=False, fill_value=1.0
+            )
+            nan_mask_2d = nan_interp_2d((grid_y, grid_x)) > 0.5
+            slice_2d[nan_mask_2d] = np.nan
+
+            # Extrude 2D surface field along vertical dimension (Z, Y, X)
+            vol_interp = np.repeat(slice_2d[np.newaxis, :, :], nz_tgt, axis=0)
+
         else:
             vol_interp = np.zeros((nz_tgt, ny_tgt, nx_tgt), dtype=np.float32)
 
@@ -526,7 +641,14 @@ class OceanModel:
             "nan_value": -1.0,
         }
 
-        return buffer, metadata
+        result = (buffer, metadata)
+
+        # Update bounded LRU cache
+        if len(self._volume_cache) >= self._max_cache_size:
+            self._volume_cache.popitem(last=False)
+        self._volume_cache[cache_key] = result
+
+        return result
 
     def extract_slice_buffer(
         self,
@@ -541,8 +663,9 @@ class OceanModel:
 
         da = ds[var_key]
         isel_dict = {}
-        if "time" in da.dims:
-            isel_dict["time"] = min(max(0, time_idx), da.sizes["time"] - 1)
+        t_dim = next((k for k in ["time", "ocean_time", "time_counter", "TIME", "Time"] if k in da.dims), None)
+        if t_dim:
+            isel_dict[t_dim] = min(max(0, time_idx), da.sizes[t_dim] - 1)
         if "depth" in da.dims:
             isel_dict["depth"] = min(max(0, depth_idx), da.sizes["depth"] - 1)
         elif "s_rho" in da.dims:
@@ -550,14 +673,16 @@ class OceanModel:
 
         slice_data = da.isel(**isel_dict).values
         slice_f32 = slice_data.astype(np.float32)
-        min_val = float(np.nanmin(slice_data))
-        max_val = float(np.nanmax(slice_data))
+        valid = slice_data[~np.isnan(slice_data)]
+        min_val = float(np.min(valid)) if len(valid) > 0 else 0.0
+        max_val = float(np.max(valid)) if len(valid) > 0 else 1.0
 
         meta = {
             "shape": list(slice_f32.shape),
             "min_val": min_val,
             "max_val": max_val,
             "variable": variable,
+            "units": da.attrs.get("units", ""),
         }
         return slice_f32.tobytes(), meta
 
@@ -570,24 +695,45 @@ class OceanModelRegistry:
         self._cache: Dict[str, OceanModel] = {}
 
     def list_available_models(self) -> List[str]:
+        models = set()
         model_dir = os.path.join(self.datasets_dir, "model")
-        if not os.path.exists(model_dir):
-            return []
-        files = glob.glob(os.path.join(model_dir, "*.nc")) + glob.glob(os.path.join(model_dir, "*.nc4"))
-        return sorted([os.path.basename(f) for f in files])
+        if os.path.exists(model_dir):
+            files = glob.glob(os.path.join(model_dir, "*.nc")) + glob.glob(os.path.join(model_dir, "*.nc4"))
+            for f in files:
+                models.add(os.path.basename(f))
+
+        # Check configurable OCEAN_DATASET_PATH
+        if settings.OCEAN_DATASET_PATH and os.path.exists(settings.OCEAN_DATASET_PATH):
+            models.add(os.path.basename(settings.OCEAN_DATASET_PATH))
+
+        # Check parent workspace / root dataset directory
+        root_bio_nc = os.path.abspath(os.path.join(self.datasets_dir, "..", "INCOIS-BIO-ROMS.nc"))
+        if os.path.exists(root_bio_nc):
+            models.add(os.path.basename(root_bio_nc))
+
+        return sorted(list(models))
 
     def get_model_path(self, filename: str) -> Optional[str]:
         safe_filename = os.path.basename(filename)
         if safe_filename != filename or ".." in filename:
             return None
 
-        path = os.path.abspath(os.path.join(self.datasets_dir, "model", safe_filename))
-        expected_dir = os.path.abspath(os.path.join(self.datasets_dir, "model"))
+        # 1. Check datasets/model/
+        path1 = os.path.abspath(os.path.join(self.datasets_dir, "model", safe_filename))
+        if os.path.exists(path1):
+            return path1
 
-        if not path.startswith(expected_dir) or not os.path.exists(path):
-            return None
+        # 2. Check OCEAN_DATASET_PATH
+        if settings.OCEAN_DATASET_PATH and os.path.basename(settings.OCEAN_DATASET_PATH) == safe_filename:
+            if os.path.exists(settings.OCEAN_DATASET_PATH):
+                return os.path.abspath(settings.OCEAN_DATASET_PATH)
 
-        return path
+        # 3. Check workspace root
+        path3 = os.path.abspath(os.path.join(self.datasets_dir, "..", safe_filename))
+        if os.path.exists(path3):
+            return path3
+
+        return None
 
     def get_model(self, filename: str) -> Optional[OceanModel]:
         path = self.get_model_path(filename)

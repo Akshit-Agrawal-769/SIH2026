@@ -1,9 +1,69 @@
 {
   "version": "1.0.0",
-  "updated_at": "2026-08-24T12:00:00Z",
+  "updated_at": "2026-08-25T18:53:56.565554+00:00",
   "policy": "STRICT NO MOCK DATA",
   "datasets": {
     "model": [
+      {
+        "id": "INCOIS-BIO-ROMS",
+        "filename": "INCOIS-BIO-ROMS.nc",
+        "title": "Ocean Model (INCOIS-BIO-ROMS.nc)",
+        "institution": "Indian National Centre for Ocean Information Services (INCOIS)",
+        "source": "Indian National Centre for Ocean Information Services (INCOIS)",
+        "doi": "10.5281/zenodo.13802393",
+        "size_bytes": 9248080750,
+        "conventions": "CF-1.6",
+        "domain": "Indian Ocean (30.0\u00b0E to 120.0\u00b0E, -30.0\u00b0N to 30.0\u00b0N)",
+        "spatial_bounds": {
+          "min_lon": 30.0,
+          "max_lon": 120.0,
+          "min_lat": -29.996871948242188,
+          "max_lat": 29.977840423583984
+        },
+        "dimensions": {
+          "TIME": 480,
+          "LAT": 756,
+          "LON": 1081
+        },
+        "temporal_coverage": {
+          "start": "1980-01-24T00:00:00Z",
+          "end": "2019-12-25T00:00:00Z",
+          "steps": 480,
+          "resolution": "monthly"
+        },
+        "variables": [
+          "temp",
+          "salt",
+          "chl",
+          "mld",
+          "dic",
+          "no3",
+          "pco2",
+          "pco2_int",
+          "pco2_clim",
+          "deviant_uncertainty"
+        ],
+        "canonical_aliases": {
+          "temp": "SST",
+          "salt": "SSS",
+          "chl": "CHL",
+          "mld": "MLD",
+          "dic": "DIC",
+          "no3": "NO3",
+          "pco2": "pCO2_Original",
+          "pco2_int": "pCO2_Int",
+          "pco2_clim": "pCO2_Clim",
+          "pco2_orig": "pCO2_Original",
+          "deviant_uncertainty": "Deviant_uncertainty"
+        },
+        "vertical_coordinate_type": "surface_and_mld",
+        "provenance": {
+          "provider": "Indian National Centre for Ocean Information Services (INCOIS)",
+          "producers": "P. K. Ghoshal, A. P. Joshi & K. Chakraborty",
+          "license": "Open Data / Government of India",
+          "citation": "Ocean Model (INCOIS-BIO-ROMS.nc) (1980)"
+        }
+      },
       {
         "id": "incois_roms_indian_ocean",
         "filename": "incois_roms_indian_ocean.nc",
@@ -18,7 +78,13 @@
           "min_lat": 4.0,
           "max_lat": 26.0
         },
-        "variables": ["temp", "salt", "u", "v", "chl"],
+        "variables": [
+          "temp",
+          "salt",
+          "u",
+          "v",
+          "chl"
+        ],
         "vertical_coordinate_type": "standard_depth_and_s_rho",
         "provenance": {
           "provider": "INCOIS Ocean Modeling Framework",
@@ -37,7 +103,14 @@
         "primary_url": "https://data-argo.ifremer.fr/dac/incois/2902084/2902084_prof.nc",
         "fallback_url": "https://usgodae.org/pub/outgoing/argo/dac/incois/2902084/2902084_prof.nc",
         "qc_policy": "QC Flags 1 (Good) and 2 (Probably Good) accepted. QC 3, 4 rejected.",
-        "variables": ["PRES", "TEMP", "PSAL", "PRES_ADJUSTED", "TEMP_ADJUSTED", "PSAL_ADJUSTED"],
+        "variables": [
+          "PRES",
+          "TEMP",
+          "PSAL",
+          "PRES_ADJUSTED",
+          "TEMP_ADJUSTED",
+          "PSAL_ADJUSTED"
+        ],
         "provenance": {
           "provider": "International Argo Program / Coriolis GDAC",
           "license": "Argo Open Data Policy (CC-BY 4.0)",
@@ -53,7 +126,14 @@
         "primary_url": "https://data-argo.ifremer.fr/dac/incois/2902120/2902120_prof.nc",
         "fallback_url": "https://usgodae.org/pub/outgoing/argo/dac/incois/2902120/2902120_prof.nc",
         "qc_policy": "QC Flags 1 (Good) and 2 (Probably Good) accepted. QC 3, 4 rejected.",
-        "variables": ["PRES", "TEMP", "PSAL", "PRES_ADJUSTED", "TEMP_ADJUSTED", "PSAL_ADJUSTED"],
+        "variables": [
+          "PRES",
+          "TEMP",
+          "PSAL",
+          "PRES_ADJUSTED",
+          "TEMP_ADJUSTED",
+          "PSAL_ADJUSTED"
+        ],
         "provenance": {
           "provider": "International Argo Program / Coriolis GDAC",
           "license": "Argo Open Data Policy (CC-BY 4.0)",

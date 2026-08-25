@@ -105,8 +105,9 @@ def validate_argo_profile(file_path: str):
 
 
 if __name__ == "__main__":
+    default_model = "datasets/model/INCOIS-BIO-ROMS.nc" if os.path.exists(os.path.join(PROJECT_ROOT, "datasets/model/INCOIS-BIO-ROMS.nc")) else "datasets/model/incois_roms_indian_ocean.nc"
     parser = argparse.ArgumentParser(description="INCOIS Real Oceanographic Data Validation Tool")
-    parser.add_argument("--model", type=str, default="datasets/model/incois_roms_indian_ocean.nc", help="Path to real ROMS NetCDF model file")
+    parser.add_argument("--model", type=str, default=default_model, help="Path to real ocean NetCDF model file")
     parser.add_argument("--argo", type=str, default="datasets/argo/incois_2902084_prof.nc", help="Path to real Argo NetCDF profile file")
     
     args = parser.parse_args()

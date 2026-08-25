@@ -20,7 +20,7 @@ export const TimelinePanel = () => {
   } = useOceanStore();
 
   const timeRange = metadata?.time_range || [];
-  const maxSteps = Math.max(timeRange.length, 5);
+  const maxSteps = Math.max(timeRange.length, 1);
 
   useEffect(() => {
     if (!isPlayingTimeline) return;
@@ -33,9 +33,20 @@ export const TimelinePanel = () => {
 
   const getCurrentTimeLabel = () => {
     if (timeRange.length > timeIndex) {
-      return timeRange[timeIndex];
+      return timeRange[timeIndex].replace('T', ' ').replace(':00Z', ' UTC');
     }
-    return `Forecast T+${timeIndex * 24}h`;
+    return `Step ${timeIndex + 1}/${maxSteps}`;
+  };
+
+  const tickIndices = maxSteps <= 8
+    ? Array.from({ length: maxSteps }, (_, i) => i)
+    : [0, Math.floor(maxSteps * 0.25), Math.floor(maxSteps * 0.5), Math.floor(maxSteps * 0.75), maxSteps - 1];
+
+  const formatTickLabel = (idx) => {
+    if (timeRange.length > idx) {
+      return timeRange[idx].split('T')[0];
+    }
+    return `T+${idx}`;
   };
 
   return (
@@ -97,8 +108,7 @@ export const TimelinePanel = () => {
           className="w-full cursor-pointer"
         />
         <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-          <span>T+00h</span>
-          {Array.from({ length: maxSteps }).map((_, idx) => (
+          {tickIndices.map((idx) => (
             <span
               key={idx}
               className={`cursor-pointer hover:text-sky-300 transition-colors ${
@@ -106,7 +116,7 @@ export const TimelinePanel = () => {
               }`}
               onClick={() => setTimeIndex(idx)}
             >
-              T+{idx * 24}h
+              {formatTickLabel(idx)}
             </span>
           ))}
         </div>
