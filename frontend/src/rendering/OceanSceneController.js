@@ -7,8 +7,10 @@
  * - Procedural bathymetric relief floor and contour grids
  * - Autonomous floating marine intelligence station & mooring infrastructure
  * - GPU particle current flow streamlines (u, v vectors)
+ * - Natural Earth 10m land polygons & coastline vector layers
  * - In-situ Argo profiling floats with acoustic beacon pulses
  * - Cinematic and tactical camera systems with smooth interpolations
+ * - Unified geographic coordinate transformations
  */
 
 import * as THREE from 'three';
@@ -20,6 +22,13 @@ import { BathymetricFloor } from './environment/BathymetricFloor';
 import { MarinePlatform } from './infrastructure/MarinePlatform';
 import { CurrentVectorField } from './layers/CurrentVectorField';
 import { CoastlineLayer } from './layers/CoastlineLayer';
+import { LandLayer } from './layers/LandLayer';
+import {
+  lonLatToWorld,
+  worldToLonLat,
+  DEFAULT_INDIAN_OCEAN_BOUNDS,
+  DEFAULT_GEOMETRY_SCALE,
+} from '../utils/geography';
 
 const COLORMAP_CODES = { turbo: 0, viridis: 1, thermal: 2, jet: 3 };
 
@@ -31,6 +40,7 @@ export class OceanSceneController {
     this.onOrbitChange = options.onOrbitChange || (() => {});
     this.onSelectPlatform = options.onSelectPlatform || (() => {});
     this.onSampleProbe = options.onSampleProbe || (() => {});
+    this.onSelectCoordinate = options.onSelectCoordinate || (() => {});
 
     this.argoFloats = [];
     this.selectedFloat = null;
@@ -39,8 +49,9 @@ export class OceanSceneController {
     this.volumeBuffer = null;
 
     // ~3:2 Natural Indian Ocean Geographic Proportions (90 deg Lon / 60 deg Lat = 1.5)
-    this.xScale = 1.8;
-    this.zScale = 1.2;
+    this.xScale = DEFAULT_GEOMETRY_SCALE.xScale; // 1.8
+    this.zScale = DEFAULT_GEOMETRY_SCALE.zScale; // 1.2
+    this.bounds = { ...DEFAULT_INDIAN_OCEAN_BOUNDS };
 
     this.clock = new THREE.Clock();
     this.animationId = null;
@@ -87,7 +98,7 @@ export class OceanSceneController {
     this.controls.target.set(0, 0, 0);
 
     // 3. Lighting (Atmospheric Sun & Ocean Ambient)
-    const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.8);
+    const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.85);
     this.scene.add(ambientLight);
 
     this.dirLight = new THREE.DirectionalLight(0xbae6fd, 1.6);
@@ -117,28 +128,38 @@ export class OceanSceneController {
     this.bathymetricFloor.group.scale.set(this.xScale / 2.0, 1.0, this.zScale / 2.0);
     this.scene.add(this.bathymetricFloor.group);
 
-    // 7. Floating Oceanographic Intelligence Platform
+    // 7. Layer Hierarchy (Phase 8): LAND -> COASTLINE -> OCEAN
+    // 7a. Authentic Natural Earth 10m Land Polygons (Subtle, dark, low visual dominance)
+    this.landLayer = new LandLayer({
+      yLevel: 0.301 * this.verticalExaggeration,
+      xScale: this.xScale,
+      zScale: this.zScale,
+      bounds: this.bounds,
+    });
+    this.scene.add(this.landLayer.group);
+
+    // 7b. Authentic Natural Earth 10m Coastlines Layer (Thin, precise, crisp line)
+    this.coastlineLayer = new CoastlineLayer({
+      yLevel: 0.303 * this.verticalExaggeration,
+      xScale: this.xScale,
+      zScale: this.zScale,
+      bounds: this.bounds,
+    });
+    this.scene.add(this.coastlineLayer.group);
+
+    // 8. Floating Oceanographic Intelligence Platform
     this.marinePlatform = new MarinePlatform({
       position: new THREE.Vector3(0.18, 0.3 * this.verticalExaggeration, 0.12),
     });
     this.scene.add(this.marinePlatform.group);
 
-    // 8. GPU Ocean Surface Current Velocity Streamlines (u, v)
+    // 9. GPU Ocean Surface Current Velocity Streamlines (u, v)
     this.currentVectors = new CurrentVectorField({
       count: 2400,
       yLevel: 0.302 * this.verticalExaggeration,
     });
     this.currentVectors.mesh.scale.set(this.xScale / 2.0, 1.0, this.zScale / 2.0);
     this.scene.add(this.currentVectors.mesh);
-
-    // 9. Authentic Natural Earth Indian Ocean Coastlines Layer
-    this.coastlineLayer = new CoastlineLayer({
-      yLevel: 0.303 * this.verticalExaggeration,
-      xScale: this.xScale,
-      zScale: this.zScale,
-      bounds: { minLon: 30.0, maxLon: 120.0, minLat: -30.0, maxLat: 30.0 },
-    });
-    this.scene.add(this.coastlineLayer.group);
 
     // 10. Bounding Frame & Reference Grids
     this.boxGeo = new THREE.BoxGeometry(this.xScale, 0.6 * this.verticalExaggeration, this.zScale);
@@ -208,7 +229,12 @@ export class OceanSceneController {
     this.slicePlane.visible = false;
     this.scene.add(this.slicePlane);
 
-    // 13. Target Location Highlighting Beacon
+    // 13. Argo Float Profilers Group
+    this.floatGroup = new THREE.Group();
+    this.floatGroup.name = 'FloatGroup';
+    this.scene.add(this.floatGroup);
+
+    // 14. Target Location Highlighting Beacon
     this.targetMarker = new THREE.Group();
     const beaconPinGeo = new THREE.ConeGeometry(0.025, 0.07, 16);
     beaconPinGeo.rotateX(Math.PI);
@@ -351,23 +377,24 @@ export class OceanSceneController {
     const probeIntersects = this.raycaster.intersectObjects(probeTargets, false);
     if (probeIntersects.length > 0 && this.volumeMeta) {
       const pt = probeIntersects[0].point;
-      const minLon = this.volumeMeta.minLon ?? 30.0;
-      const maxLon = this.volumeMeta.maxLon ?? 120.0;
-      const minLat = this.volumeMeta.minLat ?? -30.0;
-      const maxLat = this.volumeMeta.maxLat ?? 30.0;
       const maxDepth = this.volumeMeta.maxDepth ?? 2000;
 
-      const normX = THREE.MathUtils.clamp((pt.x / this.xScale) + 0.5, 0.0, 1.0);
-      const normZ = THREE.MathUtils.clamp((pt.z / this.zScale) + 0.5, 0.0, 1.0);
-      const normY = THREE.MathUtils.clamp((0.3 * this.verticalExaggeration - pt.y) / (0.6 * this.verticalExaggeration), 0.0, 1.0);
+      // Use unified worldToLonLat transform
+      const { lon, lat } = worldToLonLat(
+        pt.x,
+        pt.z,
+        this.bounds,
+        { xScale: this.xScale, zScale: this.zScale }
+      );
 
-      const lon = minLon + normX * (maxLon - minLon);
-      const lat = minLat + normZ * (maxLat - minLat);
+      const normY = THREE.MathUtils.clamp((0.3 * this.verticalExaggeration - pt.y) / (0.6 * this.verticalExaggeration), 0.0, 1.0);
       const depth = normY * maxDepth;
 
       let scalarVal = null;
       if (this.volumeBuffer) {
         const { dimX, dimY, dimZ, minVal, maxVal } = this.volumeMeta;
+        const normX = THREE.MathUtils.clamp((pt.x / this.xScale) + 0.5, 0.0, 1.0);
+        const normZ = THREE.MathUtils.clamp((pt.z / this.zScale) + 0.5, 0.0, 1.0);
         const ix = Math.min(dimX - 1, Math.max(0, Math.floor(normX * dimX)));
         const iy = Math.min(dimY - 1, Math.max(0, Math.floor(normZ * dimY)));
         const iz = Math.min(dimZ - 1, Math.max(0, Math.floor(normY * dimZ)));
@@ -412,9 +439,28 @@ export class OceanSceneController {
       if (obj?.userData?.platform_number) {
         const target = this.argoFloats.find(f => f.platform_number === obj.userData.platform_number);
         if (target) this.onSelectFloat(target);
+        return;
       } else if (obj?.userData?.type === 'platform') {
         this.onSelectPlatform(obj.userData);
+        return;
       }
+    }
+
+    // Click-to-select geographic location on ocean surface (Phase 12)
+    const oceanTargets = [];
+    if (this.volMesh) oceanTargets.push(this.volMesh);
+    if (this.waterSurface?.mesh) oceanTargets.push(this.waterSurface.mesh);
+    const oceanIntersects = this.raycaster.intersectObjects(oceanTargets, false);
+    if (oceanIntersects.length > 0) {
+      const pt = oceanIntersects[0].point;
+      const { lon, lat } = worldToLonLat(
+        pt.x,
+        pt.z,
+        this.bounds,
+        { xScale: this.xScale, zScale: this.zScale }
+      );
+      this.focusCoordinate(lat, lon);
+      this.onSelectCoordinate({ lat, lon });
     }
   }
 
@@ -441,6 +487,15 @@ export class OceanSceneController {
     this.volumeMeta = volumeMeta;
     const { dimX, dimY, dimZ } = volumeMeta;
 
+    if (volumeMeta.minLon !== undefined && volumeMeta.maxLon !== undefined) {
+      this.bounds = {
+        minLon: volumeMeta.minLon,
+        maxLon: volumeMeta.maxLon,
+        minLat: volumeMeta.minLat,
+        maxLat: volumeMeta.maxLat,
+      };
+    }
+
     const newTexture = new THREE.Data3DTexture(volumeBuffer, dimX, dimY, dimZ);
     newTexture.format = THREE.RedFormat;
     newTexture.type = THREE.FloatType;
@@ -456,14 +511,18 @@ export class OceanSceneController {
     this.volumeMaterial.uniforms.u_data.value = newTexture;
     this.volumeMaterial.uniforms.u_dim.value = new THREE.Vector3(dimX, dimY, dimZ);
 
-    if (this.coastlineLayer && volumeMeta) {
+    if (this.landLayer) {
+      this.landLayer.updateBounds(
+        this.bounds,
+        this.xScale,
+        this.zScale,
+        0.301 * this.verticalExaggeration
+      );
+    }
+
+    if (this.coastlineLayer) {
       this.coastlineLayer.updateBounds(
-        {
-          minLon: volumeMeta.minLon ?? 30.0,
-          maxLon: volumeMeta.maxLon ?? 120.0,
-          minLat: volumeMeta.minLat ?? -30.0,
-          maxLat: volumeMeta.maxLat ?? 30.0,
-        },
+        this.bounds,
         this.xScale,
         this.zScale,
         0.303 * this.verticalExaggeration
@@ -490,6 +549,7 @@ export class OceanSceneController {
       if (this.waterSurface?.mesh) this.waterSurface.mesh.position.y = 0.3 * this.verticalExaggeration;
       if (this.bathymetricFloor?.group) this.bathymetricFloor.group.position.y = -0.3 * this.verticalExaggeration;
       if (this.currentVectors) this.currentVectors.setYLevel(0.302 * this.verticalExaggeration);
+      if (this.landLayer) this.landLayer.setYLevel(0.301 * this.verticalExaggeration);
       if (this.coastlineLayer) this.coastlineLayer.setYLevel(0.303 * this.verticalExaggeration);
       if (this.marinePlatform?.group) this.marinePlatform.group.position.y = 0.3 * this.verticalExaggeration;
       this.updateArgoMarkers(this.argoFloats, this.selectedFloat, this.verticalExaggeration, this.volumeMeta);
@@ -510,7 +570,7 @@ export class OceanSceneController {
     }
   }
 
-  setLayerVisibility({ oceanSurface, currentVectors, bathymetricFloor, marinePlatform, argoSensors, volumeRaymarch, coastlines }) {
+  setLayerVisibility({ oceanSurface, currentVectors, bathymetricFloor, marinePlatform, argoSensors, volumeRaymarch, coastlines, land }) {
     if (oceanSurface !== undefined && this.waterSurface) this.waterSurface.setVisible(oceanSurface);
     if (currentVectors !== undefined && this.currentVectors) this.currentVectors.setVisible(currentVectors);
     if (bathymetricFloor !== undefined && this.bathymetricFloor) this.bathymetricFloor.setVisible(bathymetricFloor);
@@ -518,6 +578,7 @@ export class OceanSceneController {
     if (argoSensors !== undefined && this.floatGroup) this.floatGroup.visible = argoSensors;
     if (volumeRaymarch !== undefined && this.volMesh) this.volMesh.visible = volumeRaymarch;
     if (coastlines !== undefined && this.coastlineLayer) this.coastlineLayer.setVisible(coastlines);
+    if (land !== undefined && this.landLayer) this.landLayer.setVisible(land);
   }
 
   updateGridAndBox({ showGrid, showBoundingBox }) {
@@ -544,26 +605,28 @@ export class OceanSceneController {
       }
     }
 
-    const minLon = this.volumeMeta?.minLon ?? 30.0;
-    const maxLon = this.volumeMeta?.maxLon ?? 120.0;
-    const minLat = this.volumeMeta?.minLat ?? -30.0;
-    const maxLat = this.volumeMeta?.maxLat ?? 30.0;
+    const scale = { xScale: this.xScale, zScale: this.zScale };
+    const surfaceY = 0.3 * this.verticalExaggeration;
 
     this.argoFloats.forEach((float) => {
       const isSelected = this.selectedFloat?.platform_number === float.platform_number;
-      const lonSpan = maxLon > minLon ? (maxLon - minLon) : 90.0;
-      const latSpan = maxLat > minLat ? (maxLat - minLat) : 60.0;
-      const normX = (((float.latest_position.longitude - minLon) / lonSpan) - 0.5) * this.xScale;
-      const normZ = (((float.latest_position.latitude - minLat) / latSpan) - 0.5) * this.zScale;
-      const surfaceY = 0.3 * this.verticalExaggeration;
+
+      // Use unified lonLatToWorld coordinate transform
+      const w = lonLatToWorld(
+        float.latest_position.longitude,
+        float.latest_position.latitude,
+        surfaceY,
+        this.bounds,
+        scale
+      );
 
       const marker = new THREE.Group();
       marker.userData = { platform_number: float.platform_number };
 
       // 1. Vertical Profile Descent Trajectory Cable
       const lineGeo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(normX, surfaceY, normZ),
-        new THREE.Vector3(normX, -0.3 * this.verticalExaggeration, normZ),
+        new THREE.Vector3(w.x, surfaceY, w.z),
+        new THREE.Vector3(w.x, -0.3 * this.verticalExaggeration, w.z),
       ]);
       const lineMat = new THREE.LineDashedMaterial({
         color: isSelected ? 0x38bdf8 : 0xf59e0b,
@@ -584,7 +647,7 @@ export class OceanSceneController {
         emissiveIntensity: isSelected ? 0.9 : 0.4,
       });
       const buoy = new THREE.Mesh(buoyGeo, buoyMat);
-      buoy.position.set(normX, surfaceY + 0.02, normZ);
+      buoy.position.set(w.x, surfaceY + 0.02, w.z);
       marker.add(buoy);
 
       // 3. Acoustic Transmission Pulsing Ring
@@ -598,7 +661,7 @@ export class OceanSceneController {
       });
       const pingRing = new THREE.Mesh(ringGeo, ringMat);
       pingRing.name = 'pingRing';
-      pingRing.position.set(normX, surfaceY + 0.002, normZ);
+      pingRing.position.set(w.x, surfaceY + 0.002, w.z);
       marker.add(pingRing);
 
       this.floatGroup.add(marker);
@@ -607,24 +670,19 @@ export class OceanSceneController {
 
   focusCoordinate(lat, lon) {
     if (!this.camera || !this.controls) return;
-    const minLon = this.volumeMeta?.minLon ?? 30.0;
-    const maxLon = this.volumeMeta?.maxLon ?? 120.0;
-    const minLat = this.volumeMeta?.minLat ?? -30.0;
-    const maxLat = this.volumeMeta?.maxLat ?? 30.0;
-    const lonSpan = maxLon > minLon ? (maxLon - minLon) : 90.0;
-    const latSpan = maxLat > minLat ? (maxLat - minLat) : 60.0;
-
-    const normX = (((lon - minLon) / lonSpan) - 0.5) * this.xScale;
-    const normZ = (((lat - minLat) / latSpan) - 0.5) * this.zScale;
     const surfaceY = 0.3 * this.verticalExaggeration;
+    const scale = { xScale: this.xScale, zScale: this.zScale };
+
+    // Use unified lonLatToWorld coordinate transform
+    const w = lonLatToWorld(lon, lat, surfaceY, this.bounds, scale);
 
     if (this.targetMarker) {
-      this.targetMarker.position.set(normX, surfaceY, normZ);
+      this.targetMarker.position.set(w.x, surfaceY, w.z);
       this.targetMarker.visible = true;
     }
 
-    this.controlsTargetPos = new THREE.Vector3(normX, surfaceY, normZ);
-    this.cameraTargetPos = new THREE.Vector3(normX, surfaceY + 0.85, normZ + 0.85);
+    this.controlsTargetPos = new THREE.Vector3(w.x, surfaceY, w.z);
+    this.cameraTargetPos = new THREE.Vector3(w.x, surfaceY + 0.85, w.z + 0.85);
     this.isCameraLerping = true;
   }
 
@@ -638,7 +696,7 @@ export class OceanSceneController {
       case 'indian_ocean':
       case 'geospatial':
       case 'top':
-        // Top-down tactical Indian Ocean full domain view in ~3:2 framing
+        // Top-down tactical Indian Ocean full domain view in ~3:2 framing (Phase 14)
         this.cameraTargetPos = new THREE.Vector3(0, 3.4, 0.001);
         this.controlsTargetPos = new THREE.Vector3(0, 0, 0);
         break;
@@ -705,6 +763,7 @@ export class OceanSceneController {
     if (this.bathymetricFloor) this.bathymetricFloor.dispose();
     if (this.marinePlatform) this.marinePlatform.dispose();
     if (this.currentVectors) this.currentVectors.dispose();
+    if (this.landLayer) this.landLayer.dispose();
     if (this.coastlineLayer) this.coastlineLayer.dispose();
 
     if (this.volumeTexture) this.volumeTexture.dispose();

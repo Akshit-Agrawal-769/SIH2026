@@ -63,6 +63,9 @@ export const OceanViewer = () => {
       onSelectPlatform: (p) => selectPlatform(p),
       onOrbitChange: (stats) => setOrbitStats(stats),
       onSampleProbe: (probe) => setCursorProbe(probe),
+      onSelectCoordinate: (coord) => {
+        useOceanStore.getState().focusCoordinateInExplorer(coord.lat, coord.lon, `Point (${coord.lat.toFixed(2)}°, ${coord.lon.toFixed(2)}°)`);
+      },
     });
     controllerRef.current = controller;
 

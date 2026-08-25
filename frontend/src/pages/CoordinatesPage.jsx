@@ -11,20 +11,13 @@ import {
   AlertTriangle,
   Info
 } from '../components/Icons';
-
-function haversineDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+import {
+  validateCoordinates,
+  haversineDistanceKm,
+  calculateNearestGridCell,
+  INDIAN_OCEAN_PRESETS,
+  DEFAULT_INDIAN_OCEAN_BOUNDS,
+} from '../utils/geography';
 
 export const CoordinatesPage = () => {
   const {
@@ -35,19 +28,21 @@ export const CoordinatesPage = () => {
     activeDataset,
   } = useOceanStore();
 
-  const minLat = metadata?.bounds?.min_lat ?? -30.0;
-  const maxLat = metadata?.bounds?.max_lat ?? 30.0;
-  const minLon = metadata?.bounds?.min_lon ?? 30.0;
-  const maxLon = metadata?.bounds?.max_lon ?? 120.0;
+  const bounds = {
+    minLat: metadata?.bounds?.min_lat ?? DEFAULT_INDIAN_OCEAN_BOUNDS.minLat,
+    maxLat: metadata?.bounds?.max_lat ?? DEFAULT_INDIAN_OCEAN_BOUNDS.maxLat,
+    minLon: metadata?.bounds?.min_lon ?? DEFAULT_INDIAN_OCEAN_BOUNDS.minLon,
+    maxLon: metadata?.bounds?.max_lon ?? DEFAULT_INDIAN_OCEAN_BOUNDS.maxLon,
+  };
 
   const [latInput, setLatInput] = useState('12.83');
   const [lonInput, setLonInput] = useState('69.00');
 
   const parsedLat = parseFloat(latInput);
   const parsedLon = parseFloat(lonInput);
-  const isLatValid = !isNaN(parsedLat) && parsedLat >= minLat && parsedLat <= maxLat;
-  const isLonValid = !isNaN(parsedLon) && parsedLon >= minLon && parsedLon <= maxLon;
-  const isValid = isLatValid && isLonValid;
+
+  const validation = validateCoordinates(parsedLat, parsedLon, bounds);
+  const isValid = validation.isValid;
 
   // Find nearest Argo Float
   let nearestFloat = null;
@@ -55,7 +50,7 @@ export const CoordinatesPage = () => {
   if (isValid && argoFloats && argoFloats.length > 0) {
     argoFloats.forEach((f) => {
       if (f.latest_position) {
-        const d = haversineDistance(
+        const d = haversineDistanceKm(
           parsedLat,
           parsedLon,
           f.latest_position.latitude,
@@ -70,22 +65,9 @@ export const CoordinatesPage = () => {
   }
 
   // Model Grid Spacing
-  const gridResLat = 756;
-  const gridResLon = 1081;
-  const dLat = (maxLat - minLat) / gridResLat;
-  const dLon = (maxLon - minLon) / gridResLon;
-  const nearestGridLat = isValid ? Math.round((parsedLat - minLat) / dLat) * dLat + minLat : 0;
-  const nearestGridLon = isValid ? Math.round((parsedLon - minLon) / dLon) * dLon + minLon : 0;
-  const gridCellDistKm = isValid ? haversineDistance(parsedLat, parsedLon, nearestGridLat, nearestGridLon) : 0;
-
-  const presets = [
-    { label: 'Arabian Sea Central Basin', lat: 12.83, lon: 69.00, desc: 'High-evaporation tropical basin with pronounced summer monsoon upwelling' },
-    { label: 'Bay of Bengal Deep Zone', lat: 13.69, lon: 88.07, desc: 'Low-salinity riverine freshwater cap driving strong barrier layer dynamics' },
-    { label: 'Equatorial Indian Ocean', lat: 0.00, lon: 80.00, desc: 'Zonal Wyrtki jet dynamic corridor and thermocline ridge' },
-    { label: 'Somali Current / Horn of Africa', lat: 8.50, lon: 52.00, desc: 'Intense coastal upwelling and Great Whirl anticyclonic eddy system' },
-    { label: 'Southwest Indian Ocean Ridge', lat: -25.00, lon: 55.00, desc: 'Subtropical gyre transition and deep bathymetric trench zone' },
-    { label: 'Andaman Sea Basin', lat: 10.50, lon: 95.00, desc: 'Marginal sea with high internal wave activity and shallow sill exchange' },
-  ];
+  const { nearestLat, nearestLon, distanceKm: gridCellDistKm } = isValid
+    ? calculateNearestGridCell(parsedLat, parsedLon, 0.083333, bounds)
+    : { nearestLat: 0, nearestLon: 0, distanceKm: 0 };
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#040814] text-slate-100 font-mono p-4 sm:p-6 md:p-8 select-none">
@@ -117,7 +99,7 @@ export const CoordinatesPage = () => {
                   Target Coordinate Entry
                 </span>
                 <span className="text-[10px] text-slate-400">
-                  Domain: [{minLat.toFixed(0)}°S to {maxLat.toFixed(0)}°N, {minLon.toFixed(0)}°E to {maxLon.toFixed(0)}°E]
+                  Domain: [{bounds.minLat.toFixed(0)}°S to {bounds.maxLat.toFixed(0)}°N, {bounds.minLon.toFixed(0)}°E to {bounds.maxLon.toFixed(0)}°E]
                 </span>
               </div>
 
@@ -125,7 +107,9 @@ export const CoordinatesPage = () => {
                 <div className="flex flex-col gap-1">
                   <label className="text-[11px] text-slate-400 flex items-center justify-between">
                     <span>LATITUDE (°N / °S)</span>
-                    {!isLatValid && <span className="text-red-400 text-[10px]">[-30° to 30°]</span>}
+                    {!isValid && !isNaN(parsedLat) && (parsedLat < bounds.minLat || parsedLat > bounds.maxLat) && (
+                      <span className="text-red-400 text-[10px]">[{bounds.minLat}° to {bounds.maxLat}°]</span>
+                    )}
                   </label>
                   <input
                     type="number"
@@ -134,7 +118,7 @@ export const CoordinatesPage = () => {
                     onChange={(e) => setLatInput(e.target.value)}
                     placeholder="12.83"
                     className={`w-full px-3 py-2 bg-[#0c1424] border text-slate-100 font-bold text-sm focus:outline-none focus:ring-1 ${
-                      isLatValid
+                      isValid || isNaN(parsedLat)
                         ? 'border-[#1e293b] focus:border-teal-500 focus:ring-teal-500'
                         : 'border-red-500 focus:border-red-500 focus:ring-red-500'
                     }`}
@@ -145,7 +129,9 @@ export const CoordinatesPage = () => {
                 <div className="flex flex-col gap-1">
                   <label className="text-[11px] text-slate-400 flex items-center justify-between">
                     <span>LONGITUDE (°E)</span>
-                    {!isLonValid && <span className="text-red-400 text-[10px]">[30° to 120°]</span>}
+                    {!isValid && !isNaN(parsedLon) && (parsedLon < bounds.minLon || parsedLon > bounds.maxLon) && (
+                      <span className="text-red-400 text-[10px]">[{bounds.minLon}° to {bounds.maxLon}°]</span>
+                    )}
                   </label>
                   <input
                     type="number"
@@ -154,7 +140,7 @@ export const CoordinatesPage = () => {
                     onChange={(e) => setLonInput(e.target.value)}
                     placeholder="69.00"
                     className={`w-full px-3 py-2 bg-[#0c1424] border text-slate-100 font-bold text-sm focus:outline-none focus:ring-1 ${
-                      isLonValid
+                      isValid || isNaN(parsedLon)
                         ? 'border-[#1e293b] focus:border-teal-500 focus:ring-teal-500'
                         : 'border-red-500 focus:border-red-500 focus:ring-red-500'
                     }`}
@@ -162,6 +148,14 @@ export const CoordinatesPage = () => {
                   <span className="text-[9px] text-slate-500">Eastern Hemisphere degrees</span>
                 </div>
               </div>
+
+              {/* Validation error if any */}
+              {!isValid && validation.error && (
+                <div className="text-[11px] text-red-400 font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>{validation.error}</span>
+                </div>
+              )}
 
               {/* Action Button */}
               <button
@@ -189,9 +183,9 @@ export const CoordinatesPage = () => {
                 Geographic Presets & Oceanographic Regimes
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {presets.map((p, idx) => (
+                {INDIAN_OCEAN_PRESETS.map((p) => (
                   <div
-                    key={idx}
+                    key={p.id}
                     onClick={() => {
                       setLatInput(p.lat.toFixed(2));
                       setLonInput(p.lon.toFixed(2));
@@ -232,7 +226,7 @@ export const CoordinatesPage = () => {
                 <div className="flex items-center justify-between py-1 border-b border-[#141e33]">
                   <span className="text-slate-400">Nearest Grid Point:</span>
                   <span className="text-teal-300 font-bold">
-                    {isValid ? `${nearestGridLat.toFixed(2)}°N, ${nearestGridLon.toFixed(2)}°E` : '--'}
+                    {isValid ? `${nearestLat.toFixed(2)}°N, ${nearestLon.toFixed(2)}°E` : '--'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-[#141e33]">

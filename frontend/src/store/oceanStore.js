@@ -43,10 +43,11 @@ export const useOceanStore = create((set, get) => ({
     volumeRaymarch: true,
     depthSlice: false,
     bathymetricFloor: true,
+    land: true,
+    coastlines: true,
     argoSensors: true,
     marinePlatform: true,
     weatherOverlay: false,
-    coastlines: true,
   },
 
   // Marine Station Telemetry

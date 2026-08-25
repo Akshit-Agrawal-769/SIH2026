@@ -1,99 +1,96 @@
 /**
  * CoastlineLayer
- * Renders authentic Natural Earth 50m coastline vectors across the Indian Ocean domain.
+ * Renders authentic Natural Earth 10m coastline vectors across the Indian Ocean domain.
+ * Thin, precise, crisp, restrained line visibility above ocean and land layers.
  * Accurately projects geographic coordinates (Lon, Lat) into normalized scene world space (X, Z).
  */
 
 import * as THREE from 'three';
-import coastlineData from '../../data/indian_ocean_coastline_50m.json';
+import { lonLatToWorld, DEFAULT_INDIAN_OCEAN_BOUNDS, DEFAULT_GEOMETRY_SCALE } from '../../utils/geography';
 
 export class CoastlineLayer {
   constructor(options = {}) {
-    this.yLevel = options.yLevel || 0.302;
-    this.xScale = options.xScale || 1.8;
-    this.zScale = options.zScale || 1.2;
-    this.bounds = options.bounds || { minLon: 30.0, maxLon: 120.0, minLat: -30.0, maxLat: 30.0 };
+    this.yLevel = options.yLevel || 0.303;
+    this.xScale = options.xScale || DEFAULT_GEOMETRY_SCALE.xScale;
+    this.zScale = options.zScale || DEFAULT_GEOMETRY_SCALE.zScale;
+    this.bounds = options.bounds || DEFAULT_INDIAN_OCEAN_BOUNDS;
 
     this.group = new THREE.Group();
     this.group.name = 'CoastlineLayer';
 
     this.lineMesh = null;
-    this.landMesh = null;
+    this.geoJsonData = null;
 
-    this._buildCoastlines();
+    this._loadAndBuild();
+  }
+
+  async _loadAndBuild() {
+    try {
+      const response = await fetch('/geography/coastline.geojson');
+      if (!response.ok) {
+        throw new Error(`Failed to load coastline.geojson: ${response.status}`);
+      }
+      this.geoJsonData = await response.json();
+      this._buildCoastlines();
+    } catch (err) {
+      console.warn('[CoastlineLayer] GeoJSON fetch warning:', err.message);
+    }
   }
 
   _buildCoastlines() {
-    // Clean up existing
-    while (this.group.children.length > 0) {
-      const child = this.group.children[0];
-      this.group.remove(child);
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) child.material.dispose();
+    // Clean up existing mesh
+    if (this.lineMesh) {
+      this.group.remove(this.lineMesh);
+      if (this.lineMesh.geometry) this.lineMesh.geometry.dispose();
+      if (this.lineMesh.material) this.lineMesh.material.dispose();
+      this.lineMesh = null;
     }
+
+    if (!this.geoJsonData?.features) return;
 
     const { minLon, maxLon, minLat, maxLat } = this.bounds;
-    const lonSpan = maxLon > minLon ? (maxLon - minLon) : 90.0;
-    const latSpan = maxLat > minLat ? (maxLat - minLat) : 60.0;
-
     const linePoints = [];
+    const scale = { xScale: this.xScale, zScale: this.zScale };
 
-    const projectPoint = (lon, lat) => {
-      const normX = ((lon - minLon) / lonSpan - 0.5) * this.xScale;
-      const normZ = ((lat - minLat) / latSpan - 0.5) * this.zScale;
-      return new THREE.Vector3(normX, this.yLevel, normZ);
+    const processLine = (coords) => {
+      if (!coords || coords.length < 2) return;
+      for (let i = 0; i < coords.length - 1; i++) {
+        const p1 = coords[i];
+        const p2 = coords[i + 1];
+        // Clip segments outside domain bounds (+ padding)
+        if (
+          (p1[0] >= minLon - 5 && p1[0] <= maxLon + 5 && p1[1] >= minLat - 5 && p1[1] <= maxLat + 5) ||
+          (p2[0] >= minLon - 5 && p2[0] <= maxLon + 5 && p2[1] >= minLat - 5 && p2[1] <= maxLat + 5)
+        ) {
+          const v1 = lonLatToWorld(p1[0], p1[1], this.yLevel, this.bounds, scale);
+          const v2 = lonLatToWorld(p2[0], p2[1], this.yLevel, this.bounds, scale);
+          linePoints.push(v1.x, v1.y, v1.z);
+          linePoints.push(v2.x, v2.y, v2.z);
+        }
+      }
     };
 
-    if (coastlineData && coastlineData.features) {
-      coastlineData.features.forEach((feat) => {
-        const geom = feat.geometry;
-        if (!geom) return;
+    this.geoJsonData.features.forEach((feat) => {
+      const geom = feat.geometry;
+      if (!geom) return;
 
-        if (geom.type === 'LineString') {
-          const coords = geom.coordinates;
-          for (let i = 0; i < coords.length - 1; i++) {
-            const p1 = coords[i];
-            const p2 = coords[i + 1];
-            // Check if within or near domain bounds
-            if (
-              (p1[0] >= minLon - 5 && p1[0] <= maxLon + 5 && p1[1] >= minLat - 5 && p1[1] <= maxLat + 5) ||
-              (p2[0] >= minLon - 5 && p2[0] <= maxLon + 5 && p2[1] >= minLat - 5 && p2[1] <= maxLat + 5)
-            ) {
-              const v1 = projectPoint(p1[0], p1[1]);
-              const v2 = projectPoint(p2[0], p2[1]);
-              linePoints.push(v1.x, v1.y, v1.z);
-              linePoints.push(v2.x, v2.y, v2.z);
-            }
-          }
-        } else if (geom.type === 'MultiLineString') {
-          geom.coordinates.forEach((line) => {
-            for (let i = 0; i < line.length - 1; i++) {
-              const p1 = line[i];
-              const p2 = line[i + 1];
-              if (
-                (p1[0] >= minLon - 5 && p1[0] <= maxLon + 5 && p1[1] >= minLat - 5 && p1[1] <= maxLat + 5) ||
-                (p2[0] >= minLon - 5 && p2[0] <= maxLon + 5 && p2[1] >= minLat - 5 && p2[1] <= maxLat + 5)
-              ) {
-                const v1 = projectPoint(p1[0], p1[1]);
-                const v2 = projectPoint(p2[0], p2[1]);
-                linePoints.push(v1.x, v1.y, v1.z);
-                linePoints.push(v2.x, v2.y, v2.z);
-              }
-            }
-          });
-        }
-      });
-    }
+      if (geom.type === 'LineString') {
+        processLine(geom.coordinates);
+      } else if (geom.type === 'MultiLineString') {
+        geom.coordinates.forEach(line => processLine(line));
+      }
+    });
 
     if (linePoints.length > 0) {
       const lineGeo = new THREE.BufferGeometry();
       lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePoints, 3));
-      
+
+      // Phase 8: Thin, precise, crisp, restrained line styling
       const lineMat = new THREE.LineBasicMaterial({
-        color: 0x67e8f9, // Bright cyan coastline
+        color: 0x38bdf8,
         transparent: true,
-        opacity: 0.85,
-        linewidth: 1.5,
+        opacity: 0.75,
+        linewidth: 1.0,
       });
 
       this.lineMesh = new THREE.LineSegments(lineGeo, lineMat);
@@ -106,13 +103,15 @@ export class CoastlineLayer {
     if (xScale !== undefined) this.xScale = xScale;
     if (zScale !== undefined) this.zScale = zScale;
     if (yLevel !== undefined) this.yLevel = yLevel;
-    this._buildCoastlines();
+    if (this.geoJsonData) {
+      this._buildCoastlines();
+    }
   }
 
   setYLevel(yLevel) {
     this.yLevel = yLevel;
     if (this.lineMesh) {
-      this.lineMesh.position.y = yLevel - 0.302;
+      this.lineMesh.position.y = yLevel - 0.303;
     }
   }
 
@@ -121,11 +120,11 @@ export class CoastlineLayer {
   }
 
   dispose() {
-    while (this.group.children.length > 0) {
-      const child = this.group.children[0];
-      this.group.remove(child);
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) child.material.dispose();
+    if (this.lineMesh) {
+      this.group.remove(this.lineMesh);
+      if (this.lineMesh.geometry) this.lineMesh.geometry.dispose();
+      if (this.lineMesh.material) this.lineMesh.material.dispose();
+      this.lineMesh = null;
     }
   }
 }

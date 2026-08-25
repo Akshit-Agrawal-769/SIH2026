@@ -1,21 +1,12 @@
 import React, { useState } from 'react';
 import { useOceanStore } from '../store/oceanStore';
 import { Crosshair, X, Compass, Radio, ArrowRight, AlertTriangle } from './Icons';
-
-// Haversine distance in km
-function haversineDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+import {
+  validateCoordinates,
+  haversineDistanceKm,
+  INDIAN_OCEAN_PRESETS,
+  DEFAULT_INDIAN_OCEAN_BOUNDS
+} from '../utils/geography';
 
 export const GoToLocationModal = () => {
   const {
@@ -26,10 +17,12 @@ export const GoToLocationModal = () => {
     argoFloats,
   } = useOceanStore();
 
-  const minLat = metadata?.bounds?.min_lat ?? -30.0;
-  const maxLat = metadata?.bounds?.max_lat ?? 30.0;
-  const minLon = metadata?.bounds?.min_lon ?? 30.0;
-  const maxLon = metadata?.bounds?.max_lon ?? 120.0;
+  const bounds = {
+    minLat: metadata?.bounds?.min_lat ?? DEFAULT_INDIAN_OCEAN_BOUNDS.minLat,
+    maxLat: metadata?.bounds?.max_lat ?? DEFAULT_INDIAN_OCEAN_BOUNDS.maxLat,
+    minLon: metadata?.bounds?.min_lon ?? DEFAULT_INDIAN_OCEAN_BOUNDS.minLon,
+    maxLon: metadata?.bounds?.max_lon ?? DEFAULT_INDIAN_OCEAN_BOUNDS.maxLon,
+  };
 
   const [latInput, setLatInput] = useState('12.83');
   const [lonInput, setLonInput] = useState('69.00');
@@ -38,9 +31,9 @@ export const GoToLocationModal = () => {
 
   const parsedLat = parseFloat(latInput);
   const parsedLon = parseFloat(lonInput);
-  const isLatValid = !isNaN(parsedLat) && parsedLat >= minLat && parsedLat <= maxLat;
-  const isLonValid = !isNaN(parsedLon) && parsedLon >= minLon && parsedLon <= maxLon;
-  const isValid = isLatValid && isLonValid;
+
+  const validation = validateCoordinates(parsedLat, parsedLon, bounds);
+  const isValid = validation.isValid;
 
   // Find nearest Argo float if valid
   let nearestFloat = null;
@@ -48,7 +41,7 @@ export const GoToLocationModal = () => {
   if (isValid && argoFloats && argoFloats.length > 0) {
     argoFloats.forEach((f) => {
       if (f.latest_position) {
-        const d = haversineDistance(
+        const d = haversineDistanceKm(
           parsedLat,
           parsedLon,
           f.latest_position.latitude,
@@ -61,15 +54,6 @@ export const GoToLocationModal = () => {
       }
     });
   }
-
-  const presets = [
-    { label: 'Arabian Sea (High Resolution)', lat: 12.83, lon: 69.00 },
-    { label: 'Bay of Bengal Deep Basin', lat: 13.69, lon: 88.07 },
-    { label: 'Equatorial Indian Ocean', lat: 0.00, lon: 80.00 },
-    { label: 'SW Domain Boundary', lat: -30.00, lon: 30.00 },
-    { label: 'NE Domain Boundary', lat: 30.00, lon: 120.00 },
-    { label: 'Somali Current / Horn of Africa', lat: 8.50, lon: 52.00 },
-  ];
 
   const handleLocate = () => {
     if (!isValid) return;
@@ -115,7 +99,7 @@ export const GoToLocationModal = () => {
           <div className="flex items-center justify-between px-3 py-2 bg-[#040814] border border-[#1e293b] text-[11px] text-slate-400">
             <span>DOMAIN LIMITS:</span>
             <span className="text-slate-200 font-bold">
-              Lat [{minLat.toFixed(1)}°, {maxLat.toFixed(1)}°] · Lon [{minLon.toFixed(1)}°, {maxLon.toFixed(1)}°]
+              Lat [{bounds.minLat.toFixed(1)}°, {bounds.maxLat.toFixed(1)}°] · Lon [{bounds.minLon.toFixed(1)}°, {bounds.maxLon.toFixed(1)}°]
             </span>
           </div>
 
@@ -124,7 +108,9 @@ export const GoToLocationModal = () => {
             <div className="flex flex-col gap-1">
               <label className="text-[10px] text-slate-400 flex items-center justify-between">
                 <span>LATITUDE (°N / °S)</span>
-                {!isLatValid && <span className="text-red-400">OUT OF BOUNDS</span>}
+                {!isValid && !isNaN(parsedLat) && (parsedLat < bounds.minLat || parsedLat > bounds.maxLat) && (
+                  <span className="text-red-400">OUT OF BOUNDS</span>
+                )}
               </label>
               <div className="relative">
                 <input
@@ -134,7 +120,7 @@ export const GoToLocationModal = () => {
                   onChange={(e) => setLatInput(e.target.value)}
                   placeholder="e.g. 12.83"
                   className={`w-full px-3 py-2 bg-[#0c1424] border text-slate-100 font-bold focus:outline-none focus:ring-1 ${
-                    isLatValid
+                    isValid || isNaN(parsedLat)
                       ? 'border-[#1e293b] focus:border-sky-500 focus:ring-sky-500'
                       : 'border-red-500 focus:border-red-500 focus:ring-red-500'
                   }`}
@@ -146,7 +132,9 @@ export const GoToLocationModal = () => {
             <div className="flex flex-col gap-1">
               <label className="text-[10px] text-slate-400 flex items-center justify-between">
                 <span>LONGITUDE (°E)</span>
-                {!isLonValid && <span className="text-red-400">OUT OF BOUNDS</span>}
+                {!isValid && !isNaN(parsedLon) && (parsedLon < bounds.minLon || parsedLon > bounds.maxLon) && (
+                  <span className="text-red-400">OUT OF BOUNDS</span>
+                )}
               </label>
               <div className="relative">
                 <input
@@ -156,7 +144,7 @@ export const GoToLocationModal = () => {
                   onChange={(e) => setLonInput(e.target.value)}
                   placeholder="e.g. 69.00"
                   className={`w-full px-3 py-2 bg-[#0c1424] border text-slate-100 font-bold focus:outline-none focus:ring-1 ${
-                    isLonValid
+                    isValid || isNaN(parsedLon)
                       ? 'border-[#1e293b] focus:border-sky-500 focus:ring-sky-500'
                       : 'border-red-500 focus:border-red-500 focus:ring-red-500'
                   }`}
@@ -165,15 +153,23 @@ export const GoToLocationModal = () => {
             </div>
           </div>
 
+          {/* Validation error message if invalid */}
+          {!isValid && validation.error && (
+            <div className="text-[11px] text-red-400 font-bold flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>{validation.error}</span>
+            </div>
+          )}
+
           {/* Preset Shortcuts */}
           <div className="flex flex-col gap-1.5">
             <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">
               Standard Indian Ocean Presets
             </span>
             <div className="grid grid-cols-2 gap-1.5">
-              {presets.map((p, idx) => (
+              {INDIAN_OCEAN_PRESETS.map((p) => (
                 <button
-                  key={idx}
+                  key={p.id}
                   onClick={() => {
                     setLatInput(p.lat.toFixed(2));
                     setLonInput(p.lon.toFixed(2));
