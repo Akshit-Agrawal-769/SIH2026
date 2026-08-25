@@ -1,9 +1,14 @@
 import pytest
 import numpy as np
-from ingestion.adapters.roms_adapter import calculate_roms_vertical_depths
-from ingestion.adapters.argo_adapter import decode_argo_qc_flags, decode_argo_timestamp
-from app.services.comparison_service import comparison_service
-from app.services.xarray_service import xarray_service
+from app.services.ocean_model import (
+    calculate_roms_vertical_depths,
+    OceanModel,
+    ocean_model_registry,
+    ModelVerticalCoordinateMissing,
+    ModelZetaInterpolationFailed,
+)
+from app.services.insitu_store import decode_argo_qc_flags, decode_argo_timestamp, insitu_store
+from app.services.validation_engine import validation_engine
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -73,13 +78,13 @@ def test_roms_local_zeta_sea_surface_elevation_shift():
 
 
 def test_missing_roms_vertical_metadata_raises_error():
-    """Verifies that missing vertical metadata raises ValueError('MODEL_VERTICAL_COORDINATE_MISSING')."""
+    """Verifies that missing vertical metadata raises ValueError/ModelVerticalCoordinateMissing('MODEL_VERTICAL_COORDINATE_MISSING')."""
     import xarray as xr
     empty_ds = xr.Dataset({"temp": (("time", "lat", "lon"), np.zeros((1, 5, 5)))})
-    empty_da = empty_ds["temp"].isel(time=0)
 
-    with pytest.raises(ValueError, match="MODEL_VERTICAL_COORDINATE_MISSING"):
-        xarray_service._spatial_interpolate_profile(empty_da, empty_ds, lat=15.0, lon=75.0)
+    with pytest.raises((ValueError, ModelVerticalCoordinateMissing), match="MODEL_VERTICAL_COORDINATE_MISSING"):
+        model = OceanModel(empty_ds)
+        model.sample_profile("temp", lat=15.0, lon=75.0)
 
 
 def test_missing_individual_roms_vertical_metadata_raises_error():
@@ -102,30 +107,26 @@ def test_missing_individual_roms_vertical_metadata_raises_error():
     # 1. Missing s_rho
     d1 = dict(base_dict)
     del d1["s_rho"]
-    ds1 = xr.Dataset(d1)
-    with pytest.raises(ValueError, match="MODEL_VERTICAL_COORDINATE_MISSING"):
-        xarray_service._spatial_interpolate_profile(ds1["temp"].isel(time=0), ds1, lat=10.5, lon=70.5)
+    with pytest.raises((ValueError, ModelVerticalCoordinateMissing), match="MODEL_VERTICAL_COORDINATE_MISSING"):
+        OceanModel(xr.Dataset(d1)).sample_profile("temp", lat=10.5, lon=70.5)
 
     # 2. Missing Cs_r
     d2 = dict(base_dict)
     del d2["Cs_r"]
-    ds2 = xr.Dataset(d2)
-    with pytest.raises(ValueError, match="MODEL_VERTICAL_COORDINATE_MISSING"):
-        xarray_service._spatial_interpolate_profile(ds2["temp"].isel(time=0), ds2, lat=10.5, lon=70.5)
+    with pytest.raises((ValueError, ModelVerticalCoordinateMissing), match="MODEL_VERTICAL_COORDINATE_MISSING"):
+        OceanModel(xr.Dataset(d2)).sample_profile("temp", lat=10.5, lon=70.5)
 
     # 3. Missing hc
     d3 = dict(base_dict)
     del d3["hc"]
-    ds3 = xr.Dataset(d3)
-    with pytest.raises(ValueError, match="MODEL_VERTICAL_COORDINATE_MISSING"):
-        xarray_service._spatial_interpolate_profile(ds3["temp"].isel(time=0), ds3, lat=10.5, lon=70.5)
+    with pytest.raises((ValueError, ModelVerticalCoordinateMissing), match="MODEL_VERTICAL_COORDINATE_MISSING"):
+        OceanModel(xr.Dataset(d3)).sample_profile("temp", lat=10.5, lon=70.5)
 
     # 4. Missing Vtransform
     d4 = dict(base_dict)
     del d4["Vtransform"]
-    ds4 = xr.Dataset(d4)
-    with pytest.raises(ValueError, match="MODEL_VERTICAL_COORDINATE_MISSING"):
-        xarray_service._spatial_interpolate_profile(ds4["temp"].isel(time=0), ds4, lat=10.5, lon=70.5)
+    with pytest.raises((ValueError, ModelVerticalCoordinateMissing), match="MODEL_VERTICAL_COORDINATE_MISSING"):
+        OceanModel(xr.Dataset(d4)).sample_profile("temp", lat=10.5, lon=70.5)
 
 
 def test_time_aware_zeta_interpolation():
@@ -155,8 +156,9 @@ def test_time_aware_zeta_interpolation():
         "time": (("time",), time_arr)
     })
 
-    depths_t0, _ = xarray_service._spatial_interpolate_profile(ds["temp"].isel(time=0), ds, lat=10.5, lon=70.5, time_idx=0)
-    depths_t1, _ = xarray_service._spatial_interpolate_profile(ds["temp"].isel(time=1), ds, lat=10.5, lon=70.5, time_idx=1)
+    model = OceanModel(ds)
+    depths_t0, _ = model.sample_profile("temp", lat=10.5, lon=70.5, time_idx=0)
+    depths_t1, _ = model.sample_profile("temp", lat=10.5, lon=70.5, time_idx=1)
 
     assert not np.array_equal(depths_t0, depths_t1)
     assert abs(depths_t0[2] - 0.0) < 1e-3
@@ -178,8 +180,8 @@ def test_zeta_interpolation_failure_raises_error():
         "lon": (("lon",), np.array([70.0, 71.0])),
     })
 
-    with pytest.raises(ValueError, match="MODEL_ZETA_INTERPOLATION_FAILED"):
-        xarray_service._spatial_interpolate_profile(ds["temp"].isel(time=0), ds, lat=10.5, lon=70.5)
+    with pytest.raises((ValueError, ModelZetaInterpolationFailed), match="MODEL_ZETA_INTERPOLATION_FAILED"):
+        OceanModel(ds).sample_profile("temp", lat=10.5, lon=70.5)
 
 
 def test_argo_qc_decoding_and_filtering():
@@ -215,15 +217,46 @@ def test_pearson_correlation_zero_variance_returns_none():
     obs = [25.0, 25.0, 25.0, 25.0]
     mod = [25.1, 25.1, 25.1, 25.1]
     
-    # Calculate via standard numpy logic inside comparison
-    obs_clean = np.array(obs)
-    mod_clean = np.array(mod)
-    
-    r_val = None
-    if len(obs_clean) > 1 and np.std(obs_clean) > 1e-7 and np.std(mod_clean) > 1e-7:
-        r_val = float(np.corrcoef(obs_clean, mod_clean)[0, 1])
-        
-    assert r_val is None  # Must be None, NOT 1.0
+    metrics, full_res = validation_engine.compute_metrics(obs, mod)
+    assert metrics is not None
+    assert metrics["pearson_r"] is None  # Must be None, NOT 1.0
+    assert metrics["sample_count"] == 4
+    assert abs(metrics["bias"] - 0.1) < 1e-4
+
+
+def test_validation_engine_polymorphic_profile_colocation():
+    """Verifies validation_engine.validate_profile executes 4D colocation on any in-memory dataset and observation profile."""
+    import xarray as xr
+    ds = xr.Dataset(
+        {
+            "temp": (("time", "depth", "lat", "lon"), np.ones((2, 5, 2, 2)) * 28.0),
+        },
+        coords={
+            "time": ["2024-01-01T00:00:00Z", "2024-01-02T00:00:00Z"],
+            "depth": [0.0, 10.0, 50.0, 100.0, 200.0],
+            "lat": [10.0, 11.0],
+            "lon": [70.0, 71.0],
+        }
+    )
+    model = OceanModel(ds)
+
+    obs_profile = {
+        "platform_number": "TEST_GLIDER_01",
+        "cycle_number": 42,
+        "timestamp": "2024-01-01T12:00:00Z",
+        "latitude": 10.5,
+        "longitude": 70.5,
+        "depths": [0.0, 10.0, 50.0],
+        "temperature": [28.5, 28.2, 27.8],
+        "qc_flags": [1, 1, 1],
+    }
+
+    scorecard = validation_engine.validate_profile(obs_profile, model, variable="temp")
+    assert scorecard is not None
+    assert scorecard["platform_number"] == "TEST_GLIDER_01"
+    assert scorecard["metrics"]["sample_count"] == 3
+    assert scorecard["metrics"]["rmse"] > 0.0
+    assert len(scorecard["residuals"]) == 3
 
 
 def test_path_traversal_protection():
@@ -258,11 +291,15 @@ def test_4d_spatio_temporal_colocation():
 
 def test_extract_3d_volume_preserves_physical_coordinates_and_nan_sentinel():
     """Verifies that 3D volume buffer extraction preserves physical bounds, units, scientific min/max, and NaN sentinels."""
-    models = xarray_service.list_available_model_datasets()
+    models = ocean_model_registry.list_available_models()
     assert len(models) > 0
     filename = models[0]
+    model = ocean_model_registry.get_model(filename)
+    assert model is not None
 
-    buffer, meta = xarray_service.extract_3d_volume_buffer(filename, variable="temp", time_idx=0, target_shape=(32, 32, 16))
+    result = model.extract_volume_buffer(variable="temp", time_idx=0, target_shape=(32, 32, 16))
+    assert result is not None
+    buffer, meta = result
     assert buffer is not None
     assert "min_lon" in meta
     assert "max_lon" in meta

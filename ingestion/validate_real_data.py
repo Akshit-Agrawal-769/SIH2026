@@ -14,10 +14,13 @@ import sys
 import argparse
 import numpy as np
 
-# Ensure project root is in sys.path
+# Ensure project root and backend are in sys.path
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+BACKEND_DIR = os.path.join(PROJECT_ROOT, "backend")
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
 
 
 def validate_ocean_model(file_path: str):
@@ -32,10 +35,10 @@ def validate_ocean_model(file_path: str):
         return False
 
     try:
-        from ingestion.adapters.roms_adapter import ROMSModelAdapter
+        from app.services.ocean_model import OceanModel
         
-        adapter = ROMSModelAdapter(file_path)
-        meta = adapter.extract_metadata()
+        model = OceanModel(file_path)
+        meta = model.get_metadata()
         
         print("\n--- GLOBAL METADATA ---")
         print(f"Title: {meta.get('title', 'N/A')}")
@@ -78,11 +81,9 @@ def validate_argo_profile(file_path: str):
         return False
 
     try:
-        from ingestion.adapters.argo_adapter import ArgoGDACAdapter
+        from app.services.insitu_store import insitu_store
         
-        adapter = ArgoGDACAdapter(file_path)
-        meta = adapter.extract_metadata()
-        profiles = adapter.parse_profiles(filter_qc=True)
+        meta, profiles = insitu_store.parse_single_file(file_path, filter_qc=True)
         
         print("\n--- ARGO PROFILE METADATA ---")
         print(f"Platform Number: {meta.get('platform_number')}")

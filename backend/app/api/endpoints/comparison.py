@@ -1,6 +1,6 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
-from app.services.comparison_service import comparison_service
+from app.services.validation_engine import validation_engine
 from app.schemas.ocean import ModelVsObsComparisonResponse
 
 router = APIRouter()
@@ -21,11 +21,11 @@ def compare_model_vs_obs(
     if model_filename and (".." in model_filename or "/" in model_filename or "\\" in model_filename):
         raise HTTPException(status_code=400, detail="Invalid model_filename parameter: Path traversal forbidden.")
 
-    comparison = comparison_service.compare_float_profile(
+    comparison = validation_engine.validate_float(
         platform_number=platform_number,
         cycle_number=cycle_number,
         variable=variable,
-        model_filename=model_filename
+        model_name=model_filename
     )
     if not comparison:
         raise HTTPException(

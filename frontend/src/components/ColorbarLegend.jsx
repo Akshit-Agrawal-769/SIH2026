@@ -1,5 +1,4 @@
 import React from 'react';
-import { Activity } from './Icons';
 import { useOceanStore } from '../store/oceanStore';
 
 export const ColorbarLegend = () => {
@@ -41,54 +40,51 @@ export const ColorbarLegend = () => {
   const varInfo = getVarDetails();
 
   return (
-    <div className="absolute bottom-20 left-4 z-20 p-3 bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-xl text-slate-100 shadow-2xl min-w-[280px] max-w-xs select-none">
+    <div className="absolute bottom-3 left-3 z-20 p-2.5 bg-[#080e1a] border border-[#1e293b] text-slate-100 min-w-[260px] max-w-xs select-none shadow-md">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-1.5">
-          <Activity className="w-3.5 h-3.5 text-sky-400" />
-          <span className="text-xs font-bold tracking-wide text-slate-200">
-            {varInfo.title}
-          </span>
-        </div>
-        <span className="text-xs font-mono font-bold px-1.5 py-0.5 bg-slate-900 border border-slate-700/60 text-sky-300 rounded">
-          {volumeMeta.units || 'unitless'}
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-bold font-mono tracking-wide text-slate-200 uppercase">
+          {varInfo.title}
+        </span>
+        <span className="text-xs font-mono font-bold text-sky-300">
+          [{volumeMeta.units || 'unitless'}]
         </span>
       </div>
 
-      {/* Standard Name */}
-      <div className="text-[9px] font-mono text-slate-500 truncate mb-2">
+      {/* CF Standard Name */}
+      <div className="text-[9px] font-mono text-slate-500 truncate mb-1.5">
         CF: {varInfo.stdName}
       </div>
 
       {/* Colormap Scale Bar */}
       <div className="relative">
         <div
-          className="w-full h-3 rounded shadow-inner border border-slate-700/50"
+          className="w-full h-2.5 border border-[#1e293b]"
           style={{ background: getGradient() }}
         />
 
         {/* Scale Ticks */}
-        <div className="flex justify-between mt-1.5 font-mono text-[11px] text-slate-300 tabular-nums">
+        <div className="flex justify-between mt-1 font-mono text-[10px] text-slate-300 tabular-nums">
           <div className="flex flex-col items-start">
             <span className="font-bold text-slate-200">{minVal}</span>
-            <span className="text-[9px] text-slate-500">MIN</span>
+            <span className="text-[8px] text-slate-500">MIN</span>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-slate-400">{midVal}</span>
-            <span className="text-[9px] text-slate-500">MID</span>
+            <span className="text-[8px] text-slate-500">MID</span>
           </div>
           <div className="flex flex-col items-end">
             <span className="font-bold text-slate-200">{maxVal}</span>
-            <span className="text-[9px] text-slate-500">MAX</span>
+            <span className="text-[8px] text-slate-500">MAX</span>
           </div>
         </div>
       </div>
 
       {/* Land Mask / Null Indicator */}
-      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-slate-400">
-        <span className="font-mono">Transfer: {colormap.toUpperCase()}</span>
-        <span className="text-[9px] text-slate-500">Land: Masked / Discarded</span>
+      <div className="flex items-center justify-between mt-1.5 pt-1 border-t border-[#1e293b] text-[9px] font-mono text-slate-400">
+        <span>CMAP: {colormap.toUpperCase()}</span>
+        <span className="text-slate-500">Land: Masked</span>
       </div>
 
     </div>

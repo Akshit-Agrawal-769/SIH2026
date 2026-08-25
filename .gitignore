@@ -26,6 +26,8 @@ frontend/build/
 .DS_Store
 
 # Datasets & NetCDF/Zarr Binary Files (NO MOCK / HUGE BINARIES IN GIT)
+*.nc
+*.nc4
 datasets/model/*.nc
 datasets/model/*.nc4
 datasets/argo/*.nc
@@ -36,6 +38,7 @@ datasets/glider/*.nc
 *.grib2
 *.hdf
 *.h5
+*.crdownload
 
 # Testing & Coverage
 .coverage

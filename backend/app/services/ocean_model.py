@@ -1,0 +1,603 @@
+"""
+Ocean Model Deep Module & In-Process Registry
+Consolidates:
+1. NetCDF dataset lifecycle, coordinate resolution, and variable aliasing.
+2. Curvilinear (2D lon_rho/lat_rho) and rectilinear (1D lon/lat) spatial projection via spherical KD-Tree.
+3. Terrain-following ROMS s-coordinate physical depth calculations with local bathymetry and time-aware zeta.
+4. 4D spatio-temporal colocation across bounding forecast time steps (t0, t1).
+5. 3D volumetric Float32 binary buffer generation with NaN sentinels for WebGL2 Data3DTexture rendering.
+6. 2D depth slice buffer extraction.
+"""
+
+import os
+import glob
+from typing import List, Dict, Any, Optional, Tuple, Union
+import numpy as np
+import xarray as xr
+import pandas as pd
+from scipy.interpolate import RegularGridInterpolator
+from scipy.spatial import cKDTree
+from app.core.config import settings
+
+
+class ModelVerticalCoordinateMissing(ValueError):
+    """Raised when required terrain-following s-coordinate attributes are missing."""
+    pass
+
+
+class ModelZetaInterpolationFailed(ValueError):
+    """Raised when time-aware sea surface height zeta cannot be interpolated."""
+    pass
+
+
+def geo_to_cartesian(lon_deg: np.ndarray, lat_deg: np.ndarray) -> np.ndarray:
+    """Converts geographic degrees (lon, lat) to 3D Cartesian unit vectors for sphere KDTree."""
+    lon_rad = np.radians(lon_deg)
+    lat_rad = np.radians(lat_deg)
+    x = np.cos(lat_rad) * np.cos(lon_rad)
+    y = np.cos(lat_rad) * np.sin(lon_rad)
+    z = np.sin(lat_rad)
+    return np.column_stack((x.flatten(), y.flatten(), z.flatten()))
+
+
+VAR_ALIASES = {
+    "temp": ["temp", "to", "temperature", "TEMP", "thetao"],
+    "salt": ["salt", "so", "salinity", "PSAL"],
+    "u": ["u", "ugo", "uo", "u_eastward"],
+    "v": ["v", "vgo", "vo", "v_northward"],
+    "chl": ["chl", "chla", "chlorophyll", "CHLA"],
+}
+
+
+def calculate_roms_vertical_depths(
+    s_rho: np.ndarray,
+    Cs_r: np.ndarray,
+    h: Union[float, np.ndarray],
+    hc: float,
+    zeta: Optional[Union[float, np.ndarray]] = None,
+    Vtransform: int = 2
+) -> np.ndarray:
+    """
+    Computes true physical vertical depths z (meters, negative below surface)
+    for ROMS terrain-following vertical s-coordinates based on local bathymetry h
+    and optional local sea surface height zeta.
+    
+    Vtransform = 1 (ROMS original):
+        S(x,y,s) = hc * s + (h(x,y) - hc) * C(s)
+        z(x,y,s,t) = S(x,y,s) + zeta(x,y,t) * (1 + S(x,y,s) / h(x,y))
+        
+    Vtransform = 2 (ROMS modern default):
+        S(x,y,s) = (hc * s + h(x,y) * C(s)) / (hc + h(x,y))
+        z(x,y,s,t) = zeta(x,y,t) + (zeta(x,y,t) + h(x,y)) * S(x,y,s)
+    """
+    h_arr = np.asarray(h, dtype=np.float64)
+    s_arr = np.asarray(s_rho, dtype=np.float64)
+    Cs_arr = np.asarray(Cs_r, dtype=np.float64)
+    
+    if zeta is None:
+        zeta_arr = np.zeros_like(h_arr, dtype=np.float64)
+    else:
+        zeta_arr = np.asarray(zeta, dtype=np.float64)
+
+    if h_arr.ndim == 0:
+        s_3d, Cs_3d, h_3d, zeta_3d = s_arr, Cs_arr, h_arr, zeta_arr
+    elif h_arr.ndim == 1:
+        s_3d, Cs_3d, h_3d, zeta_3d = s_arr[:, None], Cs_arr[:, None], h_arr[None, :], zeta_arr[None, :]
+    elif h_arr.ndim == 2:
+        s_3d, Cs_3d, h_3d, zeta_3d = s_arr[:, None, None], Cs_arr[:, None, None], h_arr[None, :, :], zeta_arr[None, :, :]
+    else:
+        s_3d, Cs_3d, h_3d, zeta_3d = s_arr, Cs_arr, h_arr, zeta_arr
+
+    if Vtransform == 1:
+        S = hc * s_3d + (h_3d - hc) * Cs_3d
+        z = S + zeta_3d * (1.0 + S / np.maximum(h_3d, 1e-4))
+    else:  # Vtransform = 2
+        S = (hc * s_3d + h_3d * Cs_3d) / (hc + h_3d)
+        z = zeta_3d + (zeta_3d + h_3d) * S
+
+    return z.astype(np.float32)
+
+
+class OceanModel:
+    """Deep module representing an ocean numerical model dataset with encapsulated spatial and vertical projection."""
+
+    def __init__(self, dataset_or_path: Union[str, xr.Dataset]):
+        if isinstance(dataset_or_path, str):
+            self.file_path = dataset_or_path
+            self._ds = xr.open_dataset(dataset_or_path)
+            self._owns_dataset = True
+        else:
+            self.file_path = None
+            self._ds = dataset_or_path
+            self._owns_dataset = False
+
+        self._kd_tree = None
+        self._kd_shape = None
+        self._init_coordinates()
+
+    def _init_coordinates(self):
+        ds = self._ds
+        self.lon_key = next((k for k in ["lon", "longitude", "lon_rho", "x", "nav_lon"] if k in ds.coords or k in ds.data_vars or k in ds.dims), None)
+        self.lat_key = next((k for k in ["lat", "latitude", "lat_rho", "y", "nav_lat"] if k in ds.coords or k in ds.data_vars or k in ds.dims), None)
+        self.depth_key = next((k for k in ["depth", "s_rho", "lev", "level", "z", "deptht"] if k in ds.coords or k in ds.dims), None)
+        self.time_key = next((k for k in ["time", "ocean_time", "time_counter"] if k in ds.coords or k in ds.dims or k in ds.data_vars), None)
+
+        self.is_curvilinear = False
+        if self.lon_key and self.lat_key and self.lon_key in ds and ds[self.lon_key].ndim == 2:
+            self.is_curvilinear = True
+
+        self.is_native_s = ("s_rho" in ds.dims or "s_rho" in ds.coords or "Cs_r" in ds)
+
+    def _get_or_build_kdtree(self) -> Tuple[cKDTree, Tuple[int, int]]:
+        if self._kd_tree is None:
+            if not self.is_curvilinear:
+                raise ValueError("KDTree only applicable for 2D curvilinear grids.")
+            grid_lons = self._ds[self.lon_key].values
+            grid_lats = self._ds[self.lat_key].values
+            cart_grid = geo_to_cartesian(grid_lons, grid_lats)
+            self._kd_tree = cKDTree(cart_grid)
+            self._kd_shape = grid_lons.shape
+        return self._kd_tree, self._kd_shape
+
+    def resolve_variable_name(self, var_name: str) -> Optional[str]:
+        if var_name in self._ds:
+            return var_name
+        for alias in VAR_ALIASES.get(var_name.lower(), []):
+            if alias in self._ds:
+                return alias
+        return None
+
+    def get_metadata(self) -> Dict[str, Any]:
+        ds = self._ds
+        if not self.lon_key or not self.lat_key:
+            raise ValueError("MODEL_SPATIAL_COORDINATE_MISSING: Model NetCDF lacks spatial coordinates (longitude/latitude).")
+
+        lon_vals = ds[self.lon_key].values if self.lon_key in ds else np.array([0.0, 1.0])
+        lat_vals = ds[self.lat_key].values if self.lat_key in ds else np.array([0.0, 1.0])
+
+        bounds = {
+            "min_lon": float(np.nanmin(lon_vals)),
+            "max_lon": float(np.nanmax(lon_vals)),
+            "min_lat": float(np.nanmin(lat_vals)),
+            "max_lat": float(np.nanmax(lat_vals)),
+        }
+
+        depth_levels: List[float] = []
+        if self.is_native_s:
+            if "s_rho" not in ds:
+                raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Missing s_rho coordinate in model dataset.")
+            if "Cs_r" not in ds:
+                raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Missing Cs_r coordinate in model dataset.")
+            if "hc" not in ds:
+                raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Missing hc parameter in model dataset.")
+            if "Vtransform" not in ds:
+                raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Missing Vtransform parameter in model dataset.")
+            if "h" not in ds:
+                raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Missing bathymetry h in model dataset.")
+
+            s_rho = ds["s_rho"].values
+            Cs_r = ds["Cs_r"].values
+            hc = float(ds["hc"].values)
+            Vtransform = int(ds["Vtransform"].values)
+            h_ref = float(np.nanmean(ds["h"].values))
+            z_levels = calculate_roms_vertical_depths(s_rho, Cs_r, h_ref, hc, zeta=0.0, Vtransform=Vtransform)
+            depth_levels = sorted([abs(float(round(z, 2))) for z in z_levels.flatten()])
+        elif self.depth_key and self.depth_key in ds:
+            raw_depths = ds[self.depth_key].values.flatten()
+            depth_levels = sorted([abs(float(round(d, 2))) for d in raw_depths if not np.isnan(d)])
+
+        times_iso: List[str] = []
+        if self.time_key and self.time_key in ds:
+            time_vals = pd.to_datetime(ds[self.time_key].values, utc=True)
+            times_iso = [t.strftime("%Y-%m-%dT%H:%M:%SZ") for t in time_vals]
+
+        variables_found = []
+        for canonical, aliases in VAR_ALIASES.items():
+            if self.resolve_variable_name(canonical):
+                variables_found.append(canonical)
+
+        dim_dict = {str(k): int(v) for k, v in ds.sizes.items()}
+
+        var_info = {}
+        for var in variables_found:
+            actual_key = self.resolve_variable_name(var)
+            if actual_key and actual_key in ds:
+                da = ds[actual_key]
+                var_info[var] = {
+                    "raw_name": actual_key,
+                    "units": str(da.attrs.get("units", "")),
+                    "long_name": str(da.attrs.get("long_name", var)),
+                    "shape": list(da.shape),
+                }
+
+        filename = os.path.basename(self.file_path) if self.file_path else "in_memory_dataset"
+
+        return {
+            "id": filename.replace(".nc", ""),
+            "filename": filename,
+            "title": str(ds.attrs.get("title", f"Ocean Model ({filename})")),
+            "source": str(ds.attrs.get("source", "Ocean Numerical Model")),
+            "dimensions": dim_dict,
+            "bounds": bounds,
+            "depth_levels": depth_levels,
+            "time_steps": times_iso,
+            "time_range": times_iso,
+            "variables": variables_found,
+            "variable_info": var_info,
+            "grid_type": "curvilinear_2d" if self.is_curvilinear else "rectilinear_1d",
+            "is_native_s_coord": self.is_native_s,
+        }
+
+    def _spatial_interpolate_profile_at_point(
+        self,
+        da_3d: xr.DataArray,
+        lat: float,
+        lon: float,
+        time_idx: int = 0
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        ds = self._ds
+
+        if not self.lon_key or not self.lat_key:
+            raise ValueError("MODEL_SPATIAL_COORDINATE_MISSING: Model NetCDF lacks spatial coordinates (longitude/latitude).")
+
+        if self.is_curvilinear:
+            tree, shape = self._get_or_build_kdtree()
+            cart_pt = geo_to_cartesian(np.array([lon]), np.array([lat]))
+            dists, idxs = tree.query(cart_pt, k=4)
+
+            weights = 1.0 / np.maximum(dists[0], 1e-6)
+            weights /= np.sum(weights)
+
+            ny, nx = shape
+            unraveled_ij = [np.unravel_index(idx, (ny, nx)) for idx in idxs[0]]
+
+            nz = da_3d.shape[0]
+            val_profile = np.zeros(nz, dtype=np.float64)
+
+            for w, (j, i) in zip(weights, unraveled_ij):
+                val_profile += w * da_3d.values[:, j, i]
+        else:
+            interp_dict = {}
+            if self.lat_key: interp_dict[self.lat_key] = lat
+            if self.lon_key: interp_dict[self.lon_key] = lon
+            point_da = da_3d.interp(interp_dict, method="linear")
+            val_profile = point_da.values.flatten()
+
+        # Compute physical depth levels (Standard vs Native ROMS s_rho)
+        if self.is_native_s:
+            if "s_rho" not in ds:
+                raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Missing s_rho coordinate in model dataset.")
+            if "Cs_r" not in ds:
+                raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Missing Cs_r coordinate in model dataset.")
+            if "hc" not in ds:
+                raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Missing hc parameter in model dataset.")
+            if "Vtransform" not in ds:
+                raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Missing Vtransform parameter in model dataset.")
+            if "h" not in ds:
+                raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Missing bathymetry h in model dataset.")
+
+            s_rho = ds["s_rho"].values
+            Cs_r = ds["Cs_r"].values
+            hc = float(ds["hc"].values)
+            Vtransform = int(ds["Vtransform"].values)
+
+            # Retrieve LOCAL bathymetry h(i, j)
+            if self.is_curvilinear:
+                h_arr = ds["h"].values
+                h_val = 0.0
+                for w, (j, i) in zip(weights, unraveled_ij):
+                    h_val += w * float(h_arr[j, i])
+            else:
+                h_val = float(ds["h"].interp({self.lat_key: lat, self.lon_key: lon}, method="linear").values)
+
+            # Retrieve LOCAL sea surface height zeta(i, j, time_idx) if available
+            zeta_val = 0.0
+            zeta_key = next((k for k in ["zeta", "ssh", "zo"] if k in ds or k in da_3d.coords), None)
+            if zeta_key:
+                try:
+                    zeta_da = ds[zeta_key]
+                    t_dim = next((k for k in ["time", "ocean_time", "time_counter"] if k in zeta_da.dims), None)
+                    if t_dim and t_dim in zeta_da.dims:
+                        valid_t_idx = min(max(0, time_idx), zeta_da.sizes[t_dim] - 1)
+                        zeta_da = zeta_da.isel({t_dim: valid_t_idx})
+
+                    if self.is_curvilinear:
+                        z_arr = zeta_da.values
+                        if z_arr.ndim == 3:
+                            z_arr = z_arr[0]
+                        zeta_val = 0.0
+                        for w, (j, i) in zip(weights, unraveled_ij):
+                            zeta_val += w * float(z_arr[j, i])
+                    else:
+                        zeta_val = float(zeta_da.interp({self.lat_key: lat, self.lon_key: lon}, method="linear").values)
+                except Exception as e:
+                    raise ModelZetaInterpolationFailed(f"MODEL_ZETA_INTERPOLATION_FAILED: Failed to extract sea surface height '{zeta_key}' at time index {time_idx} and location ({lat}, {lon}): {e}")
+
+            z_levels = calculate_roms_vertical_depths(s_rho, Cs_r, h_val, hc, zeta=zeta_val, Vtransform=Vtransform)
+            depth_levels = np.abs(z_levels.flatten())
+        elif self.depth_key and self.depth_key in ds:
+            depth_levels = np.abs(ds[self.depth_key].values.flatten())
+        else:
+            raise ModelVerticalCoordinateMissing("MODEL_VERTICAL_COORDINATE_MISSING: Model dataset lacks vertical depth coordinates.")
+
+        return depth_levels, val_profile
+
+    def sample_profile(
+        self,
+        variable: str,
+        lat: float,
+        lon: float,
+        target_timestamp: Optional[str] = None,
+        time_idx: int = 0,
+        query_depths: Optional[List[float]] = None
+    ) -> Optional[Tuple[List[float], List[Any]]]:
+        """
+        Performs 4D spatio-temporal profile interpolation at geographic point (lat, lon).
+        Returns (depths, values).
+        """
+        var_key = self.resolve_variable_name(variable)
+        if not var_key:
+            return None
+
+        ds = self._ds
+        da = ds[var_key]
+        time_key = next((k for k in ["time", "ocean_time", "time_counter"] if k in da.coords or k in da.dims), None)
+
+        # 1. Temporal Interpolation Handling
+        if time_key and time_key in ds and target_timestamp is not None:
+            time_vals = pd.to_datetime(ds[time_key].values, utc=True)
+            target_dt = pd.to_datetime(target_timestamp, utc=True)
+
+            if target_dt <= time_vals[0]:
+                da_3d = da.isel({time_key: 0})
+                depth_levels, model_values = self._spatial_interpolate_profile_at_point(da_3d, lat, lon, time_idx=0)
+            elif target_dt >= time_vals[-1]:
+                t_last = len(time_vals) - 1
+                da_3d = da.isel({time_key: t_last})
+                depth_levels, model_values = self._spatial_interpolate_profile_at_point(da_3d, lat, lon, time_idx=t_last)
+            else:
+                t1_idx = int(np.searchsorted(time_vals, target_dt))
+                t0_idx = max(0, t1_idx - 1)
+
+                t0 = time_vals[t0_idx]
+                t1 = time_vals[t1_idx]
+
+                total_secs = (t1 - t0).total_seconds()
+                alpha = (target_dt - t0).total_seconds() / total_secs if total_secs > 0 else 0.0
+                alpha = float(np.clip(alpha, 0.0, 1.0))
+
+                d_0, v_0 = self._spatial_interpolate_profile_at_point(da.isel({time_key: t0_idx}), lat, lon, time_idx=t0_idx)
+                d_1, v_1 = self._spatial_interpolate_profile_at_point(da.isel({time_key: t1_idx}), lat, lon, time_idx=t1_idx)
+
+                depth_levels = (1.0 - alpha) * d_0 + alpha * d_1
+                model_values = (1.0 - alpha) * v_0 + alpha * v_1
+        else:
+            t_idx = min(max(0, time_idx), da.sizes["time"] - 1) if "time" in da.dims else 0
+            da_3d = da.isel(time=t_idx) if "time" in da.dims else da
+            depth_levels, model_values = self._spatial_interpolate_profile_at_point(da_3d, lat, lon, time_idx=t_idx)
+
+        # 2. Vertical Interpolation onto Query Depths
+        if query_depths is not None:
+            valid_idx = [i for i, v in enumerate(model_values) if not np.isnan(v)]
+            if len(valid_idx) == 0:
+                return None
+            clean_d = np.array([depth_levels[i] for i in valid_idx])
+            clean_v = np.array([model_values[i] for i in valid_idx])
+
+            if len(clean_d) == 1:
+                interp_v = np.array([clean_v[0] if abs(qd - clean_d[0]) <= 15.0 else np.nan for qd in query_depths])
+            else:
+                sort_order = np.argsort(clean_d)
+                clean_d = clean_d[sort_order]
+                clean_v = clean_v[sort_order]
+                interp_v = np.interp(query_depths, clean_d, clean_v, left=np.nan, right=np.nan)
+
+            return query_depths, [float(round(v, 3)) if not np.isnan(v) else None for v in interp_v]
+
+        return depth_levels.tolist(), [float(round(v, 3)) if not np.isnan(v) else None for v in model_values]
+
+    def extract_volume_buffer(
+        self,
+        variable: str = "temp",
+        time_idx: int = 0,
+        target_shape: Tuple[int, int, int] = (64, 64, 32)
+    ) -> Optional[Tuple[bytes, Dict[str, Any]]]:
+        """
+        Extracts 3D volumetric array, regularizes to target_shape (nx, ny, nz),
+        normalizes data to [0.0, 1.0] for WebGL2 Data3DTexture (with -1.0 for NaN cells),
+        and returns Float32 byte buffer along with physical coordinate metadata.
+        """
+        ds = self._ds
+        var_key = self.resolve_variable_name(variable)
+        if not var_key:
+            return None
+
+        da = ds[var_key]
+
+        # Squeeze time dimension
+        t_dim = next((k for k in ["time", "ocean_time", "time_counter"] if k in da.dims), None)
+        if t_dim and t_dim in da.dims:
+            t_len = da.sizes[t_dim]
+            valid_time_idx = min(max(0, time_idx), t_len - 1)
+            da_3d = da.isel({t_dim: valid_time_idx})
+        else:
+            valid_time_idx = 0
+            da_3d = da
+
+        raw_data = da_3d.values.astype(np.float32)
+
+        # Spatial Bounds
+        min_lon = float(np.nanmin(ds[self.lon_key].values)) if self.lon_key else 0.0
+        max_lon = float(np.nanmax(ds[self.lon_key].values)) if self.lon_key else 1.0
+        min_lat = float(np.nanmin(ds[self.lat_key].values)) if self.lat_key else 0.0
+        max_lat = float(np.nanmax(ds[self.lat_key].values)) if self.lat_key else 1.0
+
+        # Physical Vertical Depth Bounds
+        min_depth = 0.0
+        max_depth = 2000.0
+        if self.is_native_s and "s_rho" in ds and "Cs_r" in ds and "h" in ds and "hc" in ds and "Vtransform" in ds:
+            s_rho = ds["s_rho"].values
+            Cs_r = ds["Cs_r"].values
+            hc = float(ds["hc"].values)
+            Vtransform = int(ds["Vtransform"].values)
+            h_max = float(np.nanmax(ds["h"].values))
+
+            zeta_val = 0.0
+            zeta_key = next((k for k in ["zeta", "ssh", "zo"] if k in ds or k in da_3d.coords), None)
+            if zeta_key:
+                try:
+                    zeta_da = ds[zeta_key]
+                    z_tdim = next((k for k in ["time", "ocean_time", "time_counter"] if k in zeta_da.dims), None)
+                    if z_tdim and z_tdim in zeta_da.dims:
+                        z_t_idx = min(max(0, time_idx), zeta_da.sizes[z_tdim] - 1)
+                        zeta_da = zeta_da.isel({z_tdim: z_t_idx})
+                    zeta_val = float(np.nanmean(zeta_da.values))
+                except Exception:
+                    zeta_val = 0.0
+
+            z_bottom = calculate_roms_vertical_depths(s_rho[0], Cs_r[0], h_max, hc, zeta=zeta_val, Vtransform=Vtransform)
+            z_surface = calculate_roms_vertical_depths(s_rho[-1], Cs_r[-1], h_max, hc, zeta=zeta_val, Vtransform=Vtransform)
+            min_depth = abs(float(z_surface))
+            max_depth = abs(float(z_bottom))
+        elif self.depth_key and self.depth_key in ds:
+            depth_vals = np.abs(ds[self.depth_key].values.flatten())
+            min_depth = float(np.nanmin(depth_vals))
+            max_depth = float(np.nanmax(depth_vals))
+
+        # Reshape/Interpolate to target 3D texture shape (Z, Y, X)
+        nx_tgt, ny_tgt, nz_tgt = target_shape[0], target_shape[1], target_shape[2]
+
+        shape = raw_data.shape
+        if len(shape) == 3:
+            nz_curr, ny_curr, nx_curr = shape
+            z_in = np.linspace(0, 1, nz_curr)
+            y_in = np.linspace(0, 1, ny_curr)
+            x_in = np.linspace(0, 1, nx_curr)
+
+            valid_raw = raw_data[~np.isnan(raw_data)]
+            if len(valid_raw) == 0:
+                return None
+            fill_val = float(np.mean(valid_raw))
+
+            interp = RegularGridInterpolator(
+                (z_in, y_in, x_in), raw_data, bounds_error=False, fill_value=fill_val
+            )
+
+            z_out = np.linspace(0, 1, nz_tgt)
+            y_out = np.linspace(0, 1, ny_tgt)
+            x_out = np.linspace(0, 1, nx_tgt)
+
+            grid_z, grid_y, grid_x = np.meshgrid(z_out, y_out, x_out, indexing="ij")
+            vol_interp = interp((grid_z, grid_y, grid_x)).astype(np.float32)
+        else:
+            vol_interp = np.zeros((nz_tgt, ny_tgt, nx_tgt), dtype=np.float32)
+
+        nan_mask = np.isnan(vol_interp)
+        has_nan = bool(np.any(nan_mask))
+        valid_mask = ~nan_mask
+
+        min_val = float(np.min(vol_interp[valid_mask])) if np.any(valid_mask) else 0.0
+        max_val = float(np.max(vol_interp[valid_mask])) if np.any(valid_mask) else 1.0
+
+        if max_val == min_val:
+            max_val += 1e-5
+
+        vol_norm = np.clip((vol_interp - min_val) / (max_val - min_val), 0.0, 1.0).astype(np.float32)
+        vol_norm[nan_mask] = -1.0
+
+        buffer = vol_norm.tobytes()
+
+        metadata = {
+            "min_val": min_val,
+            "max_val": max_val,
+            "dim_x": nx_tgt,
+            "dim_y": ny_tgt,
+            "dim_z": nz_tgt,
+            "min_lon": min_lon,
+            "max_lon": max_lon,
+            "min_lat": min_lat,
+            "max_lat": max_lat,
+            "min_depth": min_depth,
+            "max_depth": max_depth,
+            "variable": variable,
+            "units": da.attrs.get("units", ""),
+            "long_name": da.attrs.get("long_name", variable),
+            "has_nan": has_nan,
+            "nan_value": -1.0,
+        }
+
+        return buffer, metadata
+
+    def extract_slice_buffer(
+        self,
+        variable: str,
+        time_idx: int = 0,
+        depth_idx: int = 0
+    ) -> Optional[Tuple[bytes, Dict[str, Any]]]:
+        ds = self._ds
+        var_key = self.resolve_variable_name(variable)
+        if not var_key:
+            return None
+
+        da = ds[var_key]
+        isel_dict = {}
+        if "time" in da.dims:
+            isel_dict["time"] = min(max(0, time_idx), da.sizes["time"] - 1)
+        if "depth" in da.dims:
+            isel_dict["depth"] = min(max(0, depth_idx), da.sizes["depth"] - 1)
+        elif "s_rho" in da.dims:
+            isel_dict["s_rho"] = min(max(0, depth_idx), da.sizes["s_rho"] - 1)
+
+        slice_data = da.isel(**isel_dict).values
+        slice_f32 = slice_data.astype(np.float32)
+        min_val = float(np.nanmin(slice_data))
+        max_val = float(np.nanmax(slice_data))
+
+        meta = {
+            "shape": list(slice_f32.shape),
+            "min_val": min_val,
+            "max_val": max_val,
+            "variable": variable,
+        }
+        return slice_f32.tobytes(), meta
+
+
+class OceanModelRegistry:
+    """In-process registry managing access, path validation, and cached OceanModel instances."""
+
+    def __init__(self, datasets_dir: Optional[str] = None):
+        self.datasets_dir = datasets_dir or settings.DATASETS_DIR
+        self._cache: Dict[str, OceanModel] = {}
+
+    def list_available_models(self) -> List[str]:
+        model_dir = os.path.join(self.datasets_dir, "model")
+        if not os.path.exists(model_dir):
+            return []
+        files = glob.glob(os.path.join(model_dir, "*.nc")) + glob.glob(os.path.join(model_dir, "*.nc4"))
+        return sorted([os.path.basename(f) for f in files])
+
+    def get_model_path(self, filename: str) -> Optional[str]:
+        safe_filename = os.path.basename(filename)
+        if safe_filename != filename or ".." in filename:
+            return None
+
+        path = os.path.abspath(os.path.join(self.datasets_dir, "model", safe_filename))
+        expected_dir = os.path.abspath(os.path.join(self.datasets_dir, "model"))
+
+        if not path.startswith(expected_dir) or not os.path.exists(path):
+            return None
+
+        return path
+
+    def get_model(self, filename: str) -> Optional[OceanModel]:
+        path = self.get_model_path(filename)
+        if not path:
+            return None
+
+        if path not in self._cache:
+            self._cache[path] = OceanModel(path)
+
+        return self._cache[path]
+
+
+ocean_model_registry = OceanModelRegistry()
