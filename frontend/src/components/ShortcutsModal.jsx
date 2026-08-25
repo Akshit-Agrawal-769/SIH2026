@@ -19,6 +19,7 @@ export const ShortcutsModal = () => {
     { key: 'L', label: 'Layers & Controls', description: 'Toggle left scientific controls & layers rail' },
     { key: 'I', label: 'Data Inspector', description: 'Toggle right telemetry & float inspector rail' },
     { key: 'D', label: 'Diagnostics', description: 'Toggle system & NetCDF diagnostics drawer' },
+    { key: 'G', label: 'Go To Location', description: 'Open geospatial coordinate targeting modal' },
     { key: '?', label: 'Help / Shortcuts', description: 'Toggle this keyboard shortcuts reference' },
     { key: 'Esc', label: 'Close / Deselect', description: 'Dismiss active dialogs or close panels' },
   ];

@@ -67,6 +67,8 @@ export const ControlPanel = () => {
     { id: 'currentVectors', label: 'Current Velocity Streamlines (u,v)', icon: '💨', color: 'text-teal-300' },
     { id: 'volumeRaymarch', label: '3D Volumetric Scalar Field', icon: '🧊', color: 'text-indigo-300' },
     { id: 'bathymetricFloor', label: 'Bathymetric Seabed & Relief', icon: '⛰️', color: 'text-emerald-300' },
+    { id: 'land', label: 'Natural Earth 10m Landmasses', icon: '🗺️', color: 'text-emerald-400' },
+    { id: 'coastlines', label: 'Natural Earth 10m Coastlines', icon: '🌐', color: 'text-cyan-300' },
     { id: 'marinePlatform', label: 'Moored Intelligence Platform', icon: '📡', color: 'text-amber-300' },
     { id: 'argoSensors', label: 'In-Situ Argo Profiler Network', icon: '📍', color: 'text-purple-300' },
   ];

@@ -1,18 +1,23 @@
 import React, { useEffect } from 'react';
 import { useOceanStore } from './store/oceanStore';
 import { Header } from './components/Header';
-import { ControlPanel } from './components/ControlPanel';
-import { InspectorPanel } from './components/InspectorPanel';
-import { ColorbarLegend } from './components/ColorbarLegend';
-import { DepthSliceBar } from './components/DepthSliceBar';
-import { TimelinePanel } from './components/TimelinePanel';
+import { GoToLocationModal } from './components/GoToLocationModal';
 import { ObservationModal } from './components/ObservationModal';
 import { DiagnosticsDrawer } from './components/DiagnosticsDrawer';
 import { ShortcutsModal } from './components/ShortcutsModal';
-import { OceanViewer } from './rendering/OceanViewer';
+
+// 8 Dedicated Scientific Workspaces
+import { HomePage } from './pages/HomePage';
+import { ExplorerPage } from './pages/ExplorerPage';
+import { CoordinatesPage } from './pages/CoordinatesPage';
+import { ArgoPage } from './pages/ArgoPage';
+import { ComparisonPage } from './pages/ComparisonPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { DataCatalogPage } from './pages/DataCatalogPage';
+import { MethodologyPage } from './pages/MethodologyPage';
 
 export default function App() {
-  const { fetchInitialData } = useOceanStore();
+  const { activePage, fetchInitialData } = useOceanStore();
 
   useEffect(() => {
     fetchInitialData();
@@ -60,6 +65,10 @@ export default function App() {
         case 'D':
           store.toggleDiagnostics();
           break;
+        case 'g':
+        case 'G':
+          store.toggleGoToLocationModal();
+          break;
         case '?':
           store.toggleShortcutsModal();
           break;
@@ -67,6 +76,7 @@ export default function App() {
           if (store.isModalOpen) store.closeModal();
           if (store.isShortcutsModalOpen) store.toggleShortcutsModal();
           if (store.isDiagnosticsOpen) store.toggleDiagnostics();
+          if (store.isGoToLocationOpen) store.toggleGoToLocationModal();
           break;
         default:
           break;
@@ -79,38 +89,25 @@ export default function App() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#040711] text-slate-100 flex flex-col font-sans select-none">
-      {/* 1. TOP SYSTEM COMMAND HEADER */}
+      {/* 1. TOP SYSTEM COMMAND HEADER & NAVIGATION BAR */}
       <Header />
 
-      {/* 2. MAIN 3D OCEAN WORKSTATION VIEWPORT & DOCKED RAILS */}
-      <div className="relative flex-1 w-full h-full flex overflow-hidden">
-        {/* Left Variable & Rendering Control Rail */}
-        <ControlPanel />
+      {/* 2. DYNAMIC WORKSPACE PAGE ROUTER */}
+      <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden">
+        {activePage === 'home' && <HomePage />}
+        {activePage === 'explorer' && <ExplorerPage />}
+        {activePage === 'coordinates' && <CoordinatesPage />}
+        {activePage === 'argo' && <ArgoPage />}
+        {activePage === 'comparison' && <ComparisonPage />}
+        {activePage === 'analytics' && <AnalyticsPage />}
+        {activePage === 'data' && <DataCatalogPage />}
+        {activePage === 'methodology' && <MethodologyPage />}
+      </main>
 
-        {/* Central WebGL2 3D Canvas Viewport */}
-        <main className="relative flex-1 h-full overflow-hidden">
-          <OceanViewer />
-          {/* Floating Scientific Colorbar Legend */}
-          <ColorbarLegend />
-        </main>
-
-        {/* Right Data & Metadata Inspector Panel */}
-        <InspectorPanel />
-      </div>
-
-      {/* 3. DOCKED BOTTOM CONTROL DECK: PRECISION DEPTH SLICING STRIP */}
-      <DepthSliceBar />
-
-      {/* 4. DOCKED BOTTOM CONTROL DECK: SCIENTIFIC TIMELINE & PLAYBACK FOOTER */}
-      <TimelinePanel />
-
-      {/* 5. MODEL VS OBSERVATION COMPARISON MODAL */}
+      {/* 3. GLOBAL MODALS & UTILITY PANELS */}
+      <GoToLocationModal />
       <ObservationModal />
-
-      {/* 6. SYSTEM & DATASET DIAGNOSTICS DRAWER */}
       <DiagnosticsDrawer />
-
-      {/* 7. ACCESSIBLE KEYBOARD SHORTCUTS MODAL */}
       <ShortcutsModal />
     </div>
   );
