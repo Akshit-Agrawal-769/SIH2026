@@ -129,6 +129,11 @@ class OceanModel:
         self._max_cache_size = 32
         self._init_coordinates()
 
+    def close(self):
+        """Releases the underlying xarray dataset file handlers."""
+        if self._owns_dataset and self._ds is not None:
+            self._ds.close()
+
     def _init_coordinates(self):
         ds = self._ds
         # Search coords, data_vars, and sizes with case-insensitive matching
@@ -557,8 +562,9 @@ class OceanModel:
                 return None
             fill_val = float(np.mean(valid_raw))
 
+            raw_data_filled = np.nan_to_num(raw_data, nan=fill_val)
             interp = RegularGridInterpolator(
-                (z_in, y_in, x_in), raw_data, bounds_error=False, fill_value=fill_val
+                (z_in, y_in, x_in), raw_data_filled, bounds_error=False, fill_value=fill_val
             )
 
             z_out = np.linspace(0, 1, nz_tgt)
@@ -586,8 +592,9 @@ class OceanModel:
                 return None
             fill_val = float(np.mean(valid_raw))
 
+            raw_data_filled = np.nan_to_num(raw_data, nan=fill_val)
             interp_2d = RegularGridInterpolator(
-                (y_in, x_in), raw_data, bounds_error=False, fill_value=fill_val
+                (y_in, x_in), raw_data_filled, bounds_error=False, fill_value=fill_val
             )
 
             y_out = np.linspace(0, 1, ny_tgt)
@@ -692,7 +699,8 @@ class OceanModelRegistry:
 
     def __init__(self, datasets_dir: Optional[str] = None):
         self.datasets_dir = datasets_dir or settings.DATASETS_DIR
-        self._cache: Dict[str, OceanModel] = {}
+        self._cache: OrderedDict[str, OceanModel] = OrderedDict()
+        self._max_cache_size = 4
 
     def list_available_models(self) -> List[str]:
         models = set()
@@ -740,10 +748,17 @@ class OceanModelRegistry:
         if not path:
             return None
 
-        if path not in self._cache:
-            self._cache[path] = OceanModel(path)
+        if path in self._cache:
+            self._cache.move_to_end(path)
+            return self._cache[path]
 
-        return self._cache[path]
+        model = OceanModel(path)
+        if len(self._cache) >= self._max_cache_size:
+            oldest_path, oldest_model = self._cache.popitem(last=False)
+            oldest_model.close()
+            
+        self._cache[path] = model
+        return model
 
 
 ocean_model_registry = OceanModelRegistry()
