@@ -23,7 +23,7 @@ if settings.CORS_ORIGINS:
         CORSMiddleware,
         allow_origins=[str(origin) for origin in settings.CORS_ORIGINS],
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "OPTIONS"],
         allow_headers=["*"],
     )
 

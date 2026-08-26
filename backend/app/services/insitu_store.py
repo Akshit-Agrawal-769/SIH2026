@@ -6,12 +6,15 @@ Loads, QC-filters, indexes, and delivers authentic in-situ ocean observation pro
 
 import os
 import glob
+import logging
 from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
 import xarray as xr
 import pandas as pd
 import gsw
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def decode_argo_qc_flags(qc_data: Any, length: int) -> List[int]:
@@ -211,8 +214,8 @@ class InSituStore:
                             "salinity": psals if any(s is not None for s in psals) else None,
                             "qc_flags": valid_qc,
                         })
-                except Exception as e:
-                    print(f"Warning: error parsing profile index {prof_idx} in {file_path}: {e}")
+                except (IndexError, ValueError, TypeError) as e:
+                    logger.warning(f"Error parsing profile index {prof_idx} in {file_path}: {e}")
                     continue
 
         return meta, profiles
@@ -265,8 +268,8 @@ class InSituStore:
                     "cycles": [p["cycle_number"] for p in profiles],
                     "trajectory": trajectory,
                 })
-            except Exception as e:
-                print(f"Error indexing in-situ observation file {f}: {e}")
+            except (FileNotFoundError, ValueError, OSError) as e:
+                logger.error(f"Error indexing in-situ observation file {f}: {e}")
                 continue
 
         self._summaries = summaries

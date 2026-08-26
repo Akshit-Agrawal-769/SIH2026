@@ -6,9 +6,9 @@ from app.schemas.ocean import ArgoFloatSummary, ArgoProfileResponse
 router = APIRouter()
 
 @router.get("/argo", response_model=List[ArgoFloatSummary])
-def list_argo_floats():
+def list_argo_floats(skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=1000)):
     floats = insitu_store.get_float_summaries()
-    return floats
+    return floats[skip : skip + limit]
 
 @router.get("/argo/{platform_number}/profile", response_model=ArgoProfileResponse)
 def get_argo_profile(
