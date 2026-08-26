@@ -152,39 +152,52 @@ class InSituStore:
                     pres_qc = decode_argo_qc_flags(ds[pres_qc_var].values[prof_idx] if pres_qc_var in ds else None, len(raw_pres))
                     psal_qc = decode_argo_qc_flags(ds[psal_qc_var].values[prof_idx] if psal_qc_var in ds else None, len(raw_pres))
 
-                    depths = []
-                    temps = []
-                    psals = []
-                    valid_qc = []
+                    raw_pres_np = np.asarray(raw_pres)
+                    raw_temp_np = np.asarray(raw_temp)
+                    pres_qc_np = np.asarray(pres_qc)
+                    temp_qc_np = np.asarray(temp_qc)
 
-                    for i in range(len(raw_pres)):
-                        p = raw_pres[i]
-                        t = raw_temp[i]
-                        p_qc = pres_qc[i]
-                        t_qc = temp_qc[i]
+                    valid_mask = ~np.isnan(raw_pres_np) & ~np.isnan(raw_temp_np) & (raw_pres_np >= 0)
+                    if filter_qc:
+                        valid_mask &= np.isin(pres_qc_np, [1, 2]) & np.isin(temp_qc_np, [1, 2])
 
-                        if not np.isnan(p) and not np.isnan(t) and p >= 0:
-                            if filter_qc and (p_qc not in [1, 2] or t_qc not in [1, 2]):
-                                continue
+                    if not np.any(valid_mask):
+                        continue
 
-                            z = -float(gsw.z_from_p(p, lat))
-                            if z < 0:
-                                continue
+                    p_valid = raw_pres_np[valid_mask]
+                    t_valid = raw_temp_np[valid_mask]
+                    t_qc_valid = temp_qc_np[valid_mask]
 
-                            depths.append(round(z, 2))
-                            temps.append(round(float(t), 3))
+                    z_valid = -gsw.z_from_p(p_valid, lat)
+                    depth_mask = z_valid >= 0
 
-                            if raw_psal is not None and not np.isnan(raw_psal[i]):
-                                s_val = float(raw_psal[i])
-                                s_qc = psal_qc[i]
-                                if not filter_qc or s_qc in [1, 2]:
-                                    psals.append(round(s_val, 3))
-                                else:
-                                    psals.append(None)
-                            else:
-                                psals.append(None)
+                    if not np.any(depth_mask):
+                        continue
 
-                            valid_qc.append(t_qc)
+                    t_valid = t_valid[depth_mask]
+                    t_qc_valid = t_qc_valid[depth_mask]
+                    z_valid = z_valid[depth_mask]
+
+                    depths = [float(round(z, 2)) for z in z_valid]
+                    temps = [float(round(t, 3)) for t in t_valid]
+                    valid_qc = [int(q) for q in t_qc_valid]
+
+                    if raw_psal is not None:
+                        raw_psal_np = np.asarray(raw_psal)
+                        psal_qc_np = np.asarray(psal_qc)
+                        s_valid = raw_psal_np[valid_mask][depth_mask]
+                        s_qc_valid = psal_qc_np[valid_mask][depth_mask]
+
+                        s_mask = ~np.isnan(s_valid)
+                        if filter_qc:
+                            s_mask &= np.isin(s_qc_valid, [1, 2])
+
+                        psals = [
+                            float(round(s_valid[i], 3)) if s_mask[i] else None
+                            for i in range(len(s_valid))
+                        ]
+                    else:
+                        psals = [None] * len(depths)
 
                     if len(depths) > 0:
                         profiles.append({

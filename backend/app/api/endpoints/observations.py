@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Path
 from app.services.insitu_store import insitu_store
 from app.schemas.ocean import ArgoFloatSummary, ArgoProfileResponse
 
@@ -11,7 +11,10 @@ def list_argo_floats():
     return floats
 
 @router.get("/argo/{platform_number}/profile", response_model=ArgoProfileResponse)
-def get_argo_profile(platform_number: str, cycle_number: Optional[int] = Query(None)):
+def get_argo_profile(
+    platform_number: str = Path(..., pattern="^[a-zA-Z0-9_.-]+$"),
+    cycle_number: Optional[int] = Query(None)
+):
     profile = insitu_store.get_profile(platform_number, cycle_number)
     if not profile:
         raise HTTPException(

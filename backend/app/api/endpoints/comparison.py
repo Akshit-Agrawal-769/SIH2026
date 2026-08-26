@@ -7,19 +7,13 @@ router = APIRouter()
 
 @router.get("/profile", response_model=ModelVsObsComparisonResponse)
 def compare_model_vs_obs(
-    platform_number: str = Query(..., description="Argo float WMO platform number"),
+    platform_number: str = Query(..., pattern="^[a-zA-Z0-9_.-]+$", description="Argo float WMO platform number"),
     cycle_number: Optional[int] = Query(None, ge=0, description="Cycle number"),
     variable: str = Query("temp", description="Ocean variable to compare (temp, salt)"),
-    model_filename: Optional[str] = Query(None, description="Model dataset filename")
+    model_filename: Optional[str] = Query(None, pattern="^[a-zA-Z0-9_.-]+$", description="Model dataset filename")
 ):
     if variable not in ["temp", "salt"]:
         raise HTTPException(status_code=400, detail=f"Invalid comparison variable '{variable}'. Supported: 'temp', 'salt'.")
-        
-    if ".." in platform_number or "/" in platform_number or "\\" in platform_number:
-        raise HTTPException(status_code=400, detail="Invalid platform_number parameter.")
-
-    if model_filename and (".." in model_filename or "/" in model_filename or "\\" in model_filename):
-        raise HTTPException(status_code=400, detail="Invalid model_filename parameter: Path traversal forbidden.")
 
     comparison = validation_engine.validate_float(
         platform_number=platform_number,
