@@ -10,7 +10,8 @@ import {
   Compass,
   Layers,
   Radio,
-  Activity
+  Activity,
+  Globe
 } from '../components/Icons';
 
 export const OceanViewer = () => {
@@ -21,6 +22,8 @@ export const OceanViewer = () => {
   const [orbitStats, setOrbitStats] = useState({ azimuth: 45, elevation: 35, zoom: 1.0 });
 
   const {
+    viewMode,
+    setViewMode,
     volumeBuffer,
     volumeMeta,
     renderMode,
@@ -58,6 +61,7 @@ export const OceanViewer = () => {
     if (!container) return;
 
     const controller = new OceanSceneController(container, {
+      viewMode: useOceanStore.getState().viewMode || 'globe',
       onHoverFloat: (f) => setHoveredFloat(f),
       onSelectFloat: (f) => selectFloat(f),
       onSelectPlatform: (p) => selectPlatform(p),
@@ -74,6 +78,12 @@ export const OceanViewer = () => {
       controllerRef.current = null;
     };
   }, [selectFloat, selectPlatform, setCursorProbe]);
+
+  // Sync View Mode ('globe' | 'ocean3d')
+  useEffect(() => {
+    if (!controllerRef.current) return;
+    controllerRef.current.setViewMode(viewMode);
+  }, [viewMode]);
 
   // Sync Camera Actions
   useEffect(() => {
@@ -109,23 +119,11 @@ export const OceanViewer = () => {
     });
   }, [opacity, threshold, isoValue, renderMode, colormap, sliceDepthMeters, enableSlice, verticalExaggeration]);
 
-  // Sync Sea State Environmental Simulation
-  useEffect(() => {
-    if (!controllerRef.current) return;
-    controllerRef.current.setSeaState(seaState);
-  }, [seaState]);
-
-  // Sync Environmental & Marine Layers Visibility
+  // Sync Environmental & Planetary Layers Visibility
   useEffect(() => {
     if (!controllerRef.current) return;
     controllerRef.current.setLayerVisibility(layers);
   }, [layers]);
-
-  // Sync Grid and Bounding Box Visibility
-  useEffect(() => {
-    if (!controllerRef.current) return;
-    controllerRef.current.updateGridAndBox({ showGrid, showBoundingBox });
-  }, [showGrid, showBoundingBox]);
 
   // Sync In-Situ Argo Float 3D Markers
   useEffect(() => {
@@ -134,84 +132,63 @@ export const OceanViewer = () => {
   }, [argoFloats, selectedFloat, verticalExaggeration, volumeMeta]);
 
   return (
-    <div className="relative w-full h-full select-none overflow-hidden bg-[#040711]">
+    <div className="relative w-full h-full select-none overflow-hidden bg-[#030712]">
       {/* 3D WebGL Canvas Viewport */}
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
-      {/* Top-Right Camera Viewport Toolbar */}
+      {/* Top-Right Camera & Viewport Navigation Toolbar */}
       <div className="absolute top-2 right-2 z-20 flex items-center gap-1 p-1 bg-[#080e1a]/95 border border-[#1e293b] text-slate-300 shadow-md">
+        {/* Mode Switcher */}
+        <div className="flex items-center bg-[#040814] border border-[#1e293b] p-0.5 mr-1">
+          <button
+            onClick={() => setViewMode('globe')}
+            title="3D Interactive Earth Exploration Globe"
+            className={`px-2 py-0.5 text-[10px] font-mono font-bold transition-colors ${
+              viewMode === 'globe'
+                ? 'bg-cyan-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            EARTH
+          </button>
+          <button
+            onClick={() => setViewMode('ocean3d')}
+            title="3D Ocean Volume Raymarching & Depth Slicing"
+            className={`px-2 py-0.5 text-[10px] font-mono font-bold transition-colors ${
+              viewMode === 'ocean3d'
+                ? 'bg-cyan-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            OCEAN 3D
+          </button>
+        </div>
+
         <button
-          onClick={() => useOceanStore.getState().triggerCameraAction('fit')}
-          title="Fit Indian Ocean Basin (~3:2 Framing)"
+          onClick={() => useOceanStore.getState().triggerCameraAction('fit_indian_ocean')}
+          title="Fit Indian Ocean Basin (10°N, 75°E)"
           className="px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-cyan-500 hover:text-cyan-300 text-[10px] font-mono transition-colors text-cyan-400 font-bold"
         >
-          FIT DOMAIN
+          INDIAN OCEAN
+        </button>
+        <button
+          onClick={() => useOceanStore.getState().triggerCameraAction('fit_earth')}
+          title="Fit Entire 3D Earth Globe"
+          className="px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-cyan-500 hover:text-cyan-300 text-[10px] font-mono transition-colors text-slate-300"
+        >
+          FIT EARTH
         </button>
         <button
           onClick={() => toggleGoToLocationModal()}
           title="Jump to Specific Coordinates"
-          className="px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors text-sky-300"
+          className="px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors text-sky-300 font-bold"
         >
           GO TO
         </button>
         <div className="w-[1px] h-3 bg-[#1e293b] mx-0.5" />
         <button
-          onClick={() => useOceanStore.getState().triggerCameraAction('cinematic')}
-          title="Cinematic Low-Horizon Ocean Perspective"
-          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors"
-        >
-          CINEMATIC
-        </button>
-        <button
-          onClick={() => useOceanStore.getState().triggerCameraAction('platform')}
-          title="Focus on Moored Intelligence Station"
-          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors text-amber-300 font-bold"
-        >
-          STATION
-        </button>
-        <button
-          onClick={() => useOceanStore.getState().triggerCameraAction('geospatial')}
-          title="Tactical Top-Down Plan View (North Up)"
-          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors"
-        >
-          GEOSPATIAL
-        </button>
-        <button
-          onClick={() => useOceanStore.getState().triggerCameraAction('subsurface')}
-          title="Subsurface Thermocline Profiling View"
-          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors text-teal-300"
-        >
-          SUBSURFACE
-        </button>
-        <button
-          onClick={() => useOceanStore.getState().triggerCameraAction('iso')}
-          title="Isometric 3D Perspective"
-          className="px-1.5 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors"
-        >
-          3D ISO
-        </button>
-        <div className="w-[1px] h-3 bg-[#1e293b] mx-0.5" />
-        <button
-          onClick={toggleGrid}
-          title={showGrid ? 'Hide Bathymetric Grid' : 'Show Bathymetric Grid'}
-          className={`p-1 border text-xs transition-colors ${
-            showGrid ? 'bg-[#10243e] border-sky-500 text-sky-300' : 'bg-[#0c1424] border-[#1e293b] text-slate-500'
-          }`}
-        >
-          <Grid className="w-3 h-3" />
-        </button>
-        <button
-          onClick={toggleBoundingBox}
-          title={showBoundingBox ? 'Hide Bounding Frame' : 'Show Bounding Frame'}
-          className={`p-1 border text-xs transition-colors ${
-            showBoundingBox ? 'bg-[#10243e] border-sky-500 text-sky-300' : 'bg-[#0c1424] border-[#1e293b] text-slate-500'
-          }`}
-        >
-          <Box className="w-3 h-3" />
-        </button>
-        <button
           onClick={() => useOceanStore.getState().triggerCameraAction('reset')}
-          title="Reset Camera Target"
+          title="Reset Camera Orientation"
           className="p-1 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-slate-400 transition-colors"
         >
           <RotateCcw className="w-3 h-3" />
@@ -221,45 +198,40 @@ export const OceanViewer = () => {
       {/* Top-Left Viewport Spatial Coordinates & Resolution HUD */}
       <div className="hidden sm:flex absolute top-2 left-2 z-10 items-center gap-2 px-2.5 py-1 bg-[#080e1a] border border-[#1e293b] text-[10px] font-mono text-slate-300 shadow-md">
         <div className="flex items-center gap-1.5 font-bold text-sky-300">
-          <Radio className="w-3 h-3 text-sky-400" />
-          <span>INCOIS OCEAN 3D</span>
+          <Globe className="w-3.5 h-3.5 text-cyan-400" />
+          <span>INCOIS 3D EARTH</span>
         </div>
         <span className="text-slate-600">|</span>
         <div className="text-slate-400">
-          Res: <span className="text-teal-300">64x64x32 Float32</span>
-        </div>
-        <span className="text-slate-600">|</span>
-        <div className="text-slate-400">
-          Z: <span className="text-slate-200">0—2000 m</span>
+          Domain: <span className="text-amber-300 font-bold">30°E—120°E, 30°S—30°N</span>
         </div>
         <span className="text-slate-600">|</span>
         <div className="text-slate-400 flex items-center gap-1">
-          <Layers className="w-3 h-3 text-amber-400" />
-          <span className="text-amber-300">{Object.values(layers).filter(Boolean).length} Active Layers</span>
+          <Layers className="w-3 h-3 text-cyan-400" />
+          <span className="text-cyan-300">{Object.values(layers).filter(Boolean).length} Active Layers</span>
         </div>
       </div>
 
-      {/* Real-Time Subsurface Cursor Probe HUD (Top Left, Below Header) */}
+      {/* Real-Time Spherical Cursor Probe & Model Coverage HUD */}
       {cursorProbe && (
-        <div className="hidden md:flex absolute top-10 left-2 z-10 items-center gap-2 px-2 py-0.5 bg-[#080e1a]/90 border border-[#1e293b] text-[10px] font-mono text-slate-300 shadow-md">
-          <div className="flex items-center gap-1 text-sky-400">
-            <Crosshair className="w-3 h-3 text-sky-400" />
-            <span className="text-slate-400">PROBE:</span>
+        <div className="hidden md:flex absolute top-10 left-2 z-10 items-center gap-2 px-2.5 py-1 bg-[#080e1a]/95 border border-[#1e293b] text-[10px] font-mono text-slate-300 shadow-md">
+          <div className="flex items-center gap-1 text-cyan-400">
+            <Crosshair className="w-3 h-3 text-cyan-400" />
+            <span className="text-slate-400">COORDINATE:</span>
           </div>
-          <span className="text-slate-200 tabular-nums font-bold">
-            {cursorProbe.lat.toFixed(2)}°N, {cursorProbe.lon.toFixed(2)}°E
+          <span className="text-slate-100 tabular-nums font-bold">
+            {cursorProbe.lat >= 0 ? `${cursorProbe.lat.toFixed(2)}°N` : `${Math.abs(cursorProbe.lat).toFixed(2)}°S`},{' '}
+            {cursorProbe.lon >= 0 ? `${cursorProbe.lon.toFixed(2)}°E` : `${Math.abs(cursorProbe.lon).toFixed(2)}°W`}
           </span>
           <span className="text-slate-600">|</span>
-          <span className="text-teal-300 tabular-nums font-bold">
-            Depth: {cursorProbe.depth.toFixed(0)}m
-          </span>
-          {cursorProbe.scalarVal !== null && cursorProbe.scalarVal !== undefined && (
-            <>
-              <span className="text-slate-600">|</span>
-              <span className="text-amber-300 tabular-nums font-bold">
-                {cursorProbe.variable?.toUpperCase()}: {cursorProbe.scalarVal.toFixed(2)} {cursorProbe.units}
-              </span>
-            </>
+          {cursorProbe.isInsideModel ? (
+            <span className="px-1.5 py-0.2 bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-[9px] font-bold">
+              INCOIS MODEL DOMAIN
+            </span>
+          ) : (
+            <span className="px-1.5 py-0.2 bg-slate-900 border border-slate-700 text-slate-400 text-[9px]">
+              OUTSIDE MODEL COVERAGE
+            </span>
           )}
         </div>
       )}
@@ -270,7 +242,7 @@ export const OceanViewer = () => {
         <span>EL: <strong className="text-slate-200">{orbitStats.elevation}°</strong></span>
         <span>R: <strong className="text-slate-200">{orbitStats.zoom}x</strong></span>
         <span className="text-slate-600">|</span>
-        <span className="text-slate-500">L-Drag: Orbit · R-Drag: Pan · Scroll: Zoom</span>
+        <span className="text-slate-500">L-Drag: Rotate Earth · Wheel: Zoom · Click: Sample</span>
       </div>
 
       {/* Float Hover Tooltip HUD */}
@@ -291,13 +263,13 @@ export const OceanViewer = () => {
 
       {/* Loading HUD Banner */}
       {isLoading && (
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 bg-[#080e1a] border border-sky-500 text-sky-300 text-xs font-mono shadow-xl">
-          <span className="w-1.5 h-1.5 bg-sky-400" />
+        <div className="absolute top-10 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 bg-[#080e1a] border border-cyan-500 text-cyan-300 text-xs font-mono shadow-xl">
+          <span className="w-1.5 h-1.5 bg-cyan-400" />
           <span className="tracking-wide font-bold">{loadingMessage}</span>
         </div>
       )}
 
-      {/* Error & Scientific Dataset Missing State */}
+      {/* Error & Scientific Dataset Notice State */}
       {errorState && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 z-30 max-w-md px-3.5 py-2.5 bg-[#080e1a] border border-amber-500 text-xs shadow-2xl flex items-start gap-2.5 text-slate-200">
           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />

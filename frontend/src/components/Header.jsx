@@ -40,6 +40,7 @@ export const Header = () => {
     { id: 'comparison', label: '4D COMPARISON' },
     { id: 'analytics', label: 'ANALYTICS' },
     { id: 'data', label: 'DATA CATALOG' },
+    { id: 'settings', label: 'SETTINGS' },
     { id: 'methodology', label: 'METHODOLOGY' },
   ];
 

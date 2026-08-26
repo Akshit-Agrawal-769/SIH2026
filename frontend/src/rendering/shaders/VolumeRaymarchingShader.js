@@ -123,17 +123,24 @@ export const VolumeFragmentShader = `
     vec4 accumulatedColor = vec4(0.0);
 
     for (int i = 0; i < 120; i++) {
-      vec3 uvw = vec3(currentPos.x + 0.5, 0.5 - currentPos.y, currentPos.z + 0.5);
+      // Physical normalized texture coordinates:
+      // s (x) = Longitude [0..1]
+      // t (y) = Latitude [0..1]
+      // r (z) = Vertical Depth [0..1] (0.0 = surface, 1.0 = bottom)
+      float normLon = currentPos.x + 0.5;
+      float normLat = currentPos.z + 0.5;
+      float normDepth = 0.5 - currentPos.y;
 
-      if (uvw.x >= 0.0 && uvw.x <= 1.0 && uvw.y >= 0.0 && uvw.y <= 1.0 && uvw.z >= 0.0 && uvw.z <= 1.0) {
+      if (normLon >= 0.0 && normLon <= 1.0 && normLat >= 0.0 && normLat <= 1.0 && normDepth >= 0.0 && normDepth <= 1.0) {
+        vec3 texCoord = vec3(normLon, normLat, normDepth);
 
         bool sliceClip = false;
-        if (u_enableSlice == 1 && uvw.y > u_sliceZ) {
+        if (u_enableSlice == 1 && normDepth > u_sliceZ) {
           sliceClip = true;
         }
 
         if (!sliceClip) {
-          float scalar = texture(u_data, uvw).r;
+          float scalar = texture(u_data, texCoord).r;
 
           if (scalar >= u_threshold) {
             if (u_renderMode == 1) {

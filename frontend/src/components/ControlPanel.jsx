@@ -7,12 +7,15 @@ import {
   Compass,
   Radio,
   Box,
+  Globe,
   Waves
 } from './Icons';
 import { useOceanStore } from '../store/oceanStore';
 
 export const ControlPanel = () => {
   const {
+    viewMode,
+    setViewMode,
     variable,
     setVariable,
     renderMode,
@@ -29,8 +32,6 @@ export const ControlPanel = () => {
     setVerticalExaggeration,
     layers,
     toggleLayer,
-    seaState,
-    setSeaState,
     metadata,
     isControlPanelOpen,
   } = useOceanStore();
@@ -62,22 +63,15 @@ export const ControlPanel = () => {
     { id: 'jet', label: 'Jet', gradient: 'linear-gradient(to right, #000080, #00ffff, #ffff00, #ff0000)' },
   ];
 
-  const layerItems = [
-    { id: 'oceanSurface', label: 'Realistic Ocean Surface (Swell)', icon: '🌊', color: 'text-sky-300' },
-    { id: 'currentVectors', label: 'Current Velocity Streamlines (u,v)', icon: '💨', color: 'text-teal-300' },
-    { id: 'volumeRaymarch', label: '3D Volumetric Scalar Field', icon: '🧊', color: 'text-indigo-300' },
-    { id: 'bathymetricFloor', label: 'Bathymetric Seabed & Relief', icon: '⛰️', color: 'text-emerald-300' },
-    { id: 'land', label: 'Natural Earth 10m Landmasses', icon: '🗺️', color: 'text-emerald-400' },
-    { id: 'coastlines', label: 'Natural Earth 10m Coastlines', icon: '🌐', color: 'text-cyan-300' },
-    { id: 'marinePlatform', label: 'Moored Intelligence Platform', icon: '📡', color: 'text-amber-300' },
-    { id: 'argoSensors', label: 'In-Situ Argo Profiler Network', icon: '📍', color: 'text-purple-300' },
-  ];
-
-  const seaStates = [
-    { id: 'calm', label: 'Calm (0.5m)' },
-    { id: 'moderate', label: 'Moderate (1.5m)' },
-    { id: 'rough', label: 'Rough (3.0m)' },
-    { id: 'storm', label: 'Storm (5.0m)' },
+  const globeLayerItems = [
+    { id: 'earthGlobe', label: '3D Earth Globe Sphere', icon: '🌍', color: 'text-cyan-300' },
+    { id: 'coastlines', label: 'Natural Earth 10m Coastlines', icon: '🌐', color: 'text-sky-300' },
+    { id: 'land', label: 'Continental Landmasses', icon: '🗺️', color: 'text-emerald-400' },
+    { id: 'countryBorders', label: 'Country Political Borders', icon: '🏳️', color: 'text-slate-300' },
+    { id: 'graticule', label: 'Lat / Lon Spherical Grid', icon: '📐', color: 'text-indigo-300' },
+    { id: 'modelCoverage', label: 'INCOIS Model Footprint & Data', icon: '📊', color: 'text-cyan-400' },
+    { id: 'argoSensors', label: 'In-Situ Argo Profiler Network', icon: '📍', color: 'text-amber-300' },
+    { id: 'atmosphere', label: 'Atmospheric Scattering Rim', icon: '✨', color: 'text-sky-200' },
   ];
 
   const resetRenderDefaults = () => {
@@ -85,7 +79,6 @@ export const ControlPanel = () => {
     setThreshold(0.05);
     setIsoValue(0.65);
     setVerticalExaggeration(1.0);
-    setSeaState('moderate');
   };
 
   return (
@@ -94,7 +87,7 @@ export const ControlPanel = () => {
       {/* Panel Header */}
       <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
         <div className="flex items-center gap-1.5 font-bold tracking-wider text-slate-100 text-[11px] uppercase font-mono">
-          <Sliders className="w-3 h-3 text-sky-400" />
+          <Sliders className="w-3 h-3 text-cyan-400" />
           <span>Scientific Controls</span>
         </div>
         <button
@@ -107,20 +100,51 @@ export const ControlPanel = () => {
         </button>
       </div>
 
-      {/* 1. Environmental Layers Stack */}
+      {/* 1. View Mode Switcher */}
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400">
+          EXPLORATION MODE
+        </span>
+        <div className="grid grid-cols-2 gap-1 font-mono text-[11px]">
+          <button
+            onClick={() => setViewMode('globe')}
+            className={`px-2 py-1.5 border text-center transition-all flex items-center justify-center gap-1.5 ${
+              viewMode === 'globe'
+                ? 'bg-cyan-950/80 border-cyan-500 text-cyan-200 font-bold'
+                : 'bg-[#0b1322] border-[#1e293b] text-slate-400 hover:bg-[#131f33] hover:text-slate-200'
+            }`}
+          >
+            <span>🌍</span>
+            <span>3D Earth</span>
+          </button>
+          <button
+            onClick={() => setViewMode('ocean3d')}
+            className={`px-2 py-1.5 border text-center transition-all flex items-center justify-center gap-1.5 ${
+              viewMode === 'ocean3d'
+                ? 'bg-cyan-950/80 border-cyan-500 text-cyan-200 font-bold'
+                : 'bg-[#0b1322] border-[#1e293b] text-slate-400 hover:bg-[#131f33] hover:text-slate-200'
+            }`}
+          >
+            <span>🧊</span>
+            <span>Ocean 3D</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Planetary & Geospatial Layers Stack */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
           <div className="flex items-center gap-1">
-            <Layers className="w-3 h-3 text-sky-400" />
-            <span>ENVIRONMENTAL LAYERS</span>
+            <Layers className="w-3 h-3 text-cyan-400" />
+            <span>PLANETARY LAYERS</span>
           </div>
-          <span className="text-amber-400 font-bold tabular-nums">
-            {Object.values(layers).filter(Boolean).length}/6
+          <span className="text-cyan-400 font-bold tabular-nums">
+            {Object.values(layers).filter(Boolean).length}/8
           </span>
         </div>
 
         <div className="flex flex-col gap-0.5">
-          {layerItems.map((item) => {
+          {globeLayerItems.map((item) => {
             const isEnabled = !!layers[item.id];
             return (
               <button
@@ -128,7 +152,7 @@ export const ControlPanel = () => {
                 onClick={() => toggleLayer(item.id)}
                 className={`flex items-center justify-between px-2 py-1 text-left border transition-all ${
                   isEnabled
-                    ? 'bg-[#0f1f33] border-sky-500/70 text-slate-100'
+                    ? 'bg-[#0f1f33] border-cyan-500/70 text-slate-100'
                     : 'bg-[#0b1322] border-[#1e293b] text-slate-500 hover:bg-[#131f33] hover:text-slate-300'
                 }`}
               >
@@ -140,7 +164,7 @@ export const ControlPanel = () => {
                 </div>
                 <span className={`text-[9px] font-mono font-bold px-1 py-0.2 border shrink-0 ${
                   isEnabled
-                    ? 'bg-sky-500/20 border-sky-500/50 text-sky-300'
+                    ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
                     : 'bg-[#070c18] border-[#1e293b] text-slate-600'
                 }`}>
                   {isEnabled ? 'ON' : 'OFF'}
@@ -151,41 +175,11 @@ export const ControlPanel = () => {
         </div>
       </div>
 
-      {/* 2. Sea State Dynamics */}
+      {/* 3. Scientific Variable Selector */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
-          <div className="flex items-center gap-1">
-            <Waves className="w-3 h-3 text-sky-400" />
-            <span>SEA STATE / SWELL</span>
-          </div>
-          <span className="text-sky-300 font-bold uppercase">{seaState}</span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-1 font-mono text-[10px]">
-          {seaStates.map((s) => {
-            const isSelected = seaState === s.id;
-            return (
-              <button
-                key={s.id}
-                onClick={() => setSeaState(s.id)}
-                className={`px-1.5 py-1 border text-center transition-all ${
-                  isSelected
-                    ? 'bg-[#10243e] border-sky-500 text-sky-200 font-bold'
-                    : 'bg-[#0b1322] border-[#1e293b] text-slate-400 hover:bg-[#131f33] hover:text-slate-200'
-                }`}
-              >
-                {s.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 3. Variable Selector */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
-          <span>STATE VARIABLE / FIELD</span>
-          <span className="text-sky-400">
+          <span>SCIENTIFIC VARIABLE</span>
+          <span className="text-cyan-400">
             {variables.find(v => v.id === variable)?.units || ''}
           </span>
         </div>
@@ -198,12 +192,12 @@ export const ControlPanel = () => {
                 onClick={() => setVariable(v.id)}
                 className={`flex items-center justify-between px-2 py-1 text-left border transition-all ${
                   isActive
-                    ? 'bg-[#10243e] border-sky-500 text-sky-200'
+                    ? 'bg-[#10243e] border-cyan-500 text-cyan-200'
                     : 'bg-[#0b1322] border-[#1e293b] text-slate-300 hover:bg-[#131f33] hover:text-slate-100'
                 }`}
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono font-bold text-[11px] text-sky-400 w-12">{v.code}</span>
+                  <span className="font-mono font-bold text-[11px] text-cyan-400 w-12">{v.code}</span>
                   <span className="text-[11px] text-slate-300">{v.label}</span>
                 </div>
                 <span className="font-mono text-[10px] text-slate-400">
@@ -215,39 +209,10 @@ export const ControlPanel = () => {
         </div>
       </div>
 
-      {/* 4. 3D Render Mode */}
+      {/* 4. Colormap Selector */}
       <div className="flex flex-col gap-1">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400">
-          3D SHADING MODE
-        </span>
-        <div className="grid grid-cols-2 gap-1 font-mono text-[11px]">
-          <button
-            onClick={() => setRenderMode('volume')}
-            className={`px-2 py-1 border text-center transition-all ${
-              renderMode === 'volume'
-                ? 'bg-[#0f2d2a] border-teal-500 text-teal-200 font-bold'
-                : 'bg-[#0b1322] border-[#1e293b] text-slate-400 hover:bg-[#131f33] hover:text-slate-200'
-            }`}
-          >
-            Raymarch
-          </button>
-          <button
-            onClick={() => setRenderMode('iso')}
-            className={`px-2 py-1 border text-center transition-all ${
-              renderMode === 'iso'
-                ? 'bg-[#0f2d2a] border-teal-500 text-teal-200 font-bold'
-                : 'bg-[#0b1322] border-[#1e293b] text-slate-400 hover:bg-[#131f33] hover:text-slate-200'
-            }`}
-          >
-            Iso-Surface
-          </button>
-        </div>
-      </div>
-
-      {/* 5. Colormap Transfer Function */}
-      <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400">
-          COLORMAP TRANSFER
+          SCIENTIFIC COLORMAP
         </span>
         <div className="grid grid-cols-2 gap-1 font-mono text-[11px]">
           {colormaps.map((cm) => {
@@ -258,7 +223,7 @@ export const ControlPanel = () => {
                 onClick={() => setColormap(cm.id)}
                 className={`flex items-center gap-1.5 px-2 py-1 border transition-all ${
                   isSelected
-                    ? 'bg-[#14233c] border-sky-400 text-slate-100 font-bold'
+                    ? 'bg-[#14233c] border-cyan-400 text-slate-100 font-bold'
                     : 'bg-[#0b1322] border-[#1e293b] text-slate-400 hover:bg-[#131f33] hover:text-slate-200'
                 }`}
               >
@@ -273,88 +238,50 @@ export const ControlPanel = () => {
         </div>
       </div>
 
-      {/* 6. Transfer Function Parameters & Sliders */}
-      <div className="p-2 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-2">
-        <div className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 border-b border-[#1e293b] pb-1">
-          SHADING PARAMETERS
-        </div>
+      {/* 5. 3D Ocean Shading Parameters (Active when in ocean3d mode) */}
+      {viewMode === 'ocean3d' && (
+        <div className="p-2 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-2">
+          <div className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 border-b border-[#1e293b] pb-1">
+            VOLUME SHADING
+          </div>
 
-        {renderMode === 'volume' ? (
-          <>
-            <div>
-              <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-0.5">
-                <span>RAYMARCH EXTINCTION</span>
-                <span className="text-sky-300 tabular-nums font-bold">
-                  {opacity.toFixed(1)}x
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0.2"
-                max="3.0"
-                step="0.1"
-                value={opacity}
-                onChange={(e) => setOpacity(Number(e.target.value))}
-                className="w-full cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-0.5">
-                <span>SCALAR THRESHOLD</span>
-                <span className="text-sky-300 tabular-nums font-bold">
-                  {(threshold * 100).toFixed(0)}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0.0"
-                max="0.4"
-                step="0.01"
-                value={threshold}
-                onChange={(e) => setThreshold(Number(e.target.value))}
-                className="w-full cursor-pointer"
-              />
-            </div>
-          </>
-        ) : (
           <div>
             <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-0.5">
-              <span>ISO-SURFACE SCALAR</span>
-              <span className="text-teal-300 tabular-nums font-bold">
-                {(isoValue * 100).toFixed(0)}%
+              <span>RAYMARCH EXTINCTION</span>
+              <span className="text-cyan-300 tabular-nums font-bold">
+                {opacity.toFixed(1)}x
               </span>
             </div>
             <input
               type="range"
-              min="0.05"
-              max="0.95"
-              step="0.02"
-              value={isoValue}
-              onChange={(e) => setIsoValue(Number(e.target.value))}
+              min="0.2"
+              max="3.0"
+              step="0.1"
+              value={opacity}
+              onChange={(e) => setOpacity(Number(e.target.value))}
               className="w-full cursor-pointer"
             />
           </div>
-        )}
 
-        <div>
-          <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-0.5">
-            <span>VERTICAL EXAGGERATION</span>
-            <span className="text-teal-300 tabular-nums font-bold">
-              {verticalExaggeration.toFixed(1)}x
-            </span>
+          <div>
+            <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-0.5">
+              <span>VERTICAL EXAGGERATION</span>
+              <span className="text-teal-300 tabular-nums font-bold">
+                {verticalExaggeration.toFixed(1)}x
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0.5"
+              max="3.0"
+              step="0.1"
+              value={verticalExaggeration}
+              onChange={(e) => setVerticalExaggeration(Number(e.target.value))}
+              className="w-full cursor-pointer"
+            />
           </div>
-          <input
-            type="range"
-            min="0.5"
-            max="3.0"
-            step="0.1"
-            value={verticalExaggeration}
-            onChange={(e) => setVerticalExaggeration(Number(e.target.value))}
-            className="w-full cursor-pointer"
-          />
         </div>
-      </div>
+      )}
 
     </aside>
   );

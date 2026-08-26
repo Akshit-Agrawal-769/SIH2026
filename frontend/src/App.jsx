@@ -14,6 +14,7 @@ import { ArgoPage } from './pages/ArgoPage';
 import { ComparisonPage } from './pages/ComparisonPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { DataCatalogPage } from './pages/DataCatalogPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { MethodologyPage } from './pages/MethodologyPage';
 
 export default function App() {
@@ -28,33 +29,16 @@ export default function App() {
 
       const store = useOceanStore.getState();
       switch (e.key) {
-        case '1':
-          store.triggerCameraAction('cinematic');
+        case 'h':
+        case 'H':
+          store.setActivePage('home');
           break;
-        case '2':
-          store.triggerCameraAction('platform');
+        case 'e':
+        case 'E':
+          store.setActivePage('explorer');
           break;
-        case '3':
-          store.triggerCameraAction('geospatial');
-          break;
-        case '4':
-          store.triggerCameraAction('subsurface');
-          break;
-        case '5':
-          store.triggerCameraAction('iso');
-          break;
-        case ' ':
-          e.preventDefault();
-          store.toggleTimelinePlayback();
-          break;
-        case '[':
-          store.stepTimeIndex(-1);
-          break;
-        case ']':
-          store.stepTimeIndex(1);
-          break;
-        case 'l':
-        case 'L':
+        case 'c':
+        case 'C':
           store.toggleControlPanel();
           break;
         case 'i':
@@ -67,6 +51,14 @@ export default function App() {
           break;
         case 'g':
         case 'G':
+          store.toggleGrid();
+          break;
+        case 'r':
+        case 'R':
+          store.resetCamera();
+          break;
+        case 'l':
+        case 'L':
           store.toggleGoToLocationModal();
           break;
         case '?':
@@ -101,6 +93,7 @@ export default function App() {
         {activePage === 'comparison' && <ComparisonPage />}
         {activePage === 'analytics' && <AnalyticsPage />}
         {activePage === 'data' && <DataCatalogPage />}
+        {activePage === 'settings' && <SettingsPage />}
         {activePage === 'methodology' && <MethodologyPage />}
       </main>
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useOceanStore } from '../store/oceanStore';
 import {
   Database,
@@ -8,259 +8,322 @@ import {
   ArrowRight,
   ShieldCheck,
   Compass,
-  Radio
+  Radio,
+  Search,
+  Sliders
 } from '../components/Icons';
 
 export const DataCatalogPage = () => {
   const {
     metadata,
     activeDataset,
-    argoFloats,
     setActivePage,
+    setVariable,
   } = useOceanStore();
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedVarIndex, setSelectedVarIndex] = useState(0);
 
   const variablesList = [
     {
-      symbol: 'SST',
-      varName: 'temp / SST',
-      standardName: 'sea_surface_temperature',
+      symbol: 'temp',
+      varName: 'Temperature (SST)',
+      standardName: 'sea_water_temperature',
       units: '°C',
-      dims: 'TIME × LAT × LON (480 × 756 × 1081)',
-      classification: '2D Surface Field',
-      desc: 'Sea surface potential temperature calculated from ROMS thermodynamic equations with bulk flux atmospheric forcing.',
+      dims: 'time, depth, lat, lon',
+      category: 'physical',
+      range: '7.02 °C — 31.45 °C',
+      missingValue: '-9.99e+33',
+      freq: 'Monthly',
+      addedOn: '2024-05-12 10:30 UTC',
+      desc: 'Sea water potential temperature calculated from ROMS thermodynamic equations with bulk flux atmospheric forcing.',
     },
     {
-      symbol: 'SSS',
-      varName: 'salt / SSS',
-      standardName: 'sea_surface_salinity',
+      symbol: 'salt',
+      varName: 'Salinity (SSS)',
+      standardName: 'sea_water_salinity',
       units: 'PSU',
-      dims: 'TIME × LAT × LON (480 × 756 × 1081)',
-      classification: '2D Surface Field',
-      desc: 'Practical salinity at ocean surface on the PSS-78 scale, reflecting evaporation-precipitation flux and river runoff.',
+      dims: 'time, depth, lat, lon',
+      category: 'physical',
+      range: '31.20 PSU — 37.10 PSU',
+      missingValue: '-9.99e+33',
+      freq: 'Monthly',
+      addedOn: '2024-05-12 10:30 UTC',
+      desc: 'Practical salinity on the PSS-78 scale, reflecting evaporation-precipitation flux and river runoff.',
     },
     {
-      symbol: 'CHL',
-      varName: 'chl / CHLA',
-      standardName: 'mass_concentration_of_chlorophyll_a_in_sea_water',
-      units: 'mg/m³',
-      dims: 'TIME × LAT × LON (480 × 756 × 1081)',
-      classification: '2D Surface Field',
-      desc: 'Phytoplankton biomass indicator simulated via the coupled biogeochemical module under solar irradiance.',
+      symbol: 'u',
+      varName: 'Zonal Velocity (u)',
+      standardName: 'sea_water_x_velocity',
+      units: 'm/s',
+      dims: 'time, depth, lat, lon',
+      category: 'physical',
+      range: '-1.85 m/s — 2.10 m/s',
+      missingValue: '-9.99e+33',
+      freq: 'Monthly',
+      addedOn: '2024-05-12 10:30 UTC',
+      desc: 'Eastward water velocity component along the curvilinear model grid.',
     },
     {
-      symbol: 'MLD',
-      varName: 'mld',
+      symbol: 'v',
+      varName: 'Meridional Velocity (v)',
+      standardName: 'sea_water_y_velocity',
+      units: 'm/s',
+      dims: 'time, depth, lat, lon',
+      category: 'physical',
+      range: '-1.45 m/s — 1.62 m/s',
+      missingValue: '-9.99e+33',
+      freq: 'Monthly',
+      addedOn: '2024-05-12 10:30 UTC',
+      desc: 'Northward water velocity component along the curvilinear model grid.',
+    },
+    {
+      symbol: 'mld',
+      varName: 'Mixed Layer Depth',
       standardName: 'ocean_mixed_layer_thickness',
       units: 'm',
-      dims: 'TIME × LAT × LON (480 × 756 × 1081)',
-      classification: '2D Surface Field',
-      desc: 'Depth of the surface turbulent mixed layer computed via potential density threshold criteria (0.03 kg/m³).',
+      dims: 'time, lat, lon',
+      category: 'physical',
+      range: '10.0 m — 145.0 m',
+      missingValue: '-9.99e+33',
+      freq: 'Monthly',
+      addedOn: '2024-05-12 10:30 UTC',
+      desc: 'Depth of the surface turbulent mixed layer computed via density threshold criteria (0.03 kg/m³).',
     },
     {
-      symbol: 'DIC',
-      varName: 'dic',
+      symbol: 'chl',
+      varName: 'Chlorophyll-a (CHLA)',
+      standardName: 'mass_concentration_of_chlorophyll_a_in_sea_water',
+      units: 'mg/m³',
+      dims: 'time, depth, lat, lon',
+      category: 'biogeochemical',
+      range: '0.01 mg/m³ — 12.80 mg/m³',
+      missingValue: '-9.99e+33',
+      freq: 'Monthly',
+      addedOn: '2024-05-12 10:30 UTC',
+      desc: 'Phytoplankton biomass indicator simulated via the coupled biogeochemical module.',
+    },
+    {
+      symbol: 'no3',
+      varName: 'Nitrate (NO3)',
+      standardName: 'mole_concentration_of_nitrate_in_sea_water',
+      units: 'mmol/m³',
+      dims: 'time, depth, lat, lon',
+      category: 'biogeochemical',
+      range: '0.00 mmol/m³ — 34.50 mmol/m³',
+      missingValue: '-9.99e+33',
+      freq: 'Monthly',
+      addedOn: '2024-05-12 10:30 UTC',
+      desc: 'Dissolved nitrate macronutrient driving primary productivity and upwelling blooms.',
+    },
+    {
+      symbol: 'dic',
+      varName: 'Dissolved Inorganic Carbon',
       standardName: 'mole_concentration_of_dissolved_inorganic_carbon_in_sea_water',
-      units: 'µmol/kg',
-      dims: 'TIME × LAT × LON (480 × 756 × 1081)',
-      classification: '2D Surface Field',
+      units: 'mmol/m³',
+      dims: 'time, depth, lat, lon',
+      category: 'carbon',
+      range: '1850.0 mmol/m³ — 2350.0 mmol/m³',
+      missingValue: '-9.99e+33',
+      freq: 'Monthly',
+      addedOn: '2024-05-12 10:30 UTC',
       desc: 'Total dissolved inorganic carbon pool including aqueous CO2, bicarbonate, and carbonate ions.',
     },
     {
-      symbol: 'NO3',
-      varName: 'no3',
-      standardName: 'mole_concentration_of_nitrate_in_sea_water',
-      units: 'µmol/L',
-      dims: 'TIME × LAT × LON (480 × 756 × 1081)',
-      classification: '2D Surface Field',
-      desc: 'Dissolved nitrate macronutrient concentration driving primary productivity and coastal upwelling blooms.',
-    },
-    {
-      symbol: 'pCO2_Original',
-      varName: 'pco2 / pCO2_Original',
+      symbol: 'pco2',
+      varName: 'Surface pCO2',
       standardName: 'surface_partial_pressure_of_carbon_dioxide_in_sea_water',
       units: 'µatm',
-      dims: 'TIME × LAT × LON (480 × 756 × 1081)',
-      classification: '2D Surface Field',
-      desc: 'Raw partial pressure of carbon dioxide in surface seawater equilibrating with marine boundary layer atmosphere.',
-    },
-    {
-      symbol: 'pCO2_Int',
-      varName: 'pCO2_Int',
-      standardName: 'interpolated_surface_pco2',
-      units: 'µatm',
-      dims: 'TIME × LAT × LON (480 × 756 × 1081)',
-      classification: '2D Surface Field',
-      desc: 'Spatially interpolated surface pCO2 harmonized across cloud-masked observation gaps.',
-    },
-    {
-      symbol: 'pCO2_Clim',
-      varName: 'pCO2_Clim',
-      standardName: 'climatological_surface_pco2',
-      units: 'µatm',
-      dims: 'TIME × LAT × LON (480 × 756 × 1081)',
-      classification: '2D Surface Field',
-      desc: 'Long-term decadal climatological baseline of surface pCO2 for anomaly derivation.',
-    },
-    {
-      symbol: 'Deviant_uncertainty',
-      varName: 'Deviant_uncertainty',
-      standardName: 'pco2_model_uncertainty_deviance',
-      units: 'µatm',
-      dims: 'TIME × LAT × LON (480 × 756 × 1081)',
-      classification: '2D Surface Field',
-      desc: 'Standard error variance representing model uncertainty and statistical deviance from observational benchmarks.',
-    },
+      dims: 'time, lat, lon',
+      category: 'carbon',
+      range: '280.0 µatm — 560.0 µatm',
+      missingValue: '-9.99e+33',
+      freq: 'Monthly',
+      addedOn: '2024-05-12 10:30 UTC',
+      desc: 'Partial pressure of carbon dioxide in surface seawater equilibrating with atmosphere.',
+    }
   ];
 
+  const filtered = variablesList.filter((v) => {
+    const matchSearch =
+      v.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.varName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.standardName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchCat = selectedCategory === 'all' || v.category === selectedCategory;
+    return matchSearch && matchCat;
+  });
+
+  const activeVar = filtered[selectedVarIndex] || filtered[0] || variablesList[0];
+
+  const handleDownloadMetadata = () => {
+    const jsonStr = JSON.stringify(
+      {
+        dataset: activeDataset || 'INCOIS-BIO-ROMS.nc',
+        variable: activeVar,
+        catalog_version: '2.4.0',
+        metadata: metadata || {},
+      },
+      null,
+      2
+    );
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activeVar.symbol}_metadata.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="flex-1 overflow-y-auto bg-[#040814] text-slate-100 font-mono p-4 sm:p-6 md:p-8 select-none">
-      <div className="max-w-7xl mx-auto flex flex-col gap-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#1e293b] pb-4">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <Database className="w-4 h-4 text-blue-400" />
-              <span className="text-xs font-bold tracking-widest text-blue-400 uppercase">
-                SCIENTIFIC DATASET MANIFEST
-              </span>
+    <div className="flex-1 overflow-y-auto bg-[#040814] text-slate-100 font-mono p-4 sm:p-6 select-none">
+      <div className="max-w-7xl mx-auto flex flex-col gap-5">
+        {/* Search and Filters Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-[#080e1a] border border-[#1e293b] text-xs">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search variables..."
+                className="w-full pl-9 pr-3 py-1.5 bg-[#040814] border border-[#1e293b] text-slate-200 text-xs font-bold focus:outline-none focus:border-cyan-500"
+              />
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white uppercase">
-              INCOIS Oceanographic Data Catalog
-            </h1>
-            <p className="text-xs text-slate-400 max-w-3xl">
-              Complete catalog of integrated numerical models and in-situ observational datasets. Detailed specifications of dimensionality, CF conventions, units, and Zenodo DOI citations.
-            </p>
+
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-3 py-1.5 bg-[#040814] border border-[#1e293b] text-slate-300 text-xs font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
+            >
+              <option value="all">All Categories</option>
+              <option value="physical">Physical Oceanography</option>
+              <option value="biogeochemical">Biogeochemical</option>
+              <option value="carbon">Carbon Chemistry</option>
+            </select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActivePage('explorer')}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 border border-blue-400 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-md shadow-blue-950/50"
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>LAUNCH 3D EXPLORER</span>
-            </button>
+          <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+            <span>Dataset:</span>
+            <span className="text-cyan-300 font-bold">{activeDataset || 'INCOIS-BIO-ROMS.nc'}</span>
           </div>
         </div>
 
-        {/* Primary Dataset Profile Card */}
-        <div className="p-5 bg-[#080e1a] border border-blue-500/40 shadow-xl flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1e293b] pb-3">
-            <div className="flex items-center gap-2">
-              <Database className="w-5 h-5 text-blue-400" />
-              <div className="flex flex-col">
-                <span className="text-sm font-bold text-white tracking-wide">
-                  INCOIS-BIO-ROMS.nc (Authoritative Real Dataset)
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  Regional Ocean Modeling System (ROMS) Coupled Biogeochemical Simulation
-                </span>
+        {/* 2-Column Catalog View */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Main Variables Table (8 Cols) */}
+          <div className="lg:col-span-8 flex flex-col gap-3">
+            <div className="overflow-x-auto bg-[#080e1a] border border-[#1e293b] shadow-xl">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[#0c1424] border-b border-[#1e293b] text-slate-400 text-[10px] uppercase">
+                    <th className="py-2.5 px-3">VARIABLE</th>
+                    <th className="py-2.5 px-3">LONG NAME</th>
+                    <th className="py-2.5 px-3">UNITS</th>
+                    <th className="py-2.5 px-3">DIMENSIONS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#141e33] text-[11px]">
+                  {filtered.map((v, i) => {
+                    const isSelected = activeVar.symbol === v.symbol;
+                    return (
+                      <tr
+                        key={v.symbol}
+                        onClick={() => setSelectedVarIndex(i)}
+                        className={`cursor-pointer transition-colors ${
+                          isSelected ? 'bg-[#121c2e] text-white font-bold' : 'hover:bg-[#0c1424] text-slate-300'
+                        }`}
+                      >
+                        <td className="py-2.5 px-3 font-bold text-cyan-300">{v.symbol}</td>
+                        <td className="py-2.5 px-3">{v.varName}</td>
+                        <td className="py-2.5 px-3 text-amber-300 font-bold">{v.units}</td>
+                        <td className="py-2.5 px-3 text-slate-400 font-mono text-[10px]">{v.dims}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination footer */}
+            <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+              <span>Showing 1 to {filtered.length} of {variablesList.length} variables</span>
+              <div className="flex items-center gap-1">
+                <button className="px-2 py-0.5 bg-[#080e1a] border border-[#1e293b] hover:border-slate-500">{'<<'}</button>
+                <button className="px-2 py-0.5 bg-[#080e1a] border border-[#1e293b] hover:border-slate-500">{'<'}</button>
+                <button className="px-2 py-0.5 bg-cyan-600 text-white font-bold">1</button>
+                <button className="px-2 py-0.5 bg-[#080e1a] border border-[#1e293b] hover:border-slate-500">2</button>
+                <button className="px-2 py-0.5 bg-[#080e1a] border border-[#1e293b] hover:border-slate-500">{'>'}</button>
+                <button className="px-2 py-0.5 bg-[#080e1a] border border-[#1e293b] hover:border-slate-500">{'>>'}</button>
               </div>
             </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] px-2 py-0.5 bg-blue-950 border border-blue-500/50 text-blue-300 font-bold">
-                CF-1.6 COMPLIANT
-              </span>
-              <span className="text-[10px] px-2 py-0.5 bg-emerald-950 border border-emerald-500/50 text-emerald-300 font-bold">
-                NETCDF-4 HDF5
-              </span>
-            </div>
           </div>
 
-          {/* Dataset Specifications Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
-            <div className="p-2.5 bg-[#040814] border border-[#1e293b] flex flex-col gap-0.5">
-              <span className="text-[10px] text-slate-500 uppercase">BINARY SIZE</span>
-              <span className="text-blue-300 font-bold">9.25 GB (8.61 GiB)</span>
-            </div>
-            <div className="p-2.5 bg-[#040814] border border-[#1e293b] flex flex-col gap-0.5">
-              <span className="text-[10px] text-slate-500 uppercase">TIME DIMENSION</span>
-              <span className="text-slate-200 font-bold">480 Monthly Steps</span>
-            </div>
-            <div className="p-2.5 bg-[#040814] border border-[#1e293b] flex flex-col gap-0.5">
-              <span className="text-[10px] text-slate-500 uppercase">LATITUDE DIM</span>
-              <span className="text-slate-200 font-bold">756 Grid Points</span>
-            </div>
-            <div className="p-2.5 bg-[#040814] border border-[#1e293b] flex flex-col gap-0.5">
-              <span className="text-[10px] text-slate-500 uppercase">LONGITUDE DIM</span>
-              <span className="text-slate-200 font-bold">1081 Grid Points</span>
-            </div>
-            <div className="p-2.5 bg-[#040814] border border-[#1e293b] flex flex-col gap-0.5">
-              <span className="text-[10px] text-slate-500 uppercase">CHUNK TOPOLOGY</span>
-              <span className="text-teal-300 font-bold">[80, 126, 181]</span>
-            </div>
-            <div className="p-2.5 bg-[#040814] border border-[#1e293b] flex flex-col gap-0.5">
-              <span className="text-[10px] text-slate-500 uppercase">SPATIAL BOUNDS</span>
-              <span className="text-amber-300 font-bold">30°E—120°E, 30°S—30°N</span>
-            </div>
-          </div>
+          {/* Right Variable Details Card (4 Cols) */}
+          <div className="lg:col-span-4 p-4 bg-[#080e1a] border border-[#1e293b] flex flex-col justify-between gap-4 text-xs">
+            {activeVar ? (
+              <div className="flex flex-col gap-4">
+                <div className="border-b border-[#1e293b] pb-2">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider">VARIABLE DETAILS</span>
+                  <h3 className="text-base font-bold text-cyan-300 mt-1">
+                    {activeVar.varName}
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {activeVar.standardName}
+                  </span>
+                </div>
 
-          <div className="text-[11px] text-slate-400 flex items-center justify-between border-t border-[#1e293b] pt-3">
-            <span>
-              DOI Reference: <strong className="text-slate-200">10.5281/zenodo.13802393</strong>
-            </span>
-            <span>
-              Institute: <strong className="text-slate-200">Indian National Centre for Ocean Information Services</strong>
-            </span>
-          </div>
-        </div>
+                <div className="flex flex-col gap-2 text-[11px]">
+                  <div className="flex items-center justify-between border-b border-[#141e33] pb-1.5">
+                    <span className="text-slate-400">RANGE:</span>
+                    <span className="text-amber-300 font-bold">{activeVar.range}</span>
+                  </div>
 
-        {/* 10 Scientific Variables Table */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-cyan-400" />
-              <span>Registered Scientific State Variables (10 Fields)</span>
-            </span>
-            <span className="text-[10px] text-slate-500">
-              All variables verified as authentic 2D surface fields ($TIME \times LAT \times LON$)
-            </span>
-          </div>
+                  <div className="flex items-center justify-between border-b border-[#141e33] pb-1.5">
+                    <span className="text-slate-400">MISSING VALUE:</span>
+                    <span className="text-slate-300 font-mono">{activeVar.missingValue}</span>
+                  </div>
 
-          <div className="overflow-x-auto bg-[#080e1a] border border-[#1e293b] shadow-xl">
-            <table className="w-full text-left text-xs border-collapse font-mono">
-              <thead>
-                <tr className="bg-[#0c1424] border-b border-[#1e293b] text-slate-400 text-[10px] uppercase">
-                  <th className="py-2.5 px-3">Symbol</th>
-                  <th className="py-2.5 px-3">Variable Name</th>
-                  <th className="py-2.5 px-3">CF Standard Name</th>
-                  <th className="py-2.5 px-3">Units</th>
-                  <th className="py-2.5 px-3">Classification</th>
-                  <th className="py-2.5 px-3">Description</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#141e33] text-[11px]">
-                {variablesList.map((v, i) => (
-                  <tr key={i} className="hover:bg-[#0e1728] transition-colors">
-                    <td className="py-2.5 px-3 font-bold text-cyan-300">{v.symbol}</td>
-                    <td className="py-2.5 px-3 text-slate-200">{v.varName}</td>
-                    <td className="py-2.5 px-3 text-slate-400">{v.standardName}</td>
-                    <td className="py-2.5 px-3 text-amber-300 font-bold">{v.units}</td>
-                    <td className="py-2.5 px-3">
-                      <span className="px-1.5 py-0.5 bg-cyan-950 border border-cyan-500/40 text-cyan-400 text-[9px] font-bold">
-                        {v.classification}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-400 text-[10px] max-w-xs leading-tight">
-                      {v.desc}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  <div className="flex items-center justify-between border-b border-[#141e33] pb-1.5">
+                    <span className="text-slate-400">FREQUENCY:</span>
+                    <span className="text-emerald-400 font-bold">{activeVar.freq}</span>
+                  </div>
 
-        {/* Argo In-Situ GDAC Dataset Registry Card */}
-        <div className="p-5 bg-[#080e1a] border border-amber-500/40 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
-            <Radio className="w-4 h-4 text-amber-400" />
-            <span>CORIOLIS IN-SITU ARGO GDAC REGISTRY</span>
+                  <div className="flex items-center justify-between border-b border-[#141e33] pb-1.5">
+                    <span className="text-slate-400">ADDED ON:</span>
+                    <span className="text-slate-300">{activeVar.addedOn}</span>
+                  </div>
+
+                  <div className="flex flex-col gap-1 pt-1">
+                    <span className="text-slate-400 text-[10px]">DESCRIPTION:</span>
+                    <p className="text-slate-300 text-[10px] leading-relaxed">
+                      {activeVar.desc}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-3">
+                  <button
+                    onClick={handleDownloadMetadata}
+                    className="w-full py-2 bg-[#0c1424] hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition-colors"
+                  >
+                    Download Metadata
+                  </button>
+                  <button
+                    onClick={() => {
+                      setVariable(activeVar.symbol);
+                      setActivePage('explorer');
+                    }}
+                    className="w-full py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-colors shadow-md"
+                  >
+                    Explore in 3D View
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            Directly ingested from Coriolis Global Data Assembly Centre (GDAC) NetCDF archives. Includes in-situ autonomous floats equipped with Seabird SBE41 CTD sensors. All cycles are dynamically decoded for physical temperature (°C), practical salinity (PSU), and pressure (dbar), and converted to absolute depth (m) via the TEOS-10 standard (`gsw.z_from_p`).
-          </p>
         </div>
       </div>
     </div>

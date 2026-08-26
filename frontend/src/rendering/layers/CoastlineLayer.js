@@ -1,19 +1,18 @@
 /**
  * CoastlineLayer
- * Renders authentic Natural Earth 10m coastline vectors across the Indian Ocean domain.
+ * Renders authentic Natural Earth 10m coastline vectors projected directly onto the 3D Spherical Earth.
  * Thin, precise, crisp, restrained line visibility above ocean and land layers.
- * Accurately projects geographic coordinates (Lon, Lat) into normalized scene world space (X, Z).
+ * Uses great-circle interpolation to ensure lines follow Earth's spherical curvature without interior clipping.
  */
 
 import * as THREE from 'three';
-import { lonLatToWorld, DEFAULT_INDIAN_OCEAN_BOUNDS, DEFAULT_GEOMETRY_SCALE } from '../../utils/geography';
+import { latLonToGlobe, interpolateGreatCircle, EARTH_RADIUS } from '../../utils/geography';
 
 export class CoastlineLayer {
   constructor(options = {}) {
-    this.yLevel = options.yLevel || 0.303;
-    this.xScale = options.xScale || DEFAULT_GEOMETRY_SCALE.xScale;
-    this.zScale = options.zScale || DEFAULT_GEOMETRY_SCALE.zScale;
-    this.bounds = options.bounds || DEFAULT_INDIAN_OCEAN_BOUNDS;
+    this.radius = options.radius || (EARTH_RADIUS * 1.0025); // 1.0025 sits slightly above globe
+    this.color = options.color || 0x38bdf8;
+    this.opacity = options.opacity !== undefined ? options.opacity : 0.85;
 
     this.group = new THREE.Group();
     this.group.name = 'CoastlineLayer';
@@ -48,24 +47,24 @@ export class CoastlineLayer {
 
     if (!this.geoJsonData?.features) return;
 
-    const { minLon, maxLon, minLat, maxLat } = this.bounds;
     const linePoints = [];
-    const scale = { xScale: this.xScale, zScale: this.zScale };
 
     const processLine = (coords) => {
       if (!coords || coords.length < 2) return;
       for (let i = 0; i < coords.length - 1; i++) {
-        const p1 = coords[i];
-        const p2 = coords[i + 1];
-        // Clip segments outside domain bounds (+ padding)
-        if (
-          (p1[0] >= minLon - 5 && p1[0] <= maxLon + 5 && p1[1] >= minLat - 5 && p1[1] <= maxLat + 5) ||
-          (p2[0] >= minLon - 5 && p2[0] <= maxLon + 5 && p2[1] >= minLat - 5 && p2[1] <= maxLat + 5)
-        ) {
-          const v1 = lonLatToWorld(p1[0], p1[1], this.yLevel, this.bounds, scale);
-          const v2 = lonLatToWorld(p2[0], p2[1], this.yLevel, this.bounds, scale);
-          linePoints.push(v1.x, v1.y, v1.z);
-          linePoints.push(v2.x, v2.y, v2.z);
+        const p1 = coords[i];   // [lon, lat]
+        const p2 = coords[i + 1]; // [lon, lat]
+
+        // Handle date-line wrap or invalid anomalies
+        if (Math.abs(p1[0] - p2[0]) > 180.0) continue;
+
+        // Spherical great-circle interpolation for long segments
+        const waypoints = interpolateGreatCircle(p1[1], p1[0], p2[1], p2[0], 2.0);
+        for (let j = 0; j < waypoints.length - 1; j++) {
+          const w1 = latLonToGlobe(waypoints[j].lat, waypoints[j].lon, this.radius);
+          const w2 = latLonToGlobe(waypoints[j + 1].lat, waypoints[j + 1].lon, this.radius);
+          linePoints.push(w1.x, w1.y, w1.z);
+          linePoints.push(w2.x, w2.y, w2.z);
         }
       }
     };
@@ -77,7 +76,7 @@ export class CoastlineLayer {
       if (geom.type === 'LineString') {
         processLine(geom.coordinates);
       } else if (geom.type === 'MultiLineString') {
-        geom.coordinates.forEach(line => processLine(line));
+        geom.coordinates.forEach((line) => processLine(line));
       }
     });
 
@@ -85,33 +84,30 @@ export class CoastlineLayer {
       const lineGeo = new THREE.BufferGeometry();
       lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePoints, 3));
 
-      // Phase 8: Thin, precise, crisp, restrained line styling
       const lineMat = new THREE.LineBasicMaterial({
-        color: 0x38bdf8,
+        color: this.color,
         transparent: true,
-        opacity: 0.75,
+        opacity: this.opacity,
         linewidth: 1.0,
       });
 
       this.lineMesh = new THREE.LineSegments(lineGeo, lineMat);
+      this.lineMesh.name = 'CoastlineSegments';
       this.group.add(this.lineMesh);
     }
   }
 
-  updateBounds(bounds, xScale, zScale, yLevel) {
-    if (bounds) this.bounds = bounds;
-    if (xScale !== undefined) this.xScale = xScale;
-    if (zScale !== undefined) this.zScale = zScale;
-    if (yLevel !== undefined) this.yLevel = yLevel;
+  setRadius(radius) {
+    this.radius = radius;
     if (this.geoJsonData) {
       this._buildCoastlines();
     }
   }
 
-  setYLevel(yLevel) {
-    this.yLevel = yLevel;
-    if (this.lineMesh) {
-      this.lineMesh.position.y = yLevel - 0.303;
+  setColor(color) {
+    this.color = color;
+    if (this.lineMesh?.material) {
+      this.lineMesh.material.color.set(color);
     }
   }
 

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useOceanStore } from '../store/oceanStore';
-import { Crosshair, X, Compass, Radio, ArrowRight, AlertTriangle } from './Icons';
+import { Crosshair, X, Compass, Radio, ArrowRight, AlertTriangle, Globe } from './Icons';
 import {
-  validateCoordinates,
+  isInsideModelDomain,
   haversineDistanceKm,
   INDIAN_OCEAN_PRESETS,
   DEFAULT_INDIAN_OCEAN_BOUNDS
@@ -13,16 +13,8 @@ export const GoToLocationModal = () => {
     isGoToLocationOpen,
     toggleGoToLocationModal,
     focusCoordinateInExplorer,
-    metadata,
     argoFloats,
   } = useOceanStore();
-
-  const bounds = {
-    minLat: metadata?.bounds?.min_lat ?? DEFAULT_INDIAN_OCEAN_BOUNDS.minLat,
-    maxLat: metadata?.bounds?.max_lat ?? DEFAULT_INDIAN_OCEAN_BOUNDS.maxLat,
-    minLon: metadata?.bounds?.min_lon ?? DEFAULT_INDIAN_OCEAN_BOUNDS.minLon,
-    maxLon: metadata?.bounds?.max_lon ?? DEFAULT_INDIAN_OCEAN_BOUNDS.maxLon,
-  };
 
   const [latInput, setLatInput] = useState('12.83');
   const [lonInput, setLonInput] = useState('69.00');
@@ -32,8 +24,12 @@ export const GoToLocationModal = () => {
   const parsedLat = parseFloat(latInput);
   const parsedLon = parseFloat(lonInput);
 
-  const validation = validateCoordinates(parsedLat, parsedLon, bounds);
-  const isValid = validation.isValid;
+  // Global Earth Coordinate Validation: Lat [-90, +90], Lon [-180, +180]
+  const isLatValid = !isNaN(parsedLat) && parsedLat >= -90.0 && parsedLat <= 90.0;
+  const isLonValid = !isNaN(parsedLon) && parsedLon >= -180.0 && parsedLon <= 180.0;
+  const isValid = isLatValid && isLonValid;
+
+  const isInsideModel = isValid && isInsideModelDomain(parsedLat, parsedLon, DEFAULT_INDIAN_OCEAN_BOUNDS);
 
   // Find nearest Argo float if valid
   let nearestFloat = null;
@@ -57,7 +53,10 @@ export const GoToLocationModal = () => {
 
   const handleLocate = () => {
     if (!isValid) return;
-    focusCoordinateInExplorer(parsedLat, parsedLon, `${parsedLat.toFixed(2)}°N, ${parsedLon.toFixed(2)}°E`);
+    const label = `${parsedLat >= 0 ? `${parsedLat.toFixed(2)}°N` : `${Math.abs(parsedLat).toFixed(2)}°S`}, ${
+      parsedLon >= 0 ? `${parsedLon.toFixed(2)}°E` : `${Math.abs(parsedLon).toFixed(2)}°W`
+    }`;
+    focusCoordinateInExplorer(parsedLat, parsedLon, label);
   };
 
   const handleKeyDown = (e) => {
@@ -76,13 +75,13 @@ export const GoToLocationModal = () => {
       }}
       onKeyDown={handleKeyDown}
     >
-      <div className="w-full max-w-lg bg-[#080e1a] border border-sky-500/60 shadow-2xl text-slate-200 font-mono flex flex-col overflow-hidden">
+      <div className="w-full max-w-lg bg-[#080e1a] border border-cyan-500/60 shadow-2xl text-slate-200 font-mono flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-[#0c1424] border-b border-[#1e293b]">
           <div className="flex items-center gap-2">
-            <Crosshair className="w-4 h-4 text-sky-400" />
-            <span className="font-bold tracking-wider text-xs text-sky-300">
-              GEOSPATIAL COORDINATE TARGETING
+            <Globe className="w-4 h-4 text-cyan-400" />
+            <span className="font-bold tracking-wider text-xs text-cyan-300">
+              3D EARTH COORDINATE NAVIGATION
             </span>
           </div>
           <button
@@ -95,11 +94,11 @@ export const GoToLocationModal = () => {
 
         {/* Body */}
         <div className="p-4 flex flex-col gap-4 text-xs">
-          {/* Domain Notice */}
-          <div className="flex items-center justify-between px-3 py-2 bg-[#040814] border border-[#1e293b] text-[11px] text-slate-400">
-            <span>DOMAIN LIMITS:</span>
-            <span className="text-slate-200 font-bold">
-              Lat [{bounds.minLat.toFixed(1)}°, {bounds.maxLat.toFixed(1)}°] · Lon [{bounds.minLon.toFixed(1)}°, {bounds.maxLon.toFixed(1)}°]
+          {/* Domain Coverage Status Banner */}
+          <div className="flex items-center justify-between px-3 py-2 bg-[#040814] border border-[#1e293b] text-[11px]">
+            <span className="text-slate-400">INCOIS MODEL BOUNDS:</span>
+            <span className="text-amber-300 font-bold">
+              30°E—120°E, 30°S—30°N
             </span>
           </div>
 
@@ -107,21 +106,23 @@ export const GoToLocationModal = () => {
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] text-slate-400 flex items-center justify-between">
-                <span>LATITUDE (°N / °S)</span>
-                {!isValid && !isNaN(parsedLat) && (parsedLat < bounds.minLat || parsedLat > bounds.maxLat) && (
-                  <span className="text-red-400">OUT OF BOUNDS</span>
+                <span>LATITUDE (-90° to +90°)</span>
+                {!isLatValid && !isNaN(parsedLat) && (
+                  <span className="text-red-400">INVALID LAT</span>
                 )}
               </label>
               <div className="relative">
                 <input
                   type="number"
                   step="0.01"
+                  min="-90"
+                  max="90"
                   value={latInput}
                   onChange={(e) => setLatInput(e.target.value)}
                   placeholder="e.g. 12.83"
                   className={`w-full px-3 py-2 bg-[#0c1424] border text-slate-100 font-bold focus:outline-none focus:ring-1 ${
-                    isValid || isNaN(parsedLat)
-                      ? 'border-[#1e293b] focus:border-sky-500 focus:ring-sky-500'
+                    isLatValid || isNaN(parsedLat)
+                      ? 'border-[#1e293b] focus:border-cyan-500 focus:ring-cyan-500'
                       : 'border-red-500 focus:border-red-500 focus:ring-red-500'
                   }`}
                   autoFocus
@@ -131,21 +132,23 @@ export const GoToLocationModal = () => {
 
             <div className="flex flex-col gap-1">
               <label className="text-[10px] text-slate-400 flex items-center justify-between">
-                <span>LONGITUDE (°E)</span>
-                {!isValid && !isNaN(parsedLon) && (parsedLon < bounds.minLon || parsedLon > bounds.maxLon) && (
-                  <span className="text-red-400">OUT OF BOUNDS</span>
+                <span>LONGITUDE (-180° to +180°)</span>
+                {!isLonValid && !isNaN(parsedLon) && (
+                  <span className="text-red-400">INVALID LON</span>
                 )}
               </label>
               <div className="relative">
                 <input
                   type="number"
                   step="0.01"
+                  min="-180"
+                  max="180"
                   value={lonInput}
                   onChange={(e) => setLonInput(e.target.value)}
                   placeholder="e.g. 69.00"
                   className={`w-full px-3 py-2 bg-[#0c1424] border text-slate-100 font-bold focus:outline-none focus:ring-1 ${
-                    isValid || isNaN(parsedLon)
-                      ? 'border-[#1e293b] focus:border-sky-500 focus:ring-sky-500'
+                    isLonValid || isNaN(parsedLon)
+                      ? 'border-[#1e293b] focus:border-cyan-500 focus:ring-cyan-500'
                       : 'border-red-500 focus:border-red-500 focus:ring-red-500'
                   }`}
                 />
@@ -153,11 +156,21 @@ export const GoToLocationModal = () => {
             </div>
           </div>
 
-          {/* Validation error message if invalid */}
-          {!isValid && validation.error && (
-            <div className="text-[11px] text-red-400 font-bold flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              <span>{validation.error}</span>
+          {/* Model Coverage Indicator */}
+          {isValid && (
+            <div className="flex items-center justify-between px-3 py-1.5 bg-[#0c1424] border border-[#1e293b] text-[11px]">
+              <span className="text-slate-400">REGIONAL SIMULATION STATUS:</span>
+              {isInsideModel ? (
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  INSIDE INCOIS NUMERICAL MODEL COVERAGE
+                </span>
+              ) : (
+                <span className="text-slate-400 font-bold flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-slate-500" />
+                  GLOBAL EARTH POINT (OUTSIDE INCOIS ROMS)
+                </span>
+              )}
             </div>
           )}
 
@@ -174,7 +187,7 @@ export const GoToLocationModal = () => {
                     setLatInput(p.lat.toFixed(2));
                     setLonInput(p.lon.toFixed(2));
                   }}
-                  className="px-2.5 py-1.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-left text-[11px] text-slate-300 flex items-center justify-between transition-colors"
+                  className="px-2.5 py-1.5 bg-[#0c1424] border border-[#1e293b] hover:border-cyan-500 hover:text-cyan-300 text-left text-[11px] text-slate-300 flex items-center justify-between transition-colors"
                 >
                   <span className="truncate">{p.label}</span>
                   <span className="text-[10px] text-slate-500 shrink-0 ml-1">
@@ -185,7 +198,7 @@ export const GoToLocationModal = () => {
             </div>
           </div>
 
-          {/* Nearest Argo Float Calculated Feedback */}
+          {/* Nearest Argo Float Feedback */}
           {nearestFloat && isValid && (
             <div className="p-2.5 bg-[#040814] border border-amber-500/40 text-[11px] flex flex-col gap-1">
               <div className="flex items-center gap-1.5 text-amber-400 font-bold">
@@ -220,11 +233,11 @@ export const GoToLocationModal = () => {
               disabled={!isValid}
               className={`px-4 py-1.5 border text-xs font-bold flex items-center gap-1.5 transition-all ${
                 isValid
-                  ? 'bg-sky-600 border-sky-400 text-white hover:bg-sky-500 shadow-md shadow-sky-900/50 cursor-pointer'
+                  ? 'bg-cyan-600 border-cyan-400 text-white hover:bg-cyan-500 shadow-md shadow-cyan-900/50 cursor-pointer'
                   : 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
               }`}
             >
-              <span>LOCATE IN 3D EXPLORER</span>
+              <span>ROTATE GLOBE TO COORDINATES</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

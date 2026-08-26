@@ -1,19 +1,18 @@
 /**
  * LandLayer
- * Renders authentic Natural Earth 10m land polygon geometry across the Indian Ocean domain.
+ * Renders authentic Natural Earth 10m land polygon geometry conforming to the 3D Spherical Earth.
  * Subtle, dark, low visual dominance beneath coastlines and Argo observations.
- * Accurately projects geographic coordinates (Lon, Lat) into normalized scene world space (X, Z).
+ * Projects geographic coordinates (Lon, Lat) into spherical 3D surface space with radial normals.
  */
 
 import * as THREE from 'three';
-import { lonLatToWorld, DEFAULT_INDIAN_OCEAN_BOUNDS, DEFAULT_GEOMETRY_SCALE } from '../../utils/geography';
+import { latLonToGlobe, EARTH_RADIUS } from '../../utils/geography';
 
 export class LandLayer {
   constructor(options = {}) {
-    this.yLevel = options.yLevel || 0.301;
-    this.xScale = options.xScale || DEFAULT_GEOMETRY_SCALE.xScale;
-    this.zScale = options.zScale || DEFAULT_GEOMETRY_SCALE.zScale;
-    this.bounds = options.bounds || DEFAULT_INDIAN_OCEAN_BOUNDS;
+    this.radius = options.radius || (EARTH_RADIUS * 1.001); // 1.001 sits between ocean sphere and coastlines
+    this.color = options.color || 0x081726; // Dark oceanic continental landmass
+    this.opacity = options.opacity !== undefined ? options.opacity : 0.92;
 
     this.group = new THREE.Group();
     this.group.name = 'LandLayer';
@@ -48,34 +47,28 @@ export class LandLayer {
 
     if (!this.geoJsonData?.features) return;
 
-    const { minLon, maxLon, minLat, maxLat } = this.bounds;
     const vertices = [];
     const indices = [];
     let vertexOffset = 0;
-
-    const scale = { xScale: this.xScale, zScale: this.zScale };
 
     const processPolygon = (rings) => {
       if (!rings || rings.length === 0) return;
       const outerRing = rings[0];
       if (outerRing.length < 3) return;
 
-      // Check if ring is within domain bounds (with padding)
-      const xs = outerRing.map(p => p[0]);
-      const ys = outerRing.map(p => p[1]);
-      if (
-        Math.max(...xs) < minLon - 5 ||
-        Math.min(...xs) > maxLon + 5 ||
-        Math.max(...ys) < minLat - 5 ||
-        Math.min(...ys) > maxLat + 5
-      ) {
-        return;
+      // Filter extreme antimeridian wraps that would cause triangulation artifacts
+      let hasWrap = false;
+      for (let i = 0; i < outerRing.length - 1; i++) {
+        if (Math.abs(outerRing[i][0] - outerRing[i + 1][0]) > 180.0) {
+          hasWrap = true;
+          break;
+        }
       }
+      if (hasWrap) return;
 
-      // Convert outer ring to 2D Vector2 for triangulation
-      const contour = outerRing.map(p => new THREE.Vector2(p[0], p[1]));
+      // Convert outer ring to 2D Vector2 for ear-clipping triangulation
+      const contour = outerRing.map((p) => new THREE.Vector2(p[0], p[1]));
 
-      // Triangulate outer ring
       let triangles;
       try {
         triangles = THREE.ShapeUtils.triangulateShape(contour, []);
@@ -85,11 +78,11 @@ export class LandLayer {
 
       if (!triangles || triangles.length === 0) return;
 
-      // Project vertices to 3D world space
+      // Project 2D Lon/Lat vertices to 3D Spherical coordinates
       const baseIndex = vertexOffset;
       for (let i = 0; i < outerRing.length; i++) {
-        const pt = outerRing[i];
-        const w = lonLatToWorld(pt[0], pt[1], this.yLevel, this.bounds, scale);
+        const pt = outerRing[i]; // [lon, lat]
+        const w = latLonToGlobe(pt[1], pt[0], this.radius);
         vertices.push(w.x, w.y, w.z);
         vertexOffset++;
       }
@@ -108,7 +101,7 @@ export class LandLayer {
       if (geom.type === 'Polygon') {
         processPolygon(geom.coordinates);
       } else if (geom.type === 'MultiPolygon') {
-        geom.coordinates.forEach(poly => processPolygon(poly));
+        geom.coordinates.forEach((poly) => processPolygon(poly));
       }
     });
 
@@ -118,37 +111,28 @@ export class LandLayer {
       geometry.setIndex(indices);
       geometry.computeVertexNormals();
 
-      // Subtle, dark, low-dominance land material (Phase 8)
+      // Subtle, dark, low-dominance land material
       const material = new THREE.MeshStandardMaterial({
-        color: 0x07111e,
-        roughness: 0.9,
-        metalness: 0.1,
+        color: this.color,
+        roughness: 0.95,
+        metalness: 0.05,
         transparent: true,
-        opacity: 0.88,
-        side: THREE.DoubleSide,
-        depthWrite: false,
+        opacity: this.opacity,
+        side: THREE.FrontSide,
+        depthWrite: true,
       });
 
       this.mesh = new THREE.Mesh(geometry, material);
+      this.mesh.name = 'LandPolygons';
       this.mesh.receiveShadow = true;
       this.group.add(this.mesh);
     }
   }
 
-  updateBounds(bounds, xScale, zScale, yLevel) {
-    if (bounds) this.bounds = bounds;
-    if (xScale !== undefined) this.xScale = xScale;
-    if (zScale !== undefined) this.zScale = zScale;
-    if (yLevel !== undefined) this.yLevel = yLevel;
+  setRadius(radius) {
+    this.radius = radius;
     if (this.geoJsonData) {
       this._buildLandGeometry();
-    }
-  }
-
-  setYLevel(yLevel) {
-    this.yLevel = yLevel;
-    if (this.mesh) {
-      this.mesh.position.y = yLevel - 0.301;
     }
   }
 

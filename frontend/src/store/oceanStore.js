@@ -35,20 +35,26 @@ export const useOceanStore = create((set, get) => ({
   enableSlice: false,
   verticalExaggeration: 1.0,
 
-  // Sea State Environmental Simulation
-  seaState: 'moderate', // 'calm' | 'moderate' | 'rough' | 'storm'
+  // View Mode: 'globe' (3D Interactive Earth) | 'ocean3d' (Volumetric Raymarching)
+  viewMode: 'globe',
+  setViewMode: (viewMode) => set({ viewMode }),
 
-  // Environmental & Marine Infrastructure Layers
+  // Environmental & Planetary 3D Layers
   layers: {
-    oceanSurface: true,
-    currentVectors: true,
-    volumeRaymarch: true,
-    depthSlice: false,
-    bathymetricFloor: true,
-    land: true,
+    earthGlobe: true,
     coastlines: true,
+    land: true,
+    countryBorders: true,
+    graticule: true,
+    modelCoverage: true,
     argoSensors: true,
-    marinePlatform: true,
+    volumeRaymarch: false,
+    atmosphere: true,
+    oceanSurface: true,
+    depthSlice: false,
+    currentVectors: false,
+    bathymetricFloor: false,
+    marinePlatform: false,
     weatherOverlay: false,
   },
 

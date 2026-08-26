@@ -10,11 +10,16 @@ import { fileURLToPath } from 'node:url';
 import {
   lonLatToWorld,
   worldToLonLat,
+  latLonToGlobe,
+  globeToLatLon,
+  interpolateGreatCircle,
+  isInsideModelDomain,
   validateCoordinates,
   haversineDistanceKm,
   calculateNearestGridCell,
   DEFAULT_INDIAN_OCEAN_BOUNDS,
   DEFAULT_GEOMETRY_SCALE,
+  EARTH_RADIUS,
 } from '../src/utils/geography.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -165,6 +170,94 @@ console.log('====================================================');
   console.log(`  ✓ Coastline features (${coastlineJson.features.length}) and Land features (${landJson.features.length}) verified PASSED`);
 }
 
+// Test 9: Spherical Globe Coordinate Transformations
+{
+  console.log('[TEST 9] Spherical Globe latLonToGlobe & globeToLatLon');
+  // North Pole (90°N, 0°E) -> (0, 1, 0)
+  const np = latLonToGlobe(90.0, 0.0, 1.0);
+  assert.ok(Math.abs(np.x) < 1e-6 && Math.abs(np.y - 1.0) < 1e-6 && Math.abs(np.z) < 1e-6);
+
+  // South Pole (-90°S, 0°E) -> (0, -1, 0)
+  const sp = latLonToGlobe(-90.0, 0.0, 1.0);
+  assert.ok(Math.abs(sp.x) < 1e-6 && Math.abs(sp.y - (-1.0)) < 1e-6 && Math.abs(sp.z) < 1e-6);
+
+  // Equator at Prime Meridian (0°N, 0°E) -> (0, 0, 1)
+  const eqPrime = latLonToGlobe(0.0, 0.0, 1.0);
+  assert.ok(Math.abs(eqPrime.x) < 1e-6 && Math.abs(eqPrime.y) < 1e-6 && Math.abs(eqPrime.z - 1.0) < 1e-6);
+
+  // Equator at 90°E (Indian Ocean East) -> (1, 0, 0)
+  const eq90E = latLonToGlobe(0.0, 90.0, 1.0);
+  assert.ok(Math.abs(eq90E.x - 1.0) < 1e-6 && Math.abs(eq90E.y) < 1e-6 && Math.abs(eq90E.z) < 1e-6);
+
+  // Equator at 90°W (-90° Lon) -> (-1, 0, 0)
+  const eq90W = latLonToGlobe(0.0, -90.0, 1.0);
+  assert.ok(Math.abs(eq90W.x - (-1.0)) < 1e-6 && Math.abs(eq90W.y) < 1e-6 && Math.abs(eq90W.z) < 1e-6);
+
+  console.log('  ✓ Cardinal poles and equatorial axes on unit sphere verified PASSED');
+}
+
+// Test 10: Bijective Spherical Round-Trip Conversion
+{
+  console.log('[TEST 10] Bijective round-trip LonLat <-> Globe conversion');
+  const testCoords = [
+    { lat: 18.92, lon: 72.83 }, // Mumbai
+    { lat: 13.08, lon: 80.27 }, // Chennai
+    { lat: 7.87, lon: 80.77 },  // Sri Lanka
+    { lat: 12.83, lon: 69.00 }, // Argo WMO 2902120 (Arabian Sea)
+    { lat: 13.69, lon: 88.07 }, // Argo WMO 2902084 (Bay of Bengal)
+    { lat: -25.0, lon: 65.0 },  // SW Indian Ridge
+    { lat: 0.0, lon: 75.0 },    // Indian Ocean Center
+    { lat: 45.0, lon: -120.0 }, // Pacific
+    { lat: -45.0, lon: -20.0 }, // South Atlantic
+  ];
+
+  testCoords.forEach((pt) => {
+    const pos = latLonToGlobe(pt.lat, pt.lon, 1.0);
+    const inv = globeToLatLon(pos.x, pos.y, pos.z);
+    assert.ok(Math.abs(inv.lat - pt.lat) < 1e-4, `Lat error: expected ${pt.lat}, got ${inv.lat}`);
+    assert.ok(Math.abs(inv.lon - pt.lon) < 1e-4, `Lon error: expected ${pt.lon}, got ${inv.lon}`);
+  });
+  console.log(`  ✓ All ${testCoords.length} spherical test coordinates inverted with zero error (< 1e-4 deg) PASSED`);
+}
+
+// Test 11: Great-Circle Spherical Interpolation
+{
+  console.log('[TEST 11] Great-Circle Spherical Interpolation (SLERP)');
+  const pts = interpolateGreatCircle(0.0, 30.0, 0.0, 120.0, 5.0);
+  assert.ok(pts.length >= 18, `Expected >= 18 steps for 90 deg arc, got ${pts.length}`);
+  assert.strictEqual(pts[0].lat, 0.0);
+  assert.strictEqual(pts[0].lon, 30.0);
+  assert.strictEqual(pts[pts.length - 1].lat, 0.0);
+  assert.strictEqual(pts[pts.length - 1].lon, 120.0);
+
+  // Every interpolated point should have radius 1 on sphere
+  pts.forEach((pt) => {
+    const g = latLonToGlobe(pt.lat, pt.lon, 1.0);
+    const r = Math.sqrt(g.x * g.x + g.y * g.y + g.z * g.z);
+    assert.ok(Math.abs(r - 1.0) < 1e-5, `Point radius deviation: ${r}`);
+  });
+  console.log('  ✓ Great-circle waypoints generated strictly on spherical manifold PASSED');
+}
+
+// Test 12: INCOIS Model Domain Validation vs Global Domain
+{
+  console.log('[TEST 12] INCOIS Model Domain Validation vs Global Domain');
+  // Inside model domain (30E—120E, 30S—30N)
+  assert.strictEqual(isInsideModelDomain(12.83, 69.0), true);
+  assert.strictEqual(isInsideModelDomain(13.69, 88.07), true);
+  assert.strictEqual(isInsideModelDomain(0.0, 75.0), true);
+  assert.strictEqual(isInsideModelDomain(-29.9, 31.0), true);
+  assert.strictEqual(isInsideModelDomain(29.9, 119.0), true);
+
+  // Outside model domain (e.g. Atlantic, Pacific, Arctic, Antarctic)
+  assert.strictEqual(isInsideModelDomain(45.0, 0.0), false);   // Europe (Lat too high)
+  assert.strictEqual(isInsideModelDomain(-45.0, 75.0), false); // Southern Ocean (Lat too low)
+  assert.strictEqual(isInsideModelDomain(10.0, -40.0), false); // Atlantic (Lon too west)
+  assert.strictEqual(isInsideModelDomain(10.0, 160.0), false); // Pacific (Lon too east)
+
+  console.log('  ✓ INCOIS model footprint correctly differentiated from global sphere PASSED');
+}
+
 console.log('====================================================');
-console.log('ALL 8 GEOGRAPHIC & NAVIGATION TEST SUITES PASSED! ✓');
+console.log('ALL 12 GEOGRAPHIC & NAVIGATION TEST SUITES PASSED! ✓');
 console.log('====================================================');
