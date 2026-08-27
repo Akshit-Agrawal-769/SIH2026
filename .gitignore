@@ -32,6 +32,12 @@ datasets/model/*.nc
 datasets/model/*.nc4
 datasets/argo/*.nc
 datasets/glider/*.nc
+datasets/coriolis/
+datasets/incois/
+datasets/aoml/
+datasets/csiro/
+datasets/csio/
+datasets/bodc/
 *.zarr/
 *.bin
 *.grib

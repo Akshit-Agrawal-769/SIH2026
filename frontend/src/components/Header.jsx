@@ -1,243 +1,161 @@
 import React from 'react';
 import {
-  Compass,
-  Database,
-  Cpu,
-  Sliders,
-  Info,
-  Crosshair,
-  Radio,
+  Search,
+  Layers,
   Activity,
-  Layers
-} from './Icons';
+  Radio,
+  Zap,
+  Sliders,
+  Menu,
+} from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
 export const Header = () => {
   const {
-    activePage,
-    setActivePage,
+    activeOverlay,
+    toggleOverlay,
     health,
-    datasets,
-    activeDataset,
-    selectDataset,
-    variable,
-    timeIndex,
-    metadata,
-    isDiagnosticsOpen,
-    toggleDiagnostics,
-    isControlPanelOpen,
-    toggleControlPanel,
-    isInspectorOpen,
-    toggleInspector,
     toggleGoToLocationModal,
+    toggleShortcutsModal,
+    setActivePage,
   } = useOceanStore();
-
-  const navItems = [
-    { id: 'home', label: 'MISSION CONTROL', icon: Activity, iconColor: 'text-cyan-400' },
-    { id: 'explorer', label: '3D EXPLORER', icon: Layers, iconColor: 'text-sky-400' },
-    { id: 'coordinates', label: 'COORDINATES', icon: Crosshair, iconColor: 'text-teal-400' },
-    { id: 'argo', label: 'ARGO IN-SITU', icon: Radio, iconColor: 'text-amber-400' },
-    { id: 'comparison', label: '4D COMPARISON', icon: Compass, iconColor: 'text-indigo-400' },
-    { id: 'analytics', label: 'ANALYTICS', icon: Activity, iconColor: 'text-emerald-400' },
-    { id: 'data', label: 'DATA CATALOG', icon: Database, iconColor: 'text-blue-400' },
-    { id: 'settings', label: 'SETTINGS', icon: Sliders, iconColor: 'text-slate-300' },
-    { id: 'methodology', label: 'METHODOLOGY', icon: Info, iconColor: 'text-purple-400' },
-  ];
-
-  const getVarLabel = (v) => {
-    if (metadata?.variable_info?.[v]?.long_name) {
-      return `${v.toUpperCase()} (${metadata.variable_info[v].long_name.split('(')[0].trim()})`;
-    }
-    switch (v) {
-      case 'temp': return 'TEMP (SST)';
-      case 'salt': return 'PSAL (SSS)';
-      case 'u': return 'U-VEL (u)';
-      case 'v': return 'V-VEL (v)';
-      case 'chl': return 'CHLA (chl)';
-      default: return v?.toUpperCase() || 'TEMP';
-    }
-  };
 
   const isHealthy = health?.status === 'healthy';
 
   return (
-    <header className="relative z-30 flex flex-col bg-[#060a14] border-b border-[#1e293b] text-slate-200 select-none">
-      {/* Top Bar: Identity, System Status, Actions */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#141e33] min-h-[44px]">
-        {/* Left: INCOIS Brand */}
-        <div className="flex items-center gap-3">
-          <div
-            onClick={() => setActivePage('home')}
-            className="flex items-center gap-2 cursor-pointer group"
-          >
-            <div className="w-2.5 h-2.5 bg-cyan-400 group-hover:bg-cyan-300 transition-colors shadow-sm shadow-cyan-400/50" />
-            <div className="flex flex-col">
-              <span className="text-xs font-bold tracking-widest uppercase font-mono text-slate-100 group-hover:text-cyan-300 transition-colors flex items-center gap-1.5">
-                INCOIS OCEAN DATA SYSTEM
-                <span className="text-[9px] px-1 py-0.2 bg-cyan-950 border border-cyan-500/40 text-cyan-400 font-normal">
-                  v2.0
-                </span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-mono tracking-tight hidden sm:inline">
-                Indian Ocean Operational ROMS & Coriolis In-Situ Argo Colocation
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Middle Status (Dynamic Contextual Readout) */}
-        <div className="hidden xl:flex items-center gap-2 text-xs font-mono">
-          {/* Dataset Selector */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] text-[11px]">
-            <Database className="w-3 h-3 text-sky-400 shrink-0" />
-            <span className="text-slate-400">DATASET:</span>
-            {datasets.length > 0 ? (
-              <select
-                value={activeDataset}
-                onChange={(e) => selectDataset(e.target.value)}
-                className="bg-transparent text-sky-300 font-mono font-medium focus:outline-none cursor-pointer pr-1"
-              >
-                {datasets.map((d) => (
-                  <option key={d} value={d} className="bg-[#0c1424] text-slate-200">
-                    {d}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="text-amber-400 font-mono">incois_roms_indian_ocean.nc</span>
-            )}
-          </div>
-
-          {/* Spatial Coordinates */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] text-[11px] text-slate-300">
-            <Compass className="w-3 h-3 text-teal-400 shrink-0" />
-            <span className="text-slate-400">DOMAIN:</span>
-            <span className="text-slate-200">
-              {metadata?.bounds
-                ? `${metadata.bounds.min_lon.toFixed(1)}°E—${metadata.bounds.max_lon.toFixed(1)}°E, ${metadata.bounds.min_lat.toFixed(1)}°N—${metadata.bounds.max_lat.toFixed(1)}°N`
-                : '30.0°E—120.0°E, -30.0°N—30.0°N'}
-            </span>
-          </div>
-
-          {/* Active Field & Timestep */}
-          {activePage === 'explorer' && (
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] text-[11px]">
-              <span className="text-slate-400">FIELD:</span>
-              <span className="text-sky-300 font-bold">
-                {getVarLabel(variable)}
-              </span>
-              <span className="text-slate-600">|</span>
-              <span className="text-slate-400">DATE:</span>
-              <span className="text-teal-300 font-bold">
-                {metadata?.time_range?.[timeIndex]
-                  ? metadata.time_range[timeIndex].split('T')[0]
-                  : `Step ${timeIndex + 1}`}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Right Tools & Status */}
-        <div className="flex items-center gap-1.5">
-          {/* Quick Go-To Coordinate Button */}
-          <button
-            onClick={toggleGoToLocationModal}
-            title="Locate Geographic Coordinates (Lat / Lon)"
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono border bg-[#0c1424] border-cyan-500/50 hover:bg-cyan-950 hover:border-cyan-400 text-cyan-300 transition-colors shadow-sm"
-          >
-            <Crosshair className="w-3 h-3 text-cyan-400" />
-            <span className="text-[11px] font-bold">GO TO LOCATION</span>
-          </button>
-
-          {/* Explorer View Specific Panel Toggles */}
-          {activePage === 'explorer' && (
-            <>
-              <button
-                onClick={toggleControlPanel}
-                title="Toggle Variable & Shading Controls"
-                className={`hidden md:flex items-center gap-1 px-2 py-1 text-xs font-mono border transition-colors ${
-                  isControlPanelOpen
-                    ? 'bg-[#162138] border-sky-500/60 text-sky-300'
-                    : 'bg-[#0c1424] border-[#1e293b] text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Sliders className="w-3 h-3" />
-                <span className="text-[11px]">CONTROLS</span>
-              </button>
-
-              <button
-                onClick={toggleInspector}
-                title="Toggle In-Situ & Metadata Inspector"
-                className={`hidden md:flex items-center gap-1 px-2 py-1 text-xs font-mono border transition-colors ${
-                  isInspectorOpen
-                    ? 'bg-[#162138] border-teal-500/60 text-teal-300'
-                    : 'bg-[#0c1424] border-[#1e293b] text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Info className="w-3 h-3" />
-                <span className="text-[11px]">INSPECTOR</span>
-              </button>
-            </>
-          )}
-
-          {/* Diagnostics Drawer Toggle */}
-          <button
-            onClick={toggleDiagnostics}
-            title="Toggle System Diagnostics"
-            className={`flex items-center gap-1 px-2 py-1 text-xs font-mono border transition-colors ${
-              isDiagnosticsOpen
-                ? 'bg-[#162138] border-indigo-500 text-indigo-300'
-                : 'bg-[#0c1424] border-[#1e293b] text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Cpu className="w-3 h-3" />
-            <span className="hidden sm:inline text-[11px]">DIAGNOSTICS</span>
-          </button>
-
-          {/* Shortcuts Reference Toggle */}
-          <button
-            onClick={() => useOceanStore.getState().toggleShortcutsModal()}
-            title="Keyboard Shortcuts & Operations Help (?)"
-            className="flex items-center gap-1 px-2 py-1 text-xs font-mono border bg-[#0c1424] border-[#1e293b] text-slate-400 hover:text-sky-300 hover:border-sky-500 transition-colors"
-          >
-            <span className="font-bold text-sky-400">?</span>
-          </button>
-
-          {/* Backend Health Status */}
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-[#0c1424] border border-[#1e293b] text-xs font-mono">
-            <span
-              className={`w-1.5 h-1.5 ${
-                isHealthy ? 'bg-emerald-400' : 'bg-amber-400'
-              }`}
-            />
-            <span className={`text-[10px] font-bold ${isHealthy ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {isHealthy ? 'ONLINE' : 'ACTIVE'}
-            </span>
-          </div>
-        </div>
+    <header className="absolute top-0 left-0 right-0 z-40 h-9 md:h-10 px-3 md:px-4 flex items-center justify-between bg-[rgba(6,8,12,0.55)] backdrop-blur-md border-b border-white/[0.06] text-white/90 select-none transition-opacity duration-300">
+      {/* Left: INCOIS Brand */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => {
+            setActivePage('home');
+            useOceanStore.getState().closeAllOverlays();
+          }}
+          className="flex items-center gap-2 group focus:outline-none"
+          title="Eyes on the Ocean · INCOIS Ocean Systems"
+        >
+          <div className="w-1.5 h-1.5 rounded-full bg-white/90 shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+          <span className="text-[13px] font-normal tracking-wide text-white/90 group-hover:text-white transition-colors">
+            INCOIS <span className="text-white/40 font-light">·</span> Ocean Systems
+          </span>
+        </button>
       </div>
 
-      {/* Navigation Rail Bar */}
-      <nav className="flex items-center gap-1 px-3 py-1 bg-[#090e1c] overflow-x-auto scrollbar-thin">
-        {navItems.map((item) => {
-          const isActive = activePage === item.id;
-          const IconComp = item.icon;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActivePage(item.id)}
-              className={`px-3 py-1 text-xs font-mono font-bold tracking-wider transition-all whitespace-nowrap border-b-2 flex items-center gap-1.5 ${
-                isActive
-                  ? 'border-cyan-400 text-cyan-300 bg-cyan-950/40'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-[#10182c]'
-              }`}
-            >
-              <IconComp className={`w-3 h-3 ${item.iconColor}`} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+      {/* Center: Contextual Floating Overlay Pills */}
+      <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md p-0.5 rounded-full border border-white/[0.06] shadow-sm">
+        <button
+          onClick={() => toggleOverlay('vitalSigns')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-normal transition-all ${
+            activeOverlay === 'vitalSigns'
+              ? 'bg-white/15 text-white shadow-sm'
+              : 'text-white/60 hover:text-white/90 hover:bg-white/5'
+          }`}
+          title="Ocean Vital Signs"
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Vital Signs</span>
+        </button>
+
+        <button
+          onClick={() => toggleOverlay('missions')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-normal transition-all ${
+            activeOverlay === 'missions'
+              ? 'bg-white/15 text-white shadow-sm'
+              : 'text-white/60 hover:text-white/90 hover:bg-white/5'
+          }`}
+          title="Observing Missions & In-Situ Fleet"
+        >
+          <Radio className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Missions</span>
+        </button>
+
+        <button
+          onClick={() => toggleOverlay('events')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-normal transition-all ${
+            activeOverlay === 'events'
+              ? 'bg-white/15 text-white shadow-sm'
+              : 'text-white/60 hover:text-white/90 hover:bg-white/5'
+          }`}
+          title="Extreme Ocean Events & Anomalies"
+        >
+          <Zap className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Events</span>
+        </button>
+
+        <button
+          onClick={() => toggleOverlay('depth')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-normal transition-all ${
+            activeOverlay === 'depth'
+              ? 'bg-white/15 text-white shadow-sm'
+              : 'text-white/60 hover:text-white/90 hover:bg-white/5'
+          }`}
+          title="Subsurface Depth Exploration"
+        >
+          <Sliders className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Depth</span>
+        </button>
+      </div>
+
+      {/* Right Tools & Status Icons */}
+      <div className="flex items-center gap-1.5 md:gap-2">
+        {/* Search Location */}
+        <button
+          onClick={toggleGoToLocationModal}
+          className="p-1.5 rounded text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+          title="Search Geographic Location or Coordinates (L)"
+        >
+          <Search className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Layer Visibility Stack */}
+        <button
+          onClick={() => toggleOverlay('layers')}
+          className={`p-1.5 rounded transition-colors ${
+            activeOverlay === 'layers'
+              ? 'text-white bg-white/15'
+              : 'text-white/60 hover:text-white hover:bg-white/5'
+          }`}
+          title="Toggle Planetary 3D Layers"
+        >
+          <Layers className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Workspaces & Scientific Tools Menu */}
+        <button
+          onClick={() => toggleOverlay('workspaces')}
+          className={`p-1.5 rounded transition-colors ${
+            activeOverlay === 'workspaces'
+              ? 'text-white bg-white/15'
+              : 'text-white/60 hover:text-white hover:bg-white/5'
+          }`}
+          title="Scientific Workspaces & Data Tools"
+        >
+          <Menu className="w-3.5 h-3.5" />
+        </button>
+
+        {/* System Health Dot */}
+        <div
+          className="flex items-center px-1 py-1"
+          title={`INCOIS Model & Telemetry Status: ${isHealthy ? 'Operational' : 'Active'}`}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              isHealthy
+                ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]'
+                : 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.7)]'
+            }`}
+          />
+        </div>
+
+        {/* Shortcuts / Help */}
+        <button
+          onClick={toggleShortcutsModal}
+          className="p-1 text-white/40 hover:text-white/80 transition-colors text-[11px] font-mono"
+          title="Keyboard Shortcuts (?)"
+        >
+          ?
+        </button>
+      </div>
     </header>
   );
 };

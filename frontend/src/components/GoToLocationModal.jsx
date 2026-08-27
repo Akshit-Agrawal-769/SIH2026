@@ -75,18 +75,18 @@ export const GoToLocationModal = () => {
       }}
       onKeyDown={handleKeyDown}
     >
-      <div className="w-full max-w-lg bg-[#080e1a] border border-cyan-500/60 shadow-2xl text-slate-200 font-mono flex flex-col overflow-hidden">
+      <div className="w-full max-w-lg glass-panel rounded-2xl shadow-2xl text-white/90 font-mono flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#0c1424] border-b border-[#1e293b]">
+        <div className="flex items-center justify-between px-4 py-3 bg-black/20 border-b border-white/[0.08]">
           <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-cyan-400" />
-            <span className="font-bold tracking-wider text-xs text-cyan-300">
-              3D EARTH COORDINATE NAVIGATION
+            <Globe className="w-4 h-4 text-white/70" />
+            <span className="font-medium tracking-wide text-xs text-white">
+              Search Geographic Coordinates
             </span>
           </div>
           <button
             onClick={toggleGoToLocationModal}
-            className="text-slate-400 hover:text-slate-100 transition-colors p-1"
+            className="text-white/40 hover:text-white/80 transition-colors p-1"
           >
             <X className="w-4 h-4" />
           </button>

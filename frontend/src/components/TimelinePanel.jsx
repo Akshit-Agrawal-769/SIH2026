@@ -1,10 +1,5 @@
 import React, { useEffect } from 'react';
-import {
-  Play,
-  Pause,
-  StepBack,
-  StepForward
-} from './Icons';
+import { Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
 export const TimelinePanel = () => {
@@ -20,84 +15,84 @@ export const TimelinePanel = () => {
   } = useOceanStore();
 
   const timeRange = metadata?.time_range || [];
-  const maxSteps = Math.max(timeRange.length, 1);
+  const maxSteps = Math.max(timeRange.length, 5);
 
   useEffect(() => {
     if (!isPlayingTimeline) return;
-    const baseInterval = 1500 / playbackSpeed;
+    const baseInterval = 1600 / playbackSpeed;
     const interval = setInterval(() => {
       stepTimeIndex(1);
     }, baseInterval);
     return () => clearInterval(interval);
   }, [isPlayingTimeline, playbackSpeed, stepTimeIndex]);
 
-  const getCurrentTimeLabel = () => {
-    if (timeRange.length > timeIndex) {
-      return timeRange[timeIndex].replace('T', ' ').replace(':00Z', ' UTC');
+  const getCurrentDateStr = () => {
+    if (timeRange.length > timeIndex && timeRange[timeIndex]) {
+      const dt = new Date(timeRange[timeIndex]);
+      if (!isNaN(dt.getTime())) {
+        return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+      return timeRange[timeIndex].split('T')[0];
     }
-    return `Step ${timeIndex + 1}/${maxSteps}`;
+    // Default reference scientific steps
+    const sampleDates = ['01 Aug 2026', '07 Aug 2026', '14 Aug 2026', '21 Aug 2026', '27 Aug 2026'];
+    return sampleDates[timeIndex % sampleDates.length];
   };
 
-  const tickIndices = maxSteps <= 8
-    ? Array.from({ length: maxSteps }, (_, i) => i)
-    : [0, Math.floor(maxSteps * 0.25), Math.floor(maxSteps * 0.5), Math.floor(maxSteps * 0.75), maxSteps - 1];
-
-  const formatTickLabel = (idx) => {
-    if (timeRange.length > idx) {
-      return timeRange[idx].split('T')[0];
+  const getTickLabels = () => {
+    if (timeRange.length >= 3) {
+      return [
+        timeRange[0].split('T')[0],
+        timeRange[Math.floor(timeRange.length / 2)].split('T')[0],
+        timeRange[timeRange.length - 1].split('T')[0],
+      ];
     }
-    return `T+${idx}`;
+    return ['01 Aug', '14 Aug', '27 Aug'];
   };
+
+  const ticks = getTickLabels();
 
   return (
-    <footer className="relative z-20 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 px-3 py-1.5 bg-[#070c18] border-t border-[#1e293b] text-slate-200 text-xs select-none min-h-[44px]">
+    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 w-[92vw] max-w-xl glass-panel rounded-full px-3.5 py-1.5 flex items-center justify-between gap-3 text-white/90 select-none shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+      {/* Play / Step Controls */}
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={() => stepTimeIndex(-1)}
+          className="p-1 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+          title="Previous Time Step (◀)"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
 
-      {/* Left Playback Controls & Timestamp Readout */}
-      <div className="flex items-center gap-2.5 shrink-0 font-mono">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => stepTimeIndex(-1)}
-            title="Previous Forecast Timestep"
-            className="p-1 bg-[#0c1424] border border-[#1e293b] text-slate-300 hover:text-slate-100 hover:border-slate-700 transition-colors"
-          >
-            <StepBack className="w-3 h-3" />
-          </button>
+        <button
+          onClick={toggleTimelinePlayback}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-normal transition-all ${
+            isPlayingTimeline
+              ? 'bg-white/20 text-white shadow-sm'
+              : 'bg-white/10 hover:bg-white/15 text-white/90'
+          }`}
+          title={isPlayingTimeline ? 'Pause Animation' : 'Play Timeline Animation'}
+        >
+          {isPlayingTimeline ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+          <span className="text-[11px] font-normal">{isPlayingTimeline ? 'Pause' : 'Animate'}</span>
+        </button>
 
-          <button
-            onClick={toggleTimelinePlayback}
-            title={isPlayingTimeline ? 'Pause Forecast Animation' : 'Play Forecast Animation'}
-            className={`flex items-center gap-1 px-2.5 py-1 border text-xs font-bold transition-all ${
-              isPlayingTimeline
-                ? 'bg-[#291b05] border-amber-500 text-amber-300'
-                : 'bg-[#0a1e38] border-sky-500 text-sky-300 hover:bg-[#102d55]'
-            }`}
-          >
-            {isPlayingTimeline ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-            <span>{isPlayingTimeline ? 'PAUSE' : 'PLAY'}</span>
-          </button>
-
-          <button
-            onClick={() => stepTimeIndex(1)}
-            title="Next Forecast Timestep"
-            className="p-1 bg-[#0c1424] border border-[#1e293b] text-slate-300 hover:text-slate-100 hover:border-slate-700 transition-colors"
-          >
-            <StepForward className="w-3 h-3" />
-          </button>
-        </div>
-
-        {/* Timestamp Readout */}
-        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#0c1424] border border-[#1e293b]">
-          <span className="text-xs font-bold text-slate-100">
-            {getCurrentTimeLabel()}
-          </span>
-          <span className="text-[10px] text-teal-300 px-1 py-0.2 bg-[#070c18]">
-            Step {timeIndex + 1}/{maxSteps}
-          </span>
-        </div>
+        <button
+          onClick={() => stepTimeIndex(1)}
+          className="p-1 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+          title="Next Time Step (▶)"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* Middle Scrubber Timeline */}
-      <div className="flex-1 flex flex-col justify-center gap-0.5 max-w-2xl px-2">
+      {/* Scrubber & Milestone Labels */}
+      <div className="flex-1 flex flex-col justify-center px-1">
+        <div className="flex justify-between items-center text-[9px] font-mono text-white/40 mb-0.5 px-0.5">
+          <span>{ticks[0]}</span>
+          <span className="text-white/80 font-medium">{getCurrentDateStr()}</span>
+          <span>{ticks[2]}</span>
+        </div>
         <input
           type="range"
           min="0"
@@ -107,39 +102,24 @@ export const TimelinePanel = () => {
           onChange={(e) => setTimeIndex(Number(e.target.value))}
           className="w-full cursor-pointer"
         />
-        <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-          {tickIndices.map((idx) => (
-            <span
-              key={idx}
-              className={`cursor-pointer hover:text-sky-300 transition-colors ${
-                idx === timeIndex ? 'text-sky-400 font-bold' : ''
-              }`}
-              onClick={() => setTimeIndex(idx)}
-            >
-              {formatTickLabel(idx)}
-            </span>
-          ))}
-        </div>
       </div>
 
-      {/* Right Playback Speed Selector */}
-      <div className="flex items-center gap-1 shrink-0 justify-end font-mono">
-        <span className="text-[10px] text-slate-500 uppercase">Speed:</span>
-        {[0.5, 1.0, 2.0].map((speed) => (
+      {/* Speed Multiplier Pill */}
+      <div className="flex items-center gap-0.5 shrink-0 bg-black/30 p-0.5 rounded-full border border-white/[0.04] text-[10px] font-mono">
+        {[1.0, 2.0].map((spd) => (
           <button
-            key={speed}
-            onClick={() => setPlaybackSpeed(speed)}
-            className={`px-1.5 py-0.5 text-[10px] border transition-colors ${
-              playbackSpeed === speed
-                ? 'bg-[#10243e] border-sky-500 text-sky-300 font-bold'
-                : 'bg-[#0c1424] border-[#1e293b] text-slate-500 hover:text-slate-300'
+            key={spd}
+            onClick={() => setPlaybackSpeed(spd)}
+            className={`px-1.5 py-0.5 rounded-full transition-all ${
+              playbackSpeed === spd
+                ? 'bg-white/20 text-white font-medium'
+                : 'text-white/40 hover:text-white/70'
             }`}
           >
-            {speed}x
+            {spd}x
           </button>
         ))}
       </div>
-
-    </footer>
+    </div>
   );
 };

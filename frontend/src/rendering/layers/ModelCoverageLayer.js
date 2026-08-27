@@ -58,9 +58,27 @@ const ColormapShader = {
       return mix(c2, c3, (x - 0.666) * 3.0);
     }
 
+    vec3 thermalColormap(float x) {
+      x = clamp(x, 0.0, 1.0);
+      vec3 c0 = vec3(0.05, 0.15, 0.45);
+      vec3 c1 = vec3(0.10, 0.70, 0.80);
+      vec3 c2 = vec3(0.95, 0.85, 0.20);
+      vec3 c3 = vec3(0.90, 0.20, 0.10);
+      if (x < 0.333) return mix(c0, c1, x * 3.0);
+      if (x < 0.666) return mix(c1, c2, (x - 0.333) * 3.0);
+      return mix(c2, c3, (x - 0.666) * 3.0);
+    }
+
+    vec3 jetColormap(float x) {
+      x = clamp(x, 0.0, 1.0);
+      float r = clamp(1.5 - abs(x * 4.0 - 3.0), 0.0, 1.0);
+      float g = clamp(1.5 - abs(x * 4.0 - 2.0), 0.0, 1.0);
+      float b = clamp(1.5 - abs(x * 4.0 - 1.0), 0.0, 1.0);
+      return vec3(r, g, b);
+    }
+
     void main() {
       if (u_hasData == 0) {
-        // Subtle translucent boundary tint when no data texture is active
         gl_FragColor = vec4(0.04, 0.25, 0.4, 0.12);
         return;
       }
@@ -68,13 +86,14 @@ const ColormapShader = {
       vec4 sampleVal = texture2D(u_dataTexture, vUv);
       float normVal = sampleVal.r;
 
-      // Mask NaN / Land values (< 0 or invalid)
       if (normVal < 0.0 || normVal > 1.0 || sampleVal.a < 0.5) {
         discard;
       }
 
       vec3 color = turboColormap(normVal);
       if (u_colormap == 1) color = viridisColormap(normVal);
+      else if (u_colormap == 2) color = thermalColormap(normVal);
+      else if (u_colormap == 3) color = jetColormap(normVal);
 
       gl_FragColor = vec4(color, u_opacity);
     }

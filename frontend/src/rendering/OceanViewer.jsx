@@ -1,18 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useOceanStore } from '../store/oceanStore';
 import { OceanSceneController } from './OceanSceneController';
-import {
-  RotateCcw,
-  Grid,
-  Box,
-  Crosshair,
-  AlertTriangle,
-  Compass,
-  Layers,
-  Radio,
-  Activity,
-  Globe
-} from '../components/Icons';
+import { RotateCcw, Crosshair, AlertTriangle, Compass, Eye, Navigation } from 'lucide-react';
 
 export const OceanViewer = () => {
   const mountRef = useRef(null);
@@ -35,24 +24,19 @@ export const OceanViewer = () => {
     enableSlice,
     verticalExaggeration,
     layers,
-    seaState,
     cursorProbe,
     setCursorProbe,
     argoFloats,
     selectedFloat,
     selectFloat,
-    selectPlatform,
+    selectMission,
+    selectOceanEvent,
     isLoading,
     loadingMessage,
     errorState,
     cameraAction,
     clearCameraAction,
     targetCoordinate,
-    showGrid,
-    showBoundingBox,
-    toggleGrid,
-    toggleBoundingBox,
-    toggleGoToLocationModal,
   } = useOceanStore();
 
   // Initialize OceanSceneController on mount
@@ -64,7 +48,8 @@ export const OceanViewer = () => {
       viewMode: useOceanStore.getState().viewMode || 'globe',
       onHoverFloat: (f) => setHoveredFloat(f),
       onSelectFloat: (f) => selectFloat(f),
-      onSelectPlatform: (p) => selectPlatform(p),
+      onSelectMission: (id) => selectMission(id),
+      onSelectOceanEvent: (id) => selectOceanEvent(id),
       onOrbitChange: (stats) => setOrbitStats(stats),
       onSampleProbe: (probe) => setCursorProbe(probe),
       onSelectCoordinate: (coord) => {
@@ -77,7 +62,7 @@ export const OceanViewer = () => {
       controller.dispose();
       controllerRef.current = null;
     };
-  }, [selectFloat, selectPlatform, setCursorProbe]);
+  }, [selectFloat, selectMission, selectOceanEvent, setCursorProbe]);
 
   // Sync View Mode ('globe' | 'ocean3d')
   useEffect(() => {
@@ -136,154 +121,88 @@ export const OceanViewer = () => {
       {/* 3D WebGL Canvas Viewport */}
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
-      {/* Top-Right Camera & Viewport Navigation Toolbar */}
-      <div className="absolute top-2 right-2 z-20 flex items-center gap-1 p-1 bg-[#080e1a]/95 border border-[#1e293b] text-slate-300 shadow-md">
-        {/* Mode Switcher */}
-        <div className="flex items-center bg-[#040814] border border-[#1e293b] p-0.5 mr-1">
-          <button
-            onClick={() => setViewMode('globe')}
-            title="3D Interactive Earth Exploration Globe"
-            className={`px-2 py-0.5 text-[10px] font-mono font-bold transition-colors ${
-              viewMode === 'globe'
-                ? 'bg-cyan-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            EARTH
-          </button>
-          <button
-            onClick={() => setViewMode('ocean3d')}
-            title="3D Ocean Volume Raymarching & Depth Slicing"
-            className={`px-2 py-0.5 text-[10px] font-mono font-bold transition-colors ${
-              viewMode === 'ocean3d'
-                ? 'bg-cyan-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            OCEAN 3D
-          </button>
+      {/* Floating Spatial Coordinates HUD (Top-Left under Header) */}
+      {cursorProbe && (
+        <div className="hidden sm:flex absolute top-12 left-3 md:left-4 z-10 items-center gap-2 px-3 py-1.5 glass-pill text-[10px] font-mono text-white/70 shadow-lg pointer-events-none">
+          <Crosshair className="w-3 h-3 text-white/50" />
+          <span className="text-white/90 tabular-nums font-normal">
+            {cursorProbe.lat >= 0 ? `${cursorProbe.lat.toFixed(2)}°N` : `${Math.abs(cursorProbe.lat).toFixed(2)}°S`}, {cursorProbe.lon >= 0 ? `${cursorProbe.lon.toFixed(2)}°E` : `${Math.abs(cursorProbe.lon).toFixed(2)}°W`}
+          </span>
+          <span className="text-white/20">|</span>
+          <span className="text-white/50">
+            {cursorProbe.isInsideModel ? 'INCOIS Model Grid' : 'Global Ocean'}
+          </span>
         </div>
+      )}
 
+      {/* Camera Regional Presets Floating Toolbar (Bottom-Right) */}
+      <div className="absolute bottom-16 right-3 md:right-4 z-10 flex items-center gap-1 p-1 glass-pill shadow-lg">
         <button
           onClick={() => useOceanStore.getState().triggerCameraAction('fit_indian_ocean')}
-          title="Fit Indian Ocean Basin (10°N, 75°E)"
-          className="px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-cyan-500 hover:text-cyan-300 text-[10px] font-mono transition-colors text-cyan-400 font-bold"
+          className="px-2.5 py-1 text-[10px] font-mono text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+          title="Center on Indian Ocean Basin (10°N, 75°E)"
         >
-          INDIAN OCEAN
+          Indian Ocean
+        </button>
+        <button
+          onClick={() => useOceanStore.getState().triggerCameraAction('arabian_sea')}
+          className="px-2 py-1 text-[10px] font-mono text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-colors hidden sm:block"
+          title="Zoom to Arabian Sea"
+        >
+          Arabian Sea
+        </button>
+        <button
+          onClick={() => useOceanStore.getState().triggerCameraAction('bay_of_bengal')}
+          className="px-2 py-1 text-[10px] font-mono text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-colors hidden sm:block"
+          title="Zoom to Bay of Bengal"
+        >
+          Bay of Bengal
         </button>
         <button
           onClick={() => useOceanStore.getState().triggerCameraAction('fit_earth')}
-          title="Fit Entire 3D Earth Globe"
-          className="px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-cyan-500 hover:text-cyan-300 text-[10px] font-mono transition-colors text-slate-300"
+          className="px-2 py-1 text-[10px] font-mono text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+          title="Fit Global Earth Sphere"
         >
-          FIT EARTH
+          Globe
         </button>
-        <button
-          onClick={() => toggleGoToLocationModal()}
-          title="Jump to Specific Coordinates"
-          className="px-2 py-0.5 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-[10px] font-mono transition-colors text-sky-300 font-bold"
-        >
-          GO TO
-        </button>
-        <div className="w-[1px] h-3 bg-[#1e293b] mx-0.5" />
         <button
           onClick={() => useOceanStore.getState().triggerCameraAction('reset')}
+          className="p-1 text-white/50 hover:text-white rounded-full hover:bg-white/10 transition-colors"
           title="Reset Camera Orientation"
-          className="p-1 bg-[#0c1424] border border-[#1e293b] hover:border-sky-500 hover:text-sky-300 text-slate-400 transition-colors"
         >
           <RotateCcw className="w-3 h-3" />
         </button>
       </div>
 
-      {/* Top-Left Viewport Spatial Coordinates & Resolution HUD */}
-      <div className="hidden sm:flex absolute top-2 left-2 z-10 items-center gap-2 px-2.5 py-1 bg-[#080e1a] border border-[#1e293b] text-[10px] font-mono text-slate-300 shadow-md">
-        <div className="flex items-center gap-1.5 font-bold text-sky-300">
-          <Globe className="w-3.5 h-3.5 text-cyan-400" />
-          <span>INCOIS 3D EARTH</span>
-        </div>
-        <span className="text-slate-600">|</span>
-        <div className="text-slate-400">
-          Domain: <span className="text-amber-300 font-bold">30°E—120°E, 30°S—30°N</span>
-        </div>
-        <span className="text-slate-600">|</span>
-        <div className="text-slate-400 flex items-center gap-1">
-          <Layers className="w-3 h-3 text-cyan-400" />
-          <span className="text-cyan-300">{Object.values(layers).filter(Boolean).length} Active Layers</span>
-        </div>
-      </div>
-
-      {/* Real-Time Spherical Cursor Probe & Model Coverage HUD */}
-      {cursorProbe && (
-        <div className="hidden md:flex absolute top-10 left-2 z-10 items-center gap-2 px-2.5 py-1 bg-[#080e1a]/95 border border-[#1e293b] text-[10px] font-mono text-slate-300 shadow-md">
-          <div className="flex items-center gap-1 text-cyan-400">
-            <Crosshair className="w-3 h-3 text-cyan-400" />
-            <span className="text-slate-400">COORDINATE:</span>
-          </div>
-          <span className="text-slate-100 tabular-nums font-bold">
-            {cursorProbe.lat >= 0 ? `${cursorProbe.lat.toFixed(2)}°N` : `${Math.abs(cursorProbe.lat).toFixed(2)}°S`},{' '}
-            {cursorProbe.lon >= 0 ? `${cursorProbe.lon.toFixed(2)}°E` : `${Math.abs(cursorProbe.lon).toFixed(2)}°W`}
-          </span>
-          <span className="text-slate-600">|</span>
-          {cursorProbe.isInsideModel ? (
-            <span className="px-1.5 py-0.2 bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-[9px] font-bold">
-              INCOIS MODEL DOMAIN
-            </span>
-          ) : (
-            <span className="px-1.5 py-0.2 bg-slate-900 border border-slate-700 text-slate-400 text-[9px]">
-              OUTSIDE MODEL COVERAGE
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Bottom Viewport Camera Orientation Readout */}
-      <div className="hidden md:flex absolute bottom-2 right-2 z-10 items-center gap-2 px-2.5 py-0.5 bg-[#080e1a] border border-[#1e293b] text-[9px] font-mono text-slate-400 shadow-md">
-        <span>AZ: <strong className="text-slate-200">{orbitStats.azimuth}°</strong></span>
-        <span>EL: <strong className="text-slate-200">{orbitStats.elevation}°</strong></span>
-        <span>R: <strong className="text-slate-200">{orbitStats.zoom}x</strong></span>
-        <span className="text-slate-600">|</span>
-        <span className="text-slate-500">L-Drag: Rotate Earth · Wheel: Zoom · Click: Sample</span>
-      </div>
-
       {/* Float Hover Tooltip HUD */}
       {hoveredFloat && (
-        <div className="absolute top-16 left-2 z-20 px-2.5 py-1.5 bg-[#080e1a] border border-amber-500 text-xs text-slate-100 shadow-xl font-mono flex flex-col gap-0.5">
-          <div className="flex items-center gap-1 font-bold text-amber-300">
-            <span className="w-1.5 h-1.5 bg-amber-400" />
-            <span>ARGO WMO {hoveredFloat.platform_number}</span>
+        <div className="absolute top-20 left-3 md:left-4 z-20 px-3 py-2 glass-panel rounded-xl text-xs text-white/90 shadow-2xl font-mono flex flex-col gap-0.5 animate-in fade-in duration-150 pointer-events-none">
+          <div className="flex items-center gap-1.5 font-normal text-white">
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            <span>Argo Profiler WMO {hoveredFloat.platform_number}</span>
           </div>
-          <div className="text-[10px] text-slate-300 tabular-nums">
-            Lat: {hoveredFloat.latest_position.latitude.toFixed(2)}°N | Lon: {hoveredFloat.latest_position.longitude.toFixed(2)}°E
+          <div className="text-[10px] text-white/50 tabular-nums">
+            {hoveredFloat.latest_position.latitude.toFixed(2)}°N, {hoveredFloat.latest_position.longitude.toFixed(2)}°E
           </div>
-          <div className="text-[9px] text-slate-400">
-            Click marker to inspect profile & compute residuals
+          <div className="text-[9px] text-white/40">
+            Click marker to inspect profile
           </div>
         </div>
       )}
 
       {/* Loading HUD Banner */}
       {isLoading && (
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 bg-[#080e1a] border border-cyan-500 text-cyan-300 text-xs font-mono shadow-xl">
-          <span className="w-1.5 h-1.5 bg-cyan-400" />
-          <span className="tracking-wide font-bold">{loadingMessage}</span>
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-1.5 glass-panel rounded-full text-white/90 text-xs font-light shadow-2xl animate-in fade-in duration-200">
+          <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+          <span className="tracking-wide text-[11px]">{loadingMessage || 'Streaming INCOIS Ocean Dataset...'}</span>
         </div>
       )}
 
-      {/* Error & Scientific Dataset Notice State */}
+      {/* Error / Notice Banner */}
       {errorState && (
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-30 max-w-md px-3.5 py-2.5 bg-[#080e1a] border border-amber-500 text-xs shadow-2xl flex items-start gap-2.5 text-slate-200">
-          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <div className="flex flex-col gap-0.5 font-mono">
-            <div className="font-bold text-amber-300 uppercase tracking-wider text-[11px]">
-              DATASET NOTICE
-            </div>
-            <div className="text-[10px] text-slate-300 leading-normal">
-              {errorState}
-            </div>
-            <div className="text-[9px] text-slate-500 mt-0.5">
-              Verify NetCDF archives in datasets/model/ and datasets/argo/
-            </div>
-          </div>
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-30 max-w-md px-4 py-2 glass-panel rounded-xl text-xs shadow-2xl flex items-center gap-2.5 text-white/90 border border-white/20">
+          <AlertTriangle className="w-4 h-4 text-white/80 shrink-0" />
+          <span className="text-[11px] text-white/70 font-light">{errorState}</span>
         </div>
       )}
     </div>

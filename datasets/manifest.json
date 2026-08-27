@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated_at": "2026-08-25T18:53:56.565554+00:00",
+  "updated_at": "2026-08-27T17:32:51.353152+00:00",
   "policy": "STRICT NO MOCK DATA",
   "datasets": {
     "model": [
@@ -94,6 +94,37 @@
       }
     ],
     "argo": [
+      {
+        "id": "coriolis_argo_gdac",
+        "title": "Coriolis / Euro-Argo GDAC Profiling Float Array",
+        "provider": "Coriolis Operational Oceanography / Euro-Argo ERIC / Argo GDAC",
+        "source": "Global Data Assembly Centre (data-argo.ifremer.fr)",
+        "dataset_type": "In-situ autonomous CTD vertical profiling observations",
+        "format": "NetCDF-3 / NetCDF-4 (CF-1.6 & Argo User's Manual 3.1)",
+        "platforms_count": 113,
+        "profiles_count": 19375,
+        "qc_policy": "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific colocation. Flags 3, 4, 9 rejected.",
+        "variables": [
+          "PRES",
+          "PRES_ADJUSTED",
+          "TEMP",
+          "TEMP_ADJUSTED",
+          "PSAL",
+          "PSAL_ADJUSTED",
+          "JULD",
+          "LATITUDE",
+          "LONGITUDE"
+        ],
+        "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
+        "temporal_coverage": "2010 to Present (Continuous 10-day cycle robotic profiling)",
+        "spatial_coverage": "Global Oceans & Indian Ocean Basin",
+        "provenance": {
+          "license": "Argo Open Data Policy (CC-BY 4.0)",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Coriolis GDAC / Ifremer).",
+          "gdac_mirror": "https://data-argo.ifremer.fr/dac/coriolis/",
+          "validation_status": "CF-1.6 & TEOS-10 Verified"
+        }
+      },
       {
         "id": "argo_2902084",
         "platform_number": "2902084",

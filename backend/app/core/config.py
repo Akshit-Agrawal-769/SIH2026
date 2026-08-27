@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     )
 
     OCEAN_DATASET_PATH: Optional[str] = os.getenv("OCEAN_DATASET_PATH", None)
+    CORIOLIS_DATASET_PATH: Optional[str] = os.getenv("CORIOLIS_DATASET_PATH", None)
+    ARGO_DATASET_PATH: Optional[str] = os.getenv("ARGO_DATASET_PATH", None)
+    ARGO_INDEX_PATH: Optional[str] = os.getenv("ARGO_INDEX_PATH", None)
+    ARGO_CACHE_SIZE: int = int(os.getenv("ARGO_CACHE_SIZE", "500"))
+    QC_STRICT_POLICY: bool = True
 
     model_config = SettingsConfigDict(case_sensitive=True)
 

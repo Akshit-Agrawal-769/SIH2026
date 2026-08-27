@@ -37,11 +37,10 @@ export const MethodologyPage = () => {
 
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => setActivePage('explorer')}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 border border-purple-400 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-md shadow-purple-950/50"
+              onClick={() => setActivePage('home')}
+              className="flex items-center gap-1.5 px-3 py-1.5 glass-pill text-xs font-sans text-white/80 hover:text-white transition-colors"
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span>RETURN TO EXPLORER</span>
+              <span>← Back to 3D Globe</span>
             </button>
           </div>
         </div>

@@ -20,6 +20,9 @@ import { LandLayer } from './layers/LandLayer';
 import { CountryBorderLayer } from './layers/CountryBorderLayer';
 import { GraticuleLayer } from './layers/GraticuleLayer';
 import { ModelCoverageLayer } from './layers/ModelCoverageLayer';
+import { SatelliteOrbitLayer } from './layers/SatelliteOrbitLayer';
+import { OceanEventsLayer } from './layers/OceanEventsLayer';
+import { CurrentVectorField } from './layers/CurrentVectorField';
 import { VolumeVertexShader, VolumeFragmentShader } from './shaders/VolumeRaymarchingShader';
 import {
   latLonToGlobe,
@@ -44,6 +47,8 @@ export class OceanSceneController {
     this.onSelectPlatform = options.onSelectPlatform || (() => {});
     this.onSampleProbe = options.onSampleProbe || (() => {});
     this.onSelectCoordinate = options.onSelectCoordinate || (() => {});
+    this.onSelectMission = options.onSelectMission || (() => {});
+    this.onSelectOceanEvent = options.onSelectOceanEvent || (() => {});
 
     this.viewMode = options.viewMode || 'globe'; // 'globe' | 'ocean3d'
     this.argoFloats = [];
@@ -140,12 +145,24 @@ export class OceanSceneController {
     this.modelCoverageLayer = new ModelCoverageLayer({ radius: EARTH_RADIUS * 1.002 });
     this.scene.add(this.modelCoverageLayer.group);
 
-    // 10. Argo Float Profilers Group on Globe
+    // 10. Satellite Orbit Tracks & Spacecraft Models
+    this.satelliteLayer = new SatelliteOrbitLayer({ radius: EARTH_RADIUS });
+    this.scene.add(this.satelliteLayer.group);
+
+    // 11. Extreme Ocean Phenomena & Spatial Event Markers
+    this.eventsLayer = new OceanEventsLayer({ radius: EARTH_RADIUS * 1.006 });
+    this.scene.add(this.eventsLayer.group);
+
+    // 12. Surface Current Particle Streamlines Vector Field
+    this.currentVectorLayer = new CurrentVectorField({ count: 2400 });
+    this.scene.add(this.currentVectorLayer.mesh);
+
+    // 13. Argo Float Profilers Group on Globe
     this.floatGroup = new THREE.Group();
     this.floatGroup.name = 'ArgoFloatGroup';
     this.scene.add(this.floatGroup);
 
-    // 11. Target Location Highlighting Beacon Pin
+    // 14. Target Location Highlighting Beacon Pin
     this.targetMarker = new THREE.Group();
     this.targetMarker.name = 'TargetBeaconMarker';
 
@@ -174,7 +191,7 @@ export class OceanSceneController {
     this.targetMarker.visible = false;
     this.scene.add(this.targetMarker);
 
-    // 12. Volumetric Raymarching Shader Pipeline for 3D Ocean Mode
+    // 15. Volumetric Raymarching Shader Pipeline for 3D Ocean Mode
     this.volGeo = new THREE.BoxGeometry(this.xScale, 0.6 * this.verticalExaggeration, this.zScale);
     const dummyTex = new THREE.Data3DTexture(new Float32Array(64 * 64 * 32), 64, 64, 32);
     dummyTex.format = THREE.RedFormat;
@@ -206,7 +223,7 @@ export class OceanSceneController {
     this.volMesh.visible = false; // Hidden in default Earth Globe mode
     this.scene.add(this.volMesh);
 
-    // 13. Raycaster & Pointer Handlers
+    // 16. Raycaster & Pointer Handlers
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
 
@@ -223,7 +240,7 @@ export class OceanSceneController {
       this.resizeObserver.observe(this.container);
     }
 
-    // 14. Start Main Render Loop
+    // 17. Start Main Render Loop
     this._animate();
   }
 
@@ -233,7 +250,12 @@ export class OceanSceneController {
 
     const elapsedTime = this.clock.getElapsedTime();
 
-    // 1. Animate Acoustic Ping Rings on Argo Float Markers & Target Beacon
+    // 1. Animate Satellite Orbits & Ocean Events & Current Particles
+    if (this.satelliteLayer) this.satelliteLayer.update(elapsedTime);
+    if (this.eventsLayer) this.eventsLayer.update(elapsedTime);
+    if (this.currentVectorLayer) this.currentVectorLayer.update(elapsedTime);
+
+    // 2. Animate Acoustic Ping Rings on Argo Float Markers & Target Beacon
     if (this.floatGroup) {
       this.floatGroup.children.forEach((marker) => {
         const ring = marker.getObjectByName('pingRing');
@@ -254,7 +276,7 @@ export class OceanSceneController {
       }
     }
 
-    // 2. Smooth Camera Lerp for Cinematic / Presets Transitions
+    // 3. Smooth Camera Lerp for Cinematic / Presets Transitions
     if (this.isCameraLerping && this.cameraTargetPos && this.controlsTargetPos) {
       this.camera.position.lerp(this.cameraTargetPos, 0.06);
       this.controls.target.lerp(this.controlsTargetPos, 0.06);
@@ -336,7 +358,38 @@ export class OceanSceneController {
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
-    // 1. Check Argo Float selection
+    // 1. Check Event Markers selection
+    if (this.eventsLayer?.eventMarkers?.length > 0) {
+      const evIntersects = this.raycaster.intersectObjects(this.eventsLayer.eventMarkers, true);
+      if (evIntersects.length > 0) {
+        let obj = evIntersects[0].object;
+        while (obj && !obj.userData?.id && obj.parent) {
+          obj = obj.parent;
+        }
+        if (obj?.userData?.id) {
+          this.onSelectOceanEvent(obj.userData.id);
+          return;
+        }
+      }
+    }
+
+    // 2. Check Satellite selection
+    if (this.satelliteLayer?.satellites?.length > 0) {
+      const satMeshes = this.satelliteLayer.satellites.map((s) => s.mesh).filter(Boolean);
+      const satIntersects = this.raycaster.intersectObjects(satMeshes, true);
+      if (satIntersects.length > 0) {
+        let obj = satIntersects[0].object;
+        while (obj && !obj.userData?.id && obj.parent) {
+          obj = obj.parent;
+        }
+        if (obj?.userData?.id) {
+          this.onSelectMission(obj.userData.id);
+          return;
+        }
+      }
+    }
+
+    // 3. Check Argo Float selection
     const targets = [...this.floatGroup.children];
     const intersects = this.raycaster.intersectObjects(targets, true);
     if (intersects.length > 0) {
@@ -352,7 +405,7 @@ export class OceanSceneController {
       }
     }
 
-    // 2. Click-to-select geographic location on 3D Earth Globe
+    // 4. Click-to-select geographic location on 3D Earth Globe
     if (this.earthGlobe?.globeMesh) {
       const globeIntersects = this.raycaster.intersectObject(this.earthGlobe.globeMesh, false);
       if (globeIntersects.length > 0) {
@@ -394,6 +447,9 @@ export class OceanSceneController {
     if (this.countryBorderLayer) this.countryBorderLayer.setVisible(isGlobe);
     if (this.graticuleLayer) this.graticuleLayer.setVisible(isGlobe);
     if (this.modelCoverageLayer) this.modelCoverageLayer.setVisible(isGlobe);
+    if (this.satelliteLayer) this.satelliteLayer.setVisible(isGlobe);
+    if (this.eventsLayer) this.eventsLayer.setVisible(isGlobe);
+    if (this.currentVectorLayer) this.currentVectorLayer.setVisible(isGlobe);
 
     if (this.volMesh) this.volMesh.visible = !isGlobe;
     this.updateArgoMarkers(this.argoFloats, this.selectedFloat, this.verticalExaggeration, this.volumeMeta);
@@ -477,6 +533,9 @@ export class OceanSceneController {
     graticule,
     modelCoverage,
     argoSensors,
+    satellites,
+    events,
+    currentVectors,
     volumeRaymarch,
     atmosphere,
   }) {
@@ -487,6 +546,9 @@ export class OceanSceneController {
     if (graticule !== undefined && this.graticuleLayer) this.graticuleLayer.setVisible(graticule);
     if (modelCoverage !== undefined && this.modelCoverageLayer) this.modelCoverageLayer.setVisible(modelCoverage);
     if (argoSensors !== undefined && this.floatGroup) this.floatGroup.visible = argoSensors;
+    if (satellites !== undefined && this.satelliteLayer) this.satelliteLayer.setVisible(satellites);
+    if (events !== undefined && this.eventsLayer) this.eventsLayer.setVisible(events);
+    if (currentVectors !== undefined && this.currentVectorLayer) this.currentVectorLayer.setVisible(currentVectors);
     if (volumeRaymarch !== undefined && this.volMesh) this.volMesh.visible = volumeRaymarch;
     if (atmosphere !== undefined && this.earthGlobe) this.earthGlobe.setAtmosphereVisible(atmosphere);
   }
@@ -700,6 +762,9 @@ export class OceanSceneController {
     if (this.countryBorderLayer) this.countryBorderLayer.dispose();
     if (this.graticuleLayer) this.graticuleLayer.dispose();
     if (this.modelCoverageLayer) this.modelCoverageLayer.dispose();
+    if (this.satelliteLayer) this.satelliteLayer.dispose();
+    if (this.eventsLayer) this.eventsLayer.dispose();
+    if (this.currentVectorLayer) this.currentVectorLayer.dispose();
 
     if (this.volumeTexture) this.volumeTexture.dispose();
     if (this.volGeo) this.volGeo.dispose();

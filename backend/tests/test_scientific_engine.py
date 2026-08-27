@@ -273,7 +273,7 @@ def test_path_traversal_protection():
 
 def test_4d_spatio_temporal_colocation():
     """Verifies 4D model-vs-obs colocation endpoint returns residuals and valid metrics."""
-    res = client.get("/api/v1/observations/argo")
+    res = client.get("/api/v1/observations/argo?min_lat=4.0&max_lat=26.0&min_lon=58.0&max_lon=96.0")
     assert res.status_code == 200
     floats = res.json()
     assert len(floats) > 0

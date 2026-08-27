@@ -20,13 +20,33 @@ class DatasetMetadataResponse(BaseModel):
     variable_info: Dict[str, Any]
     dimensions: Dict[str, int]
 
+class ArgoSourceInfo(BaseModel):
+    source: str
+    platforms_count: int
+    profiles_count: int
+    dac: Optional[str] = None
+    description: Optional[str] = None
+
+class ArgoMetadataResponse(BaseModel):
+    version: str
+    total_platforms: int
+    total_profiles: int
+    providers: List[str]
+    sources: List[ArgoSourceInfo]
+    qc_policy: str = "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific comparison. Flags 3, 4, 9 rejected."
+    vertical_coordinate: str = "TEOS-10 physical depth (meters) calculated from sea pressure (dbar) via gsw.z_from_p"
+
 class ArgoFloatSummary(BaseModel):
     platform_number: str
-    filename: str
+    filename: Optional[str] = None
+    source: Optional[str] = "coriolis"
+    dac: Optional[str] = "Coriolis / GDAC"
     profiles_count: int
     latest_position: Dict[str, float]
+    latest_timestamp: Optional[str] = None
+    latest_cycle: Optional[int] = None
     cycles: List[int]
-    trajectory: List[Dict[str, Any]]
+    trajectory: Optional[List[Dict[str, Any]]] = []
 
 class ArgoProfileResponse(BaseModel):
     platform_number: str
@@ -34,10 +54,15 @@ class ArgoProfileResponse(BaseModel):
     timestamp: str
     latitude: float
     longitude: float
+    source: Optional[str] = "coriolis"
+    dac: Optional[str] = "Coriolis / GDAC"
+    data_mode: Optional[str] = "R" # R (Real-Time), D (Delayed), A (Adjusted)
     depths: List[float]
+    pressures: Optional[List[float]] = None
     temperature: List[float]
     salinity: Optional[List[Optional[float]]] = None
     qc_flags: List[int]
+    qc_summary: Optional[str] = "QC 1 & 2 Verified"
 
 class ComparisonMetrics(BaseModel):
     bias: float

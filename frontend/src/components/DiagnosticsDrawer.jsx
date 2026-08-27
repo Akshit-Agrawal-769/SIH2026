@@ -24,20 +24,20 @@ export const DiagnosticsDrawer = () => {
   const isHealthy = health?.status === 'healthy';
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[#080e1a] border-l border-[#1e293b] text-slate-100 p-4 flex flex-col gap-3 overflow-y-auto custom-scrollbar select-none shadow-2xl">
+    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md glass-panel text-white/90 p-4 flex flex-col gap-3 overflow-y-auto custom-scrollbar select-none shadow-2xl animate-in slide-in-from-right duration-300">
 
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#1e293b] pb-2.5">
+      <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5">
         <div className="flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-indigo-400" />
-          <h2 className="text-xs font-bold tracking-wider uppercase font-mono text-slate-100">
-            SYSTEM & DATA DIAGNOSTICS
+          <Cpu className="w-4 h-4 text-white/70" />
+          <h2 className="text-xs font-medium tracking-wide uppercase font-mono text-white">
+            System & Data Diagnostics
           </h2>
         </div>
         <button
           onClick={toggleDiagnostics}
           title="Close Diagnostics Drawer"
-          className="p-1 bg-[#0c1424] border border-[#1e293b] text-slate-400 hover:text-slate-100 hover:border-slate-700 transition-colors"
+          className="p-1 text-white/40 hover:text-white/80 rounded transition-colors"
         >
           <X className="w-3.5 h-3.5" />
         </button>

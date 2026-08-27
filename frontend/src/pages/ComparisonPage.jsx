@@ -101,7 +101,21 @@ export const ComparisonPage = () => {
   return (
     <div className="flex-1 overflow-y-auto bg-[#040814] text-slate-100 font-mono p-4 sm:p-6 select-none">
       <div className="max-w-7xl mx-auto flex flex-col gap-5">
-        {/* Top Filter Strip */}
+        {/* Top Navigation & Workspace Strip */}
+        <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-white/70" />
+            <span className="text-sm font-sans font-medium text-white">4D Profile Comparison & Residual Analysis</span>
+          </div>
+          <button
+            onClick={() => useOceanStore.getState().setActivePage('home')}
+            className="flex items-center gap-1.5 px-3 py-1 glass-pill text-xs font-sans text-white/80 hover:text-white transition-colors"
+          >
+            <span>← Back to 3D Globe</span>
+          </button>
+        </div>
+
+        {/* Filter Strip */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3 bg-[#080e1a] border border-[#1e293b] text-xs">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">

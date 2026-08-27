@@ -31,47 +31,47 @@ export const ShortcutsModal = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm select-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) toggleShortcutsModal();
       }}
     >
-      <div className="relative w-full max-w-2xl bg-[#080e1a] border border-[#1e293b] p-4 text-slate-100 flex flex-col gap-3 shadow-2xl">
+      <div className="relative w-full max-w-2xl glass-panel rounded-2xl p-5 text-white/90 flex flex-col gap-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
-          <div className="flex items-center gap-2 font-mono">
-            <Radio className="w-4 h-4 text-sky-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-100">
-              OPERATIONAL KEYBOARD SHORTCUTS & NAVIGATION
+        <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+          <div className="flex items-center gap-2">
+            <Radio className="w-4 h-4 text-white/70" />
+            <h2 className="text-xs font-medium tracking-wide uppercase text-white">
+              Keyboard Shortcuts & Controls
             </h2>
           </div>
           <button
             onClick={toggleShortcutsModal}
-            className="p-1 bg-[#0c1424] border border-[#1e293b] text-slate-400 hover:text-slate-100 hover:border-slate-700 transition-colors"
+            className="p-1 text-white/40 hover:text-white/80 rounded transition-colors"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Shortcuts Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[65vh] overflow-y-auto custom-scrollbar font-mono text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[65vh] overflow-y-auto custom-scrollbar text-xs">
           {shortcuts.map((sc) => (
-            <div key={sc.key} className="p-2 bg-[#0b1322] border border-[#1e293b] flex items-start gap-2.5">
-              <span className="px-2 py-0.5 bg-[#070c18] border border-sky-500/60 text-sky-300 font-bold rounded-none shrink-0 min-w-[32px] text-center text-[11px]">
+            <div key={sc.key} className="p-2.5 bg-black/30 rounded-xl border border-white/[0.05] flex items-start gap-3">
+              <span className="px-2 py-0.5 bg-white/10 border border-white/15 text-white font-mono text-[11px] rounded-md shrink-0 min-w-[28px] text-center shadow-inner">
                 {sc.key}
               </span>
               <div className="flex flex-col gap-0.5">
-                <span className="font-bold text-slate-200 text-[11px]">{sc.label}</span>
-                <span className="text-[10px] text-slate-400">{sc.description}</span>
+                <span className="font-normal text-white/90 text-xs">{sc.label}</span>
+                <span className="text-[10px] text-white/40 font-light">{sc.description}</span>
               </div>
             </div>
           ))}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-[#1e293b] pt-2 text-[10px] font-mono text-slate-500">
+        <div className="flex items-center justify-between border-t border-white/[0.08] pt-2 text-[10px] font-mono text-white/40">
           <span>INCOIS 3D Ocean Intelligence Platform</span>
-          <span>Press <kbd className="px-1 bg-[#0c1424] border border-[#1e293b] text-slate-300">Esc</kbd> to close</span>
+          <span>Press <kbd className="px-1.5 py-0.5 bg-white/10 border border-white/15 rounded text-white/80">Esc</kbd> to close</span>
         </div>
       </div>
     </div>
