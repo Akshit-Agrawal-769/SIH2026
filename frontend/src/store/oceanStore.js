@@ -595,17 +595,32 @@ export const useOceanStore = create((set, get) => ({
   isPlayingTimeline: false,
   playbackSpeed: 1.0, // 0.5, 1.0, 2.0
 
+  // Scientific Visual Presets (God's Eye View Shaders)
+  visualPreset: 'STANDARD_OCEAN', // 'STANDARD_OCEAN' | 'HIGH_CONTRAST_ANALYTIC' | 'NIGHT_INFRARED' | 'DEEP_BATHYMETRIC'
+  setVisualPreset: (visualPreset) => set({ visualPreset }),
+
   // Viewport Settings & Camera Presets
-  cameraAction: null, // 'cinematic' | 'operational' | 'geospatial' | 'subsurface' | 'platform' | 'top' | 'front' | 'side' | 'reset'
+  cameraAction: null,
+  setCameraPresetAction: (action) => set({ cameraAction: action }),
+  cameraOrbit: { azimuth: 45, elevation: 35, zoom: 2.4 },
+  setCameraOrbit: (cameraOrbit) => set({ cameraOrbit }),
   showGrid: true,
   showBoundingBox: true,
   cursorCoords: null, // { lon, lat, depth }
+  sampleProbe: null,
 
   // Panels, Drawers & Shortcuts
   isDiagnosticsOpen: false,
   isControlPanelOpen: false,
   isInspectorOpen: false,
   isShortcutsModalOpen: false,
+  isGoToLocationOpen: false,
+  isGoToModalOpen: false,
+  setIsGoToModalOpen: (isOpen) => set({ isGoToLocationOpen: isOpen, isGoToModalOpen: isOpen }),
+  toggleGoToLocationModal: () => set((state) => ({
+    isGoToLocationOpen: !state.isGoToLocationOpen,
+    isGoToModalOpen: !state.isGoToLocationOpen,
+  })),
 
   // Actions
   setSeaState: (seaState) => set({ seaState }),
@@ -633,7 +648,7 @@ export const useOceanStore = create((set, get) => ({
     },
   }),
 
-  setCursorProbe: (probe) => set({ cursorProbe: probe }),
+  setCursorProbe: (probe) => set({ cursorProbe: probe, sampleProbe: probe }),
 
   toggleShortcutsModal: () => set((state) => ({ isShortcutsModalOpen: !state.isShortcutsModalOpen })),
 

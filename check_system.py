@@ -24,9 +24,9 @@ def run_diagnostics():
     for pkg in required_packages:
         try:
             __import__(pkg)
-            print(f"  ✓ {pkg:<16} (Installed)")
+            print(f"  [OK] {pkg:<16} (Installed)")
         except ImportError:
-            print(f"  ✗ {pkg:<16} (MISSING - pip install {pkg})")
+            print(f"  [X]  {pkg:<16} (MISSING - pip install {pkg})")
             all_pkgs_ok = False
 
     # 2. Datasets Inspection
@@ -57,10 +57,10 @@ def run_diagnostics():
         sample_p = 500.0  # 500 dbar
         sample_lat = 15.0 # Arabian Sea
         depth = -gsw.z_from_p(sample_p, sample_lat)
-        print(f"  ✓ 500.0 dbar at 15.0°N -> {depth:.2f} meters depth")
+        print(f"  [OK] 500.0 dbar at 15.0°N -> {depth:.2f} meters depth")
         teos_ok = True
     except Exception as e:
-        print(f"  ✗ TEOS-10 check failed: {e}")
+        print(f"  [X]  TEOS-10 check failed: {e}")
         teos_ok = False
 
     # 4. Frontend Files & Build Status
@@ -68,7 +68,7 @@ def run_diagnostics():
     frontend_dist = os.path.join(root_dir, "frontend", "dist", "index.html")
     has_dist = os.path.exists(frontend_dist)
     if has_dist:
-        print(f"  ✓ Production bundle built in frontend/dist/ ({os.path.getsize(frontend_dist)} bytes)")
+        print(f"  [OK] Production bundle built in frontend/dist/ ({os.path.getsize(frontend_dist)} bytes)")
     else:
         print("  Notice: Production bundle not yet built (Run 'npm run build' inside frontend/)")
 

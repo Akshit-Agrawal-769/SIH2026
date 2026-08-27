@@ -77,9 +77,13 @@ def ingest_argo_datasets(manifest: Dict[str, Any]):
     print(f"\n[1/2] Ingesting Authentic Argo GDAC NetCDF Floats ({len(argo_entries)} registered)...")
     
     for entry in argo_entries:
-        filename = entry["filename"]
+        filename = entry.get("filename")
+        if not filename:
+            # Aggregate source provider descriptor
+            print(f"  * In-situ provider: {entry.get('title', entry.get('id', 'GDAC'))}")
+            continue
         dest_path = os.path.join(ARGO_DIR, filename)
-        wmo = entry["platform_number"]
+        wmo = entry.get("platform_number", filename.split("_")[0])
         
         # Check if already present and valid
         if os.path.exists(dest_path) and os.path.getsize(dest_path) > 10000:

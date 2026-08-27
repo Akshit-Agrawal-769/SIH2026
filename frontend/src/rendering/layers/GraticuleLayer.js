@@ -1,125 +1,115 @@
-/**
- * GraticuleLayer
- * Precision spherical Latitude & Longitude grid conforming to the 3D Earth Globe.
- * - Parallels every 10° (-80° to +80°)
- * - Meridians every 15° (-180° to +180°)
- * - Highlighted Equator (0°), Prime Meridian (0°), and Tropics (±23.44°)
- */
-
 import * as THREE from 'three';
-import { latLonToGlobe, EARTH_RADIUS } from '../../utils/geography';
+import { latLonToVector3, EARTH_RADIUS } from '../geoTransform';
 
+/**
+ * Spherical Geographic Graticule Layer
+ *
+ * Generates exact spherical latitude parallels and longitude meridians
+ * conforming strictly to Earth sphere curvature with zero planar artifacts.
+ */
 export class GraticuleLayer {
-  constructor(options = {}) {
-    this.radius = options.radius || (EARTH_RADIUS * 1.0015);
-    this.gridColor = options.gridColor || 0x1e293b;
-    this.highlightColor = options.highlightColor || 0x0284c7;
-
+  constructor(radius = EARTH_RADIUS, altitudeOffset = 0.003) {
+    this.radius = radius;
+    this.altitudeOffset = altitudeOffset;
     this.group = new THREE.Group();
     this.group.name = 'GraticuleLayer';
-
-    this.gridMesh = null;
-    this.highlightMesh = null;
 
     this._buildGraticule();
   }
 
   _buildGraticule() {
-    this.dispose();
+    const r = this.radius;
+    const alt = this.altitudeOffset;
 
-    const standardPoints = [];
-    const highlightPoints = [];
+    // Standard Grid lines
+    const standardPositions = [];
+    // Major Grid lines (Equator, Prime Meridian, Tropics)
+    const majorPositions = [];
 
-    const numLonSteps = 120;
-    const numLatSteps = 60;
+    const latStep = 15;
+    const lonStep = 15;
+    const segmentResolution = 72; // Points per full circle
 
-    // 1. Parallels (Latitudes)
-    for (let lat = -80; lat <= 80; lat += 10) {
+    // 1. Latitude Parallels (-80° to +80°)
+    for (let lat = -80; lat <= 80; lat += latStep) {
       const isEquator = lat === 0;
-      const targetArray = isEquator ? highlightPoints : standardPoints;
+      const isTropic = Math.abs(lat) === 23.436 || lat === 20 || lat === -20;
+      const targetArray = isEquator || isTropic ? majorPositions : standardPositions;
 
-      for (let i = 0; i < numLonSteps; i++) {
-        const lon1 = -180 + (i * 360) / numLonSteps;
-        const lon2 = -180 + ((i + 1) * 360) / numLonSteps;
-        const p1 = latLonToGlobe(lat, lon1, this.radius);
-        const p2 = latLonToGlobe(lat, lon2, this.radius);
-        targetArray.push(p1.x, p1.y, p1.z);
-        targetArray.push(p2.x, p2.y, p2.z);
+      for (let i = 0; i < segmentResolution; i++) {
+        const lon1 = -180 + (i / segmentResolution) * 360;
+        const lon2 = -180 + ((i + 1) / segmentResolution) * 360;
+
+        const p1 = latLonToVector3(lat, lon1, r, alt);
+        const p2 = latLonToVector3(lat, lon2, r, alt);
+
+        targetArray.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
       }
     }
 
-    // 1b. Tropics of Cancer (+23.44°) and Capricorn (-23.44°)
-    [-23.44, 23.44].forEach((lat) => {
-      for (let i = 0; i < numLonSteps; i++) {
-        const lon1 = -180 + (i * 360) / numLonSteps;
-        const lon2 = -180 + ((i + 1) * 360) / numLonSteps;
-        const p1 = latLonToGlobe(lat, lon1, this.radius);
-        const p2 = latLonToGlobe(lat, lon2, this.radius);
-        highlightPoints.push(p1.x, p1.y, p1.z);
-        highlightPoints.push(p2.x, p2.y, p2.z);
-      }
-    });
+    // 2. Longitude Meridians (-180° to +180°)
+    for (let lon = -180; lon < 180; lon += lonStep) {
+      const isPrimeOrAnti = lon === 0 || lon === -180 || lon === 180;
+      const targetArray = isPrimeOrAnti ? majorPositions : standardPositions;
 
-    // 2. Meridians (Longitudes)
-    for (let lon = -180; lon < 180; lon += 15) {
-      const isPrime = lon === 0 || lon === 180;
-      const targetArray = isPrime ? highlightPoints : standardPoints;
+      const latSegments = 36;
+      for (let i = 0; i < latSegments; i++) {
+        const lat1 = -90 + (i / latSegments) * 180;
+        const lat2 = -90 + ((i + 1) / latSegments) * 180;
 
-      for (let i = 0; i < numLatSteps; i++) {
-        const lat1 = -90 + (i * 180) / numLatSteps;
-        const lat2 = -90 + ((i + 1) * 180) / numLatSteps;
-        const p1 = latLonToGlobe(lat1, lon, this.radius);
-        const p2 = latLonToGlobe(lat2, lon, this.radius);
-        targetArray.push(p1.x, p1.y, p1.z);
-        targetArray.push(p2.x, p2.y, p2.z);
+        const p1 = latLonToVector3(lat1, lon, r, alt);
+        const p2 = latLonToVector3(lat2, lon, r, alt);
+
+        targetArray.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
       }
     }
 
-    // Standard Grid Lines
-    if (standardPoints.length > 0) {
-      const stdGeo = new THREE.BufferGeometry();
-      stdGeo.setAttribute('position', new THREE.Float32BufferAttribute(standardPoints, 3));
-      const stdMat = new THREE.LineBasicMaterial({
-        color: this.gridColor,
+    // Standard Graticule LineSegments
+    if (standardPositions.length > 0) {
+      const standardGeo = new THREE.BufferGeometry();
+      standardGeo.setAttribute('position', new THREE.Float32BufferAttribute(standardPositions, 3));
+      const standardMat = new THREE.LineBasicMaterial({
+        color: 0x1e3a5f,
         transparent: true,
-        opacity: 0.35,
+        opacity: 0.45,
+        depthWrite: false,
       });
-      this.gridMesh = new THREE.LineSegments(stdGeo, stdMat);
-      this.gridMesh.name = 'StandardGraticule';
-      this.group.add(this.gridMesh);
+      const standardMesh = new THREE.LineSegments(standardGeo, standardMat);
+      this.group.add(standardMesh);
     }
 
-    // Highlight Grid Lines (Equator, Prime Meridian, Tropics)
-    if (highlightPoints.length > 0) {
-      const hlGeo = new THREE.BufferGeometry();
-      hlGeo.setAttribute('position', new THREE.Float32BufferAttribute(highlightPoints, 3));
-      const hlMat = new THREE.LineBasicMaterial({
-        color: this.highlightColor,
+    // Major Graticule LineSegments (Equator, Prime Meridian, Tropics)
+    if (majorPositions.length > 0) {
+      const majorGeo = new THREE.BufferGeometry();
+      majorGeo.setAttribute('position', new THREE.Float32BufferAttribute(majorPositions, 3));
+      const majorMat = new THREE.LineBasicMaterial({
+        color: 0x38bdf8,
         transparent: true,
-        opacity: 0.65,
+        opacity: 0.75,
+        depthWrite: false,
       });
-      this.highlightMesh = new THREE.LineSegments(hlGeo, hlMat);
-      this.highlightMesh.name = 'HighlightedGraticule';
-      this.group.add(this.highlightMesh);
+      const majorMesh = new THREE.LineSegments(majorGeo, majorMat);
+      this.group.add(majorMesh);
     }
   }
 
   setVisible(visible) {
-    this.group.visible = !!visible;
+    this.group.visible = visible;
+  }
+
+  setOpacity(opacity) {
+    this.group.traverse((child) => {
+      if (child.material) {
+        child.material.opacity = opacity;
+      }
+    });
   }
 
   dispose() {
-    if (this.gridMesh) {
-      this.group.remove(this.gridMesh);
-      if (this.gridMesh.geometry) this.gridMesh.geometry.dispose();
-      if (this.gridMesh.material) this.gridMesh.material.dispose();
-      this.gridMesh = null;
-    }
-    if (this.highlightMesh) {
-      this.group.remove(this.highlightMesh);
-      if (this.highlightMesh.geometry) this.highlightMesh.geometry.dispose();
-      if (this.highlightMesh.material) this.highlightMesh.material.dispose();
-      this.highlightMesh = null;
-    }
+    this.group.traverse((child) => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    });
+    this.group.clear();
   }
 }

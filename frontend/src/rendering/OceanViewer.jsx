@@ -116,6 +116,12 @@ export const OceanViewer = () => {
     controllerRef.current.updateArgoMarkers(argoFloats, selectedFloat, verticalExaggeration, volumeMeta);
   }, [argoFloats, selectedFloat, verticalExaggeration, volumeMeta]);
 
+  // Sync Scientific Visual Preset Mode (God's Eye View Shaders)
+  useEffect(() => {
+    if (!controllerRef.current) return;
+    controllerRef.current.applyVisualPreset(visualPreset);
+  }, [visualPreset]);
+
   return (
     <div className="relative w-full h-full select-none overflow-hidden bg-[#030712]">
       {/* 3D WebGL Canvas Viewport */}

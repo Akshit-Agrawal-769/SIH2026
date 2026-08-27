@@ -19,17 +19,25 @@ import { CoastlineLayer } from './layers/CoastlineLayer';
 import { LandLayer } from './layers/LandLayer';
 import { CountryBorderLayer } from './layers/CountryBorderLayer';
 import { GraticuleLayer } from './layers/GraticuleLayer';
+import { OceanicLabelsLayer } from './layers/OceanicLabelsLayer';
 import { ModelCoverageLayer } from './layers/ModelCoverageLayer';
 import { SatelliteOrbitLayer } from './layers/SatelliteOrbitLayer';
 import { OceanEventsLayer } from './layers/OceanEventsLayer';
 import { CurrentVectorField } from './layers/CurrentVectorField';
 import { VolumeVertexShader, VolumeFragmentShader } from './shaders/VolumeRaymarchingShader';
+import { CameraVerbsController } from './CameraVerbsController';
+import { VISUAL_PRESETS } from './VisualPresets';
+import {
+  latLonToVector3,
+  vector3ToLatLon,
+  isInsideModelDomain as checkModelDomain,
+  EARTH_RADIUS,
+} from './geoTransform';
 import {
   latLonToGlobe,
   globeToLatLon,
   isInsideModelDomain,
   calculateNearestGridCell,
-  EARTH_RADIUS,
   DEFAULT_INDIAN_OCEAN_BOUNDS,
   DEFAULT_GEOMETRY_SCALE,
   lonLatToWorld,
@@ -141,6 +149,10 @@ export class OceanSceneController {
     this.graticuleLayer = new GraticuleLayer({ radius: EARTH_RADIUS * 1.0015 });
     this.scene.add(this.graticuleLayer.group);
 
+    // 8.1 Oceanic Features Labels Layer
+    this.oceanicLabelsLayer = new OceanicLabelsLayer(EARTH_RADIUS * 1.0035);
+    this.scene.add(this.oceanicLabelsLayer.group);
+
     // 9. INCOIS Bio-ROMS Model Domain Footprint & Surface Layer
     this.modelCoverageLayer = new ModelCoverageLayer({ radius: EARTH_RADIUS * 1.002 });
     this.scene.add(this.modelCoverageLayer.group);
@@ -156,6 +168,9 @@ export class OceanSceneController {
     // 12. Surface Current Particle Streamlines Vector Field
     this.currentVectorLayer = new CurrentVectorField({ count: 2400 });
     this.scene.add(this.currentVectorLayer.mesh);
+
+    // 12.1 Camera Choreography Controller (God's Eye View Verbs)
+    this.cameraVerbs = new CameraVerbsController(this.camera, this.controls);
 
     // 13. Argo Float Profilers Group on Globe
     this.floatGroup = new THREE.Group();
@@ -254,6 +269,7 @@ export class OceanSceneController {
     if (this.satelliteLayer) this.satelliteLayer.update(elapsedTime);
     if (this.eventsLayer) this.eventsLayer.update(elapsedTime);
     if (this.currentVectorLayer) this.currentVectorLayer.update(elapsedTime);
+    if (this.oceanicLabelsLayer) this.oceanicLabelsLayer.update(this.camera);
 
     // 2. Animate Acoustic Ping Rings on Argo Float Markers & Target Beacon
     if (this.floatGroup) {
@@ -276,7 +292,12 @@ export class OceanSceneController {
       }
     }
 
-    // 3. Smooth Camera Lerp for Cinematic / Presets Transitions
+    // 3. Update Camera Verbs Orchestrator
+    if (this.cameraVerbs) {
+      this.cameraVerbs.update(performance.now());
+    }
+
+    // 4. Smooth Camera Lerp for Cinematic / Presets Transitions
     if (this.isCameraLerping && this.cameraTargetPos && this.controlsTargetPos) {
       this.camera.position.lerp(this.cameraTargetPos, 0.06);
       this.controls.target.lerp(this.controlsTargetPos, 0.06);
@@ -666,8 +687,8 @@ export class OceanSceneController {
     if (!this.camera || !this.controls) return;
 
     if (this.viewMode === 'globe') {
-      const gPos = latLonToGlobe(lat, lon, EARTH_RADIUS * 1.01);
-      const normal = new THREE.Vector3(gPos.x, gPos.y, gPos.z).normalize();
+      const gPos = latLonToVector3(lat, lon, EARTH_RADIUS * 1.01);
+      const normal = gPos.clone().normalize();
 
       if (this.targetMarker) {
         this.targetMarker.position.set(gPos.x, gPos.y, gPos.z);
@@ -675,11 +696,14 @@ export class OceanSceneController {
         this.targetMarker.visible = true;
       }
 
-      // Smooth camera lerp targeting coordinate at distance ~ 2.0
-      const camPos = normal.clone().multiplyScalar(2.1);
-      this.controlsTargetPos = new THREE.Vector3(0, 0, 0);
-      this.cameraTargetPos = camPos;
-      this.isCameraLerping = true;
+      if (this.cameraVerbs) {
+        this.cameraVerbs.flyToCoordinate(lat, lon, 3.2, 1.8);
+      } else {
+        const camPos = normal.clone().multiplyScalar(2.1);
+        this.controlsTargetPos = new THREE.Vector3(0, 0, 0);
+        this.cameraTargetPos = camPos;
+        this.isCameraLerping = true;
+      }
     } else {
       const surfaceY = 0.3 * this.verticalExaggeration;
       const w = lonLatToWorld(lon, lat, surfaceY, this.bounds, { xScale: this.xScale, zScale: this.zScale });
@@ -698,12 +722,35 @@ export class OceanSceneController {
   setCameraPreset(action) {
     if (!this.camera || !this.controls) return;
 
+    if (this.viewMode === 'globe' && this.cameraVerbs) {
+      switch (action) {
+        case 'fit_earth':
+        case 'fit':
+          this.cameraVerbs.fitEarth(1.8);
+          return;
+        case 'fit_indian_ocean':
+        case 'indian_ocean':
+        case 'geospatial':
+          this.cameraVerbs.fitIndianOcean(1.8);
+          return;
+        case 'arabian_sea':
+          this.cameraVerbs.flyToCoordinate(14.0, 68.0, 2.5, 1.8);
+          return;
+        case 'bay_of_bengal':
+          this.cameraVerbs.flyToCoordinate(14.0, 88.0, 2.5, 1.8);
+          return;
+        case 'reset':
+        default:
+          this.cameraVerbs.resetView();
+          return;
+      }
+    }
+
     this.isCameraLerping = true;
 
     switch (action) {
       case 'fit_earth':
       case 'fit':
-        // Fit entire Earth sphere in viewport
         this.cameraTargetPos = new THREE.Vector3(0, 0.4, 3.4);
         this.controlsTargetPos = new THREE.Vector3(0, 0, 0);
         break;
@@ -711,7 +758,6 @@ export class OceanSceneController {
       case 'fit_indian_ocean':
       case 'indian_ocean':
       case 'geospatial':
-        // Center camera focused on the Indian Ocean basin (10°N, 75°E)
         const ioPos = latLonToGlobe(10.0, 75.0, 2.2);
         this.cameraTargetPos = new THREE.Vector3(ioPos.x, ioPos.y + 0.25, ioPos.z);
         this.controlsTargetPos = new THREE.Vector3(0, 0, 0);
@@ -735,6 +781,25 @@ export class OceanSceneController {
         this.cameraTargetPos = new THREE.Vector3(defPos.x, defPos.y + 0.3, defPos.z);
         this.controlsTargetPos = new THREE.Vector3(0, 0, 0);
         break;
+    }
+  }
+
+  applyVisualPreset(presetKey) {
+    const preset = VISUAL_PRESETS[presetKey] || VISUAL_PRESETS.STANDARD_OCEAN;
+    if (!preset) return;
+
+    if (this.earthGlobe?.globeMesh?.material) {
+      this.earthGlobe.globeMesh.material.color.setHex(preset.oceanColor);
+    }
+    if (this.coastlineLayer?.material) {
+      this.coastlineLayer.material.color.setHex(preset.coastlineColor);
+      this.coastlineLayer.material.opacity = preset.coastlineOpacity;
+    }
+    if (this.landLayer?.material) {
+      this.landLayer.material.color.setHex(preset.landColor);
+    }
+    if (this.dirLight) {
+      this.dirLight.intensity = preset.directionalIntensity;
     }
   }
 
