@@ -8,9 +8,14 @@ import { latLonToVector3, EARTH_RADIUS } from '../geoTransform';
  * conforming strictly to Earth sphere curvature with zero planar artifacts.
  */
 export class GraticuleLayer {
-  constructor(radius = EARTH_RADIUS, altitudeOffset = 0.003) {
-    this.radius = radius;
-    this.altitudeOffset = altitudeOffset;
+  constructor(options = {}) {
+    if (typeof options === 'number') {
+      this.radius = options;
+      this.altitudeOffset = 0.003;
+    } else {
+      this.radius = options.radius || EARTH_RADIUS;
+      this.altitudeOffset = options.altitudeOffset || 0.003;
+    }
     this.group = new THREE.Group();
     this.group.name = 'GraticuleLayer';
 
