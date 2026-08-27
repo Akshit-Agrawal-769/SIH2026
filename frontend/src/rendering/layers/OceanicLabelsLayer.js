@@ -14,9 +14,14 @@ const MAJOR_OCEANIC_FEATURES = [
 ];
 
 export class OceanicLabelsLayer {
-  constructor(radius = EARTH_RADIUS, altitudeOffset = 0.05) {
-    this.radius = radius;
-    this.altitudeOffset = altitudeOffset;
+  constructor(options = {}) {
+    if (typeof options === 'number') {
+      this.radius = options;
+      this.altitudeOffset = 0.05;
+    } else {
+      this.radius = options.radius || EARTH_RADIUS;
+      this.altitudeOffset = options.altitudeOffset || 0.05;
+    }
     this.group = new THREE.Group();
     this.group.name = 'OceanicLabelsLayer';
     this.sprites = [];

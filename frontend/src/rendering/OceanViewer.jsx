@@ -37,6 +37,7 @@ export const OceanViewer = () => {
     cameraAction,
     clearCameraAction,
     targetCoordinate,
+    visualPreset,
   } = useOceanStore();
 
   // Initialize OceanSceneController on mount
