@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useOceanStore } from './store/oceanStore';
-import { Header } from './components/Header';
+import { AppHeader } from './components/AppHeader';
 import { GoToLocationModal } from './components/GoToLocationModal';
 import { ObservationModal } from './components/ObservationModal';
 import { DiagnosticsDrawer } from './components/DiagnosticsDrawer';
@@ -29,35 +29,51 @@ export default function App() {
 
       const store = useOceanStore.getState();
       switch (e.key) {
+        // Variable cycling
+        case 'v':
+        case 'V':
+          store.cycleVariable();
+          break;
+
+        // Depth stepping (Up/Down)
+        case 'ArrowUp':
+          e.preventDefault();
+          store.stepDepthLevel(-1);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          store.stepDepthLevel(1);
+          break;
+
         // Navigation shortcuts
         case 'h':
         case 'H':
           store.setActivePage('home');
           break;
-        case 'e':
-        case 'E':
-          store.setActivePage('explorer');
-          break;
         case 'a':
         case 'A':
           store.setActivePage('argo');
           break;
+        case 'c':
+        case 'C':
+          store.setActivePage('comparison');
+          break;
 
         // Camera presets (1-5)
         case '1':
-          store.triggerCameraAction('cinematic');
+          store.triggerCameraAction('fit_earth');
           break;
         case '2':
-          store.triggerCameraAction('platform');
+          store.triggerCameraAction('fit_indian_ocean');
           break;
         case '3':
-          store.triggerCameraAction('geospatial');
+          store.triggerCameraAction('arabian_sea');
           break;
         case '4':
-          store.triggerCameraAction('subsurface');
+          store.triggerCameraAction('bay_of_bengal');
           break;
         case '5':
-          store.triggerCameraAction('iso');
+          store.triggerCameraAction('reset');
           break;
 
         // Timeline controls
@@ -66,28 +82,20 @@ export default function App() {
           store.toggleTimelinePlayback();
           break;
         case '[':
+        case 'ArrowLeft':
+          e.preventDefault();
           store.stepTimeIndex(-1);
           break;
         case ']':
+        case 'ArrowRight':
+          e.preventDefault();
           store.stepTimeIndex(1);
           break;
 
-        // Panel toggles
-        case 'c':
-        case 'C':
-          store.toggleControlPanel();
-          break;
-        case 'i':
-        case 'I':
-          store.toggleInspector();
-          break;
+        // Tool drawers & shortcuts
         case 'd':
         case 'D':
           store.toggleDiagnostics();
-          break;
-        case 'g':
-        case 'G':
-          store.toggleGrid();
           break;
         case 'r':
         case 'R':
@@ -101,12 +109,14 @@ export default function App() {
           store.toggleShortcutsModal();
           break;
 
-        // Modal dismissal
+        // Modal dismissal / Deselection
         case 'Escape':
           if (store.isModalOpen) store.closeModal();
           if (store.isShortcutsModalOpen) store.toggleShortcutsModal();
           if (store.isDiagnosticsOpen) store.toggleDiagnostics();
           if (store.isGoToLocationOpen) store.toggleGoToLocationModal();
+          store.selectFloat(null);
+          store.setSelectedEntity(null);
           break;
         default:
           break;
@@ -118,9 +128,9 @@ export default function App() {
   }, [fetchInitialData]);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#040711] text-slate-100 flex flex-col font-sans select-none">
-      {/* 1. TOP SYSTEM COMMAND HEADER & NAVIGATION BAR */}
-      <Header />
+    <div className="relative w-screen h-screen overflow-hidden bg-[var(--surface-base)] text-slate-100 flex flex-col font-sans select-none">
+      {/* 1. COMPACT SCIENTIFIC COMMAND APP BAR */}
+      <AppHeader />
 
       {/* 2. DYNAMIC WORKSPACE PAGE ROUTER */}
       <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden">
@@ -135,7 +145,7 @@ export default function App() {
         {activePage === 'methodology' && <MethodologyPage />}
       </main>
 
-      {/* 3. GLOBAL MODALS & UTILITY PANELS */}
+      {/* 3. GLOBAL SCIENTIFIC MODALS & UTILITY DRAWERS */}
       <GoToLocationModal />
       <ObservationModal />
       <DiagnosticsDrawer />

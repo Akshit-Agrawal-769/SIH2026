@@ -1,8 +1,5 @@
 import React from 'react';
-import {
-  X,
-  TrendingUp
-} from './Icons';
+import { X, TrendingUp } from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
 export const ObservationModal = () => {

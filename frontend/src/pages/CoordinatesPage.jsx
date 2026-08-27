@@ -9,8 +9,8 @@ import {
   Database,
   CheckCircle2,
   AlertTriangle,
-  Info
-} from '../components/Icons';
+  Info,
+} from 'lucide-react';
 import {
   validateCoordinates,
   haversineDistanceKm,

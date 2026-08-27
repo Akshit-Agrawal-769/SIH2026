@@ -10,8 +10,8 @@ import {
   Compass,
   Radio,
   Search,
-  Sliders
-} from '../components/Icons';
+  Sliders,
+} from 'lucide-react';
 
 export const DataCatalogPage = () => {
   const {

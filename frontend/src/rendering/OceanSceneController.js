@@ -42,7 +42,12 @@ import {
   DEFAULT_GEOMETRY_SCALE,
   lonLatToWorld,
   worldToLonLat,
+  interpolateGreatCircle,
 } from '../utils/geography';
+import {
+  normalizeTrajectory,
+  splitTrajectoryAtDateline,
+} from '../utils/argo';
 
 const COLORMAP_CODES = { turbo: 0, viridis: 1, thermal: 2, jet: 3 };
 
@@ -51,6 +56,7 @@ export class OceanSceneController {
     this.container = container;
     this.onHoverFloat = options.onHoverFloat || (() => {});
     this.onSelectFloat = options.onSelectFloat || (() => {});
+    this.onSelectCycle = options.onSelectCycle || (() => {});
     this.onOrbitChange = options.onOrbitChange || (() => {});
     this.onSelectPlatform = options.onSelectPlatform || (() => {});
     this.onSampleProbe = options.onSampleProbe || (() => {});
@@ -176,6 +182,11 @@ export class OceanSceneController {
     this.floatGroup = new THREE.Group();
     this.floatGroup.name = 'ArgoFloatGroup';
     this.scene.add(this.floatGroup);
+
+    // 13.1 Argo Multi-Cycle Trajectory Group on Globe
+    this.trajectoryGroup = new THREE.Group();
+    this.trajectoryGroup.name = 'ArgoTrajectoryGroup';
+    this.scene.add(this.trajectoryGroup);
 
     // 14. Target Location Highlighting Beacon Pin
     this.targetMarker = new THREE.Group();
@@ -410,9 +421,9 @@ export class OceanSceneController {
       }
     }
 
-    // 3. Check Argo Float selection
-    const targets = [...this.floatGroup.children];
-    const intersects = this.raycaster.intersectObjects(targets, true);
+    // 3. Check Argo Float selection or Trajectory Cycle Node selection
+    const floatTargets = [...this.floatGroup.children, ...(this.trajectoryGroup ? this.trajectoryGroup.children : [])];
+    const intersects = this.raycaster.intersectObjects(floatTargets, true);
     if (intersects.length > 0) {
       let obj = intersects[0].object;
       while (obj && !obj.userData?.platform_number && obj.parent) {
@@ -420,8 +431,13 @@ export class OceanSceneController {
       }
 
       if (obj?.userData?.platform_number) {
-        const target = this.argoFloats.find((f) => f.platform_number === obj.userData.platform_number);
-        if (target) this.onSelectFloat(target);
+        const target = this.argoFloats.find((f) => String(f.platform_number) === String(obj.userData.platform_number));
+        if (target) {
+          this.onSelectFloat(target);
+          if (obj.userData.cycle_number !== undefined && this.onSelectCycle) {
+            this.onSelectCycle(obj.userData.cycle_number);
+          }
+        }
         return;
       }
     }
@@ -574,7 +590,7 @@ export class OceanSceneController {
     if (atmosphere !== undefined && this.earthGlobe) this.earthGlobe.setAtmosphereVisible(atmosphere);
   }
 
-  updateArgoMarkers(argoFloats, selectedFloat, verticalExaggeration, volumeMeta) {
+  updateArgoMarkers(argoFloats, selectedFloat, verticalExaggeration, volumeMeta, selectedCycle) {
     this.argoFloats = argoFloats || [];
     this.selectedFloat = selectedFloat;
     if (verticalExaggeration !== undefined) this.verticalExaggeration = verticalExaggeration;
@@ -592,79 +608,69 @@ export class OceanSceneController {
       }
     }
 
+    if (this.trajectoryGroup) {
+      while (this.trajectoryGroup.children.length > 0) {
+        const child = this.trajectoryGroup.children[0];
+        this.trajectoryGroup.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) child.material.forEach((m) => m.dispose());
+          else child.material.dispose();
+        }
+      }
+    }
+
     const isGlobeMode = this.viewMode === 'globe';
 
+    // 1. Render all active float latest positions
     this.argoFloats.forEach((float) => {
       const isSelected = this.selectedFloat?.platform_number === float.platform_number;
       const marker = new THREE.Group();
-      marker.userData = { platform_number: float.platform_number };
+      marker.userData = { platform_number: float.platform_number, isFloatBase: true };
 
       if (isGlobeMode) {
-        // Spherical Globe Placement
-        const gPos = latLonToGlobe(float.latest_position.latitude, float.latest_position.longitude, EARTH_RADIUS * 1.008);
+        const lat = float.latest_position?.latitude ?? 0;
+        const lon = float.latest_position?.longitude ?? 0;
+        const gPos = latLonToGlobe(lat, lon, EARTH_RADIUS * 1.008);
         const normal = new THREE.Vector3(gPos.x, gPos.y, gPos.z).normalize();
 
-        // 1. Radial Depth Line downward into the ocean
-        const innerPos = latLonToGlobe(float.latest_position.latitude, float.latest_position.longitude, EARTH_RADIUS * 0.985);
-        const lineGeo = new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(gPos.x, gPos.y, gPos.z),
-          new THREE.Vector3(innerPos.x, innerPos.y, innerPos.z),
-        ]);
-        const lineMat = new THREE.LineDashedMaterial({
-          color: isSelected ? 0x38bdf8 : 0xf59e0b,
-          dashSize: 0.005,
-          gapSize: 0.003,
-        });
-        const depthLine = new THREE.Line(lineGeo, lineMat);
-        depthLine.computeLineDistances();
-        marker.add(depthLine);
-
-        // 2. High-Visibility Spherical Profiler Buoy Pin
-        const buoyGeo = new THREE.SphereGeometry(0.014, 16, 12);
+        // Profiler Buoy Pin
+        const buoyGeo = new THREE.SphereGeometry(isSelected ? 0.016 : 0.012, 16, 12);
         const buoyMat = new THREE.MeshStandardMaterial({
           color: isSelected ? 0x38bdf8 : 0xf59e0b,
           roughness: 0.2,
           metalness: 0.8,
           emissive: isSelected ? 0x0284c7 : 0xd97706,
-          emissiveIntensity: isSelected ? 0.9 : 0.5,
+          emissiveIntensity: isSelected ? 0.9 : 0.4,
         });
         const buoy = new THREE.Mesh(buoyGeo, buoyMat);
         buoy.position.set(gPos.x, gPos.y, gPos.z);
         marker.add(buoy);
 
-        // 3. Acoustic Transmission Pulsing Ring (Oriented Tangent to Sphere Normal)
-        const ringGeo = new THREE.RingGeometry(0.015, 0.028, 24);
-        const ringMat = new THREE.MeshBasicMaterial({
-          color: isSelected ? 0x38bdf8 : 0xfbbf24,
-          side: THREE.DoubleSide,
-          transparent: true,
-          opacity: 0.8,
-        });
-        const pingRing = new THREE.Mesh(ringGeo, ringMat);
-        pingRing.name = 'pingRing';
-        pingRing.position.set(gPos.x, gPos.y, gPos.z);
-        pingRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-        marker.add(pingRing);
+        // Pulsing selection ring
+        if (isSelected) {
+          const ringGeo = new THREE.RingGeometry(0.016, 0.030, 24);
+          const ringMat = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.85,
+          });
+          const pingRing = new THREE.Mesh(ringGeo, ringMat);
+          pingRing.name = 'pingRing';
+          pingRing.position.set(gPos.x, gPos.y, gPos.z);
+          pingRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+          marker.add(pingRing);
+        }
       } else {
         // Planar Ocean 3D Mode
+        const lat = float.latest_position?.latitude ?? 0;
+        const lon = float.latest_position?.longitude ?? 0;
         const surfaceY = 0.3 * this.verticalExaggeration;
-        const w = lonLatToWorld(float.latest_position.longitude, float.latest_position.latitude, surfaceY, this.bounds, {
+        const w = lonLatToWorld(lon, lat, surfaceY, this.bounds, {
           xScale: this.xScale,
           zScale: this.zScale,
         });
-
-        const lineGeo = new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(w.x, surfaceY, w.z),
-          new THREE.Vector3(w.x, -0.3 * this.verticalExaggeration, w.z),
-        ]);
-        const lineMat = new THREE.LineDashedMaterial({
-          color: isSelected ? 0x38bdf8 : 0xf59e0b,
-          dashSize: 0.02,
-          gapSize: 0.01,
-        });
-        const line = new THREE.Line(lineGeo, lineMat);
-        line.computeLineDistances();
-        marker.add(line);
 
         const buoyGeo = new THREE.CylinderGeometry(0.016, 0.016, 0.042, 16);
         const buoyMat = new THREE.MeshStandardMaterial({
@@ -681,6 +687,64 @@ export class OceanSceneController {
 
       this.floatGroup.add(marker);
     });
+
+    // 2. Render Multi-Cycle Trajectory for selectedFloat on Globe
+    if (this.selectedFloat && isGlobeMode && this.trajectoryGroup) {
+      const normalizedTrajectory = normalizeTrajectory(
+        this.selectedFloat.trajectory,
+        this.selectedFloat.cycles
+      );
+
+      if (normalizedTrajectory.length >= 2) {
+        // Draw continuous Great-Circle polyline
+        const segments = splitTrajectoryAtDateline(normalizedTrajectory);
+        segments.forEach((seg) => {
+          if (seg.length < 2) return;
+          const points = [];
+          for (let i = 0; i < seg.length - 1; i++) {
+            const p1 = seg[i];
+            const p2 = seg[i + 1];
+            const slerp = interpolateGreatCircle(p1.latitude, p1.longitude, p2.latitude, p2.longitude, 2.0);
+            slerp.forEach((pt) => {
+              const v = latLonToGlobe(pt.lat, pt.lon, EARTH_RADIUS * 1.005);
+              points.push(new THREE.Vector3(v.x, v.y, v.z));
+            });
+          }
+          if (points.length > 1) {
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+            const lineMat = new THREE.LineBasicMaterial({
+              color: 0xf59e0b,
+              transparent: true,
+              opacity: 0.75,
+            });
+            const line = new THREE.Line(lineGeo, lineMat);
+            this.trajectoryGroup.add(line);
+          }
+        });
+
+        // Draw node markers for each cycle on trajectory
+        normalizedTrajectory.forEach((pt) => {
+          const isCycleActive = selectedCycle ? pt.cycleNumber === selectedCycle : false;
+          const gPos = latLonToGlobe(pt.latitude, pt.longitude, EARTH_RADIUS * 1.006);
+
+          const dotGeo = new THREE.SphereGeometry(isCycleActive ? 0.012 : 0.006, 12, 8);
+          const dotMat = new THREE.MeshStandardMaterial({
+            color: isCycleActive ? 0x38bdf8 : 0xfbbf24,
+            emissive: isCycleActive ? 0x0284c7 : 0xd97706,
+            emissiveIntensity: isCycleActive ? 0.9 : 0.3,
+            roughness: 0.3,
+          });
+          const dot = new THREE.Mesh(dotGeo, dotMat);
+          dot.position.set(gPos.x, gPos.y, gPos.z);
+          dot.userData = {
+            platform_number: this.selectedFloat.platform_number,
+            cycle_number: pt.cycleNumber,
+            isCycleNode: true,
+          };
+          this.trajectoryGroup.add(dot);
+        });
+      }
+    }
   }
 
   focusCoordinate(lat, lon) {

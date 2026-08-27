@@ -333,3 +333,39 @@ export const INDIAN_OCEAN_PRESETS = [
     desc: 'Internal solitary wave hotspot, shallow sill mixing, and Southeast Asian marginal basin.',
   },
 ];
+
+/**
+ * Samples scalar field value from Float32Array 3D volume buffer at given (lat, lon, depthMeters).
+ * Returns exact scalar number or null if outside domain or NaN.
+ *
+ * @param {number} lat - Latitude in degrees
+ * @param {number} lon - Longitude in degrees
+ * @param {number} depthMeters - Depth in meters (0 to maxDepth)
+ * @param {Float32Array} volumeBuffer - Binary 3D volume data buffer
+ * @param {Object} volumeMeta - Metadata containing dims, bounds, minVal, maxVal
+ * @returns {number|null} Sampled scalar value or null
+ */
+export function sampleVolumeScalar(lat, lon, depthMeters = 0, volumeBuffer, volumeMeta) {
+  if (!volumeBuffer || !volumeMeta) return null;
+  const { dimX, dimY, dimZ, minLon, maxLon, minLat, maxLat, minDepth = 0, maxDepth = 2000, nanValue = -1.0 } = volumeMeta;
+
+  if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) return null;
+
+  const u = (lon - minLon) / (maxLon - minLon);
+  const v = (lat - minLat) / (maxLat - minLat);
+  const clampedDepth = Math.max(minDepth, Math.min(maxDepth, depthMeters));
+  const w = (clampedDepth - minDepth) / (maxDepth - minDepth || 1);
+
+  const xIdx = Math.max(0, Math.min(dimX - 1, Math.floor(u * (dimX - 1))));
+  const yIdx = Math.max(0, Math.min(dimY - 1, Math.floor(v * (dimY - 1))));
+  const zIdx = Math.max(0, Math.min(dimZ - 1, Math.floor(w * (dimZ - 1))));
+
+  const index = zIdx * (dimX * dimY) + yIdx * dimX + xIdx;
+  if (index < 0 || index >= volumeBuffer.length) return null;
+
+  const val = volumeBuffer[index];
+  if (isNaN(val) || Math.abs(val - nanValue) < 1e-4) return null;
+
+  return val;
+}
+

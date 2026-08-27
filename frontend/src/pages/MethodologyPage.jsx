@@ -9,8 +9,8 @@ import {
   Compass,
   Activity,
   Cpu,
-  ArrowRight
-} from '../components/Icons';
+  ArrowRight,
+} from 'lucide-react';
 
 export const MethodologyPage = () => {
   const { setActivePage } = useOceanStore();

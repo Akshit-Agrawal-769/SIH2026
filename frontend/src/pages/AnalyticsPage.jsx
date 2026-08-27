@@ -7,8 +7,8 @@ import {
   Database,
   Layers,
   ArrowRight,
-  Info
-} from '../components/Icons';
+  Info,
+} from 'lucide-react';
 
 export const AnalyticsPage = () => {
   const {

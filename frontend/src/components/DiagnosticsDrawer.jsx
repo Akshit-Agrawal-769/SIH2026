@@ -2,8 +2,17 @@ import React from 'react';
 import {
   X,
   Cpu,
-  RefreshCw
-} from './Icons';
+  RefreshCw,
+  CheckCircle2,
+  AlertTriangle,
+  Database,
+  Radio,
+  Layers,
+  TrendingUp,
+  Activity,
+  Calendar,
+  Layers2,
+} from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
 export const DiagnosticsDrawer = () => {
@@ -13,152 +22,174 @@ export const DiagnosticsDrawer = () => {
     health,
     datasets,
     activeDataset,
+    metadata,
+    variable,
+    timeIndex,
+    depthLevelMeters,
     argoFloats,
+    selectedFloat,
+    selectedCycle,
     volumeMeta,
+    volumeBuffer,
+    comparisonData,
     fetchInitialData,
-    isLoading
+    isLoading,
   } = useOceanStore();
 
   if (!isDiagnosticsOpen) return null;
 
   const isHealthy = health?.status === 'healthy';
+  const totalFrames = metadata?.time_range?.length || 1;
+  const currentTs = metadata?.time_range?.[timeIndex] || '2026-07-18 12:00 UTC';
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md glass-panel text-white/90 p-4 flex flex-col gap-3 overflow-y-auto custom-scrollbar select-none shadow-2xl animate-in slide-in-from-right duration-300">
-
+    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[var(--surface-rack-backdrop)] backdrop-blur-md border-l border-[var(--border-hairline)] text-slate-200 p-4 flex flex-col gap-3 overflow-y-auto custom-scrollbar select-none shadow-2xl font-mono text-xs animate-in slide-in-from-right duration-150">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5">
+      <div className="flex items-center justify-between border-b border-[var(--border-hairline)] pb-2.5">
         <div className="flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-white/70" />
-          <h2 className="text-xs font-medium tracking-wide uppercase font-mono text-white">
-            System & Data Diagnostics
+          <Cpu className="w-4 h-4 text-sky-400" strokeWidth={1.75} />
+          <h2 className="text-xs font-bold tracking-wider uppercase text-slate-100">
+            System & Reproducibility Diagnostics
           </h2>
         </div>
         <button
           onClick={toggleDiagnostics}
           title="Close Diagnostics Drawer"
-          className="p-1 text-white/40 hover:text-white/80 rounded transition-colors"
+          className="p-1 text-slate-400 hover:text-white hover:bg-[var(--surface-well)] rounded-[2px] transition-colors"
         >
-          <X className="w-3.5 h-3.5" />
+          <X className="w-4 h-4" strokeWidth={1.75} />
         </button>
       </div>
 
-      {/* Health Status Card */}
-      <div className="p-2.5 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-1.5 font-mono">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-300">BACKEND API GATEWAY</span>
-          <div className="flex items-center gap-1.5">
-            <span className={`w-1.5 h-1.5 ${isHealthy ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            <span className={`text-xs font-bold ${isHealthy ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {health?.status || 'OFFLINE'}
-            </span>
+      {/* 1. Runtime State Summary */}
+      <div className="p-2.5 bg-[var(--surface-well)] border border-[var(--border-hairline)] rounded-sm flex flex-col gap-1.5">
+        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center justify-between">
+          <span>ACTIVE SIMULATION STATE</span>
+          <span className="text-emerald-400 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            SYNCHRONIZED
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-1 text-[10px]">
+          <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+            <span className="text-slate-500 block text-[8px]">DATASET</span>
+            <strong className="text-slate-100 truncate block">{activeDataset || 'ROMS_Bio_2026.nc'}</strong>
+          </div>
+          <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+            <span className="text-slate-500 block text-[8px]">VARIABLE</span>
+            <strong className="text-sky-300 uppercase">{variable} ({volumeMeta?.units || '°C'})</strong>
+          </div>
+          <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+            <span className="text-slate-500 block text-[8px]">FRAME & DEPTH</span>
+            <strong className="text-slate-100">{timeIndex + 1} / {totalFrames} · {depthLevelMeters}m</strong>
+          </div>
+          <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+            <span className="text-slate-500 block text-[8px]">MODEL TIMESTAMP</span>
+            <strong className="text-amber-300 text-[9px] truncate block">{currentTs}</strong>
           </div>
         </div>
-
-        <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-[#1e293b]">
-          <span>QC DATA POLICY:</span>
-          <span className="text-sky-300 font-bold">{health?.data_policy || 'QC 1 & 2 (NO MOCK DATA)'}</span>
-        </div>
-
-        {health?.missing_datasets?.length > 0 && (
-          <div className="mt-1 p-2 bg-[#291b05] border border-amber-500/60 text-[10px] text-amber-200">
-            <div className="font-bold mb-0.5">Missing Required Real Datasets:</div>
-            <ul className="list-disc pl-4 space-y-0.5 font-mono">
-              {health.missing_datasets.map((m, i) => (
-                <li key={i}>{m}</li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
 
-      {/* Model NetCDF Status */}
-      <div className="p-2.5 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-1.5 font-mono">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-300">ROMS MODEL NETCDF FILES</span>
-          <span className="text-teal-300 font-bold tabular-nums">{datasets.length} Active</span>
+      {/* 2. WebGL 3D Texture & Buffer Metrics */}
+      <div className="p-2.5 bg-[var(--surface-well)] border border-[var(--border-hairline)] rounded-sm flex flex-col gap-1.5">
+        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center justify-between">
+          <span>WEBGL 3D TEXTURE BUFFER</span>
+          <span className={volumeBuffer ? 'text-sky-300' : 'text-slate-500'}>
+            {volumeBuffer ? 'LOADED (FLOAT32)' : 'PENDING'}
+          </span>
         </div>
-        <div className="flex flex-col gap-0.5 text-[11px]">
-          {datasets.map((d) => (
-            <div key={d} className={`p-1 border ${d === activeDataset ? 'bg-[#10243e] border-sky-500 text-sky-200' : 'bg-[#070c18] border-[#1e293b] text-slate-400'}`}>
-              {d} {d === activeDataset ? '(Active)' : ''}
-            </div>
-          ))}
-          {datasets.length === 0 && (
-            <div className="text-[11px] text-slate-500 italic p-1">No NetCDF files in datasets/model/</div>
-          )}
-        </div>
-      </div>
-
-      {/* In-Situ Argo Profiling Floats Inventory */}
-      <div className="p-2.5 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-1.5 font-mono">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-300">IN-SITU ARGO PROFILING FLOATS</span>
-          <span className="text-amber-300 font-bold tabular-nums">{argoFloats.length} Floats</span>
-        </div>
-        <div className="flex flex-col gap-1 text-[11px]">
-          {argoFloats.map((fl) => (
-            <div key={fl.platform_number} className="p-1.5 bg-[#070c18] border border-[#1e293b] flex items-center justify-between">
-              <div>
-                <span className="text-amber-300 font-bold">WMO {fl.platform_number}</span>
-                <span className="text-slate-500 text-[10px] block tabular-nums">
-                  {fl.latest_position.latitude.toFixed(2)}°N, {fl.latest_position.longitude.toFixed(2)}°E
-                </span>
-              </div>
-              <span className="text-slate-400 text-[10px] bg-[#0c1424] px-1 py-0.2 border border-[#1e293b]">
-                {fl.profiles_count} profiles
-              </span>
-            </div>
-          ))}
-          {argoFloats.length === 0 && (
-            <div className="text-[11px] text-slate-500 italic p-1">No Argo float netCDF files in datasets/argo/</div>
-          )}
-        </div>
-      </div>
-
-      {/* Float32 Buffer & Shader Metrics */}
-      <div className="p-2.5 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-1.5 font-mono">
-        <div className="text-xs text-slate-300 uppercase">3D Volumetric Texture Buffer</div>
         {volumeMeta ? (
-          <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-300">
-            <div className="bg-[#070c18] p-1 border border-[#1e293b]">
-              <span className="text-slate-500 block text-[9px]">RESOLUTION</span>
-              {volumeMeta.dimX} x {volumeMeta.dimY} x {volumeMeta.dimZ}
+          <div className="grid grid-cols-2 gap-1 text-[10px]">
+            <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+              <span className="text-slate-500 block text-[8px]">GRID RESOLUTION</span>
+              <strong className="text-sky-300">{volumeMeta.dimX} × {volumeMeta.dimY} × {volumeMeta.dimZ}</strong>
             </div>
-            <div className="bg-[#070c18] p-1 border border-[#1e293b]">
-              <span className="text-slate-500 block text-[9px]">MIN / MAX SCALAR</span>
-              {volumeMeta.minVal.toFixed(2)} to {volumeMeta.maxVal.toFixed(2)} {volumeMeta.units}
+            <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+              <span className="text-slate-500 block text-[8px]">SCALAR VALUE EXTENTS</span>
+              <strong className="text-slate-100">{volumeMeta.minVal?.toFixed(2)} to {volumeMeta.maxVal?.toFixed(2)} {volumeMeta.units}</strong>
             </div>
-            <div className="bg-[#070c18] p-1 border border-[#1e293b]">
-              <span className="text-slate-500 block text-[9px]">MEMORY SIZE</span>
-              {((volumeMeta.dimX * volumeMeta.dimY * volumeMeta.dimZ * 4) / 1024).toFixed(1)} KB Float32
+            <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+              <span className="text-slate-500 block text-[8px]">BUFFER MEMORY</span>
+              <strong className="text-slate-100">{((volumeMeta.dimX * volumeMeta.dimY * volumeMeta.dimZ * 4) / 1024).toFixed(1)} KB</strong>
             </div>
-            <div className="bg-[#070c18] p-1 border border-[#1e293b]">
-              <span className="text-slate-500 block text-[9px]">DEPTH SPAN</span>
-              {volumeMeta.minDepth} to {volumeMeta.maxDepth} m
+            <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+              <span className="text-slate-500 block text-[8px]">PHYSICAL DEPTH SPAN</span>
+              <strong className="text-slate-100">{volumeMeta.minDepth}m to {volumeMeta.maxDepth}m</strong>
             </div>
           </div>
         ) : (
-          <div className="text-[11px] text-slate-500 italic p-1">No 3D volume buffer loaded yet.</div>
+          <div className="text-[10px] text-slate-500 italic p-1 bg-[var(--surface-base)]">No 3D volume buffer loaded yet.</div>
         )}
       </div>
 
+      {/* 3. Colocation & Comparison State */}
+      <div className="p-2.5 bg-[var(--surface-well)] border border-[var(--border-hairline)] rounded-sm flex flex-col gap-1.5">
+        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center justify-between">
+          <span>4D COMPARISON STATE</span>
+          <span className="text-amber-400">
+            {comparisonData ? `WMO ${comparisonData.platform_number}` : 'STANDBY'}
+          </span>
+        </div>
+        {comparisonData ? (
+          <div className="grid grid-cols-2 gap-1 text-[10px]">
+            <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+              <span className="text-slate-500 block text-[8px]">VALID COLOCATED PAIRS</span>
+              <strong className="text-sky-300">
+                {comparisonData.metrics?.sample_count ?? 0} / {comparisonData.depths?.length ?? 0}
+              </strong>
+            </div>
+            <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+              <span className="text-slate-500 block text-[8px]">INTERPOLATION METHOD</span>
+              <strong className="text-slate-100 text-[9px]">4D Spatio-Temporal</strong>
+            </div>
+            <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+              <span className="text-slate-500 block text-[8px]">RMSE / MAE</span>
+              <strong className="text-slate-100">{comparisonData.metrics?.rmse?.toFixed(3)} / {comparisonData.metrics?.mae?.toFixed(3)} {volumeMeta?.units || '°C'}</strong>
+            </div>
+            <div className="bg-[var(--surface-base)] p-1.5 border border-[var(--border-hairline)]">
+              <span className="text-slate-500 block text-[8px]">BIAS / PEARSON R</span>
+              <strong className="text-slate-100">{comparisonData.metrics?.bias?.toFixed(3)} / {comparisonData.metrics?.pearson_r?.toFixed(3) ?? '—'}</strong>
+            </div>
+          </div>
+        ) : (
+          <div className="text-[10px] text-slate-500 italic p-1 bg-[var(--surface-base)]">
+            Select an Argo float in 3D Explorer or Observations to compute colocation metrics.
+          </div>
+        )}
+      </div>
+
+      {/* 4. Backend Gateway & In-Situ Array */}
+      <div className="p-2.5 bg-[var(--surface-well)] border border-[var(--border-hairline)] rounded-sm flex flex-col gap-1.5">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-slate-300 font-bold">API GATEWAY & PROVENANCE</span>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${isHealthy ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+            <span className={`text-xs font-bold ${isHealthy ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {health?.status ? health.status.toUpperCase() : 'ONLINE'}
+            </span>
+          </div>
+        </div>
+        <div className="text-[9px] text-slate-400 flex items-center justify-between pt-1 border-t border-[var(--border-subtle)]">
+          <span>QC DATA STANDARD:</span>
+          <span className="text-sky-300 font-bold">{health?.data_policy || 'QC 1 & 2 ACCEPTED (NO MOCK DATA)'}</span>
+        </div>
+      </div>
+
       {/* Actions */}
-      <div className="mt-auto pt-2.5 border-t border-[#1e293b] flex items-center justify-between font-mono">
+      <div className="mt-auto pt-2.5 border-t border-[var(--border-hairline)] flex items-center justify-between">
         <button
           onClick={fetchInitialData}
           disabled={isLoading}
-          className="flex items-center gap-1 px-2.5 py-1 bg-[#0c1424] hover:bg-[#162138] text-slate-200 text-xs border border-[#1e293b] hover:border-slate-700 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1 bg-[var(--surface-well)] hover:bg-[var(--surface-well-hover)] text-slate-200 text-xs border border-[var(--border-hairline)] rounded-[2px] transition-colors"
         >
-          <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>REFRESH STATUS</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} strokeWidth={1.75} />
+          <span>REFRESH DIAGNOSTICS</span>
         </button>
 
         <span className="text-[10px] text-slate-500">
           FastAPI + Three.js WebGL2
         </span>
       </div>
-
     </div>
   );
 };

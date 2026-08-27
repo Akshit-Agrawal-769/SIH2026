@@ -8,8 +8,8 @@ import {
   CheckCircle2,
   RotateCcw,
   Database,
-  Compass
-} from '../components/Icons';
+  Compass,
+} from 'lucide-react';
 
 export const SettingsPage = () => {
   const {

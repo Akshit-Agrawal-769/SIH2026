@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_API_URL ? import.meta.env.VITE_API_URL : '').replace(/\/$/, '');
 
 export const VITAL_SIGNS_CATALOG = {
   surface: [
@@ -714,6 +714,21 @@ export const useOceanStore = create((set, get) => ({
     }
   },
 
+  sanitizeStateAgainstMetadata: (meta) => {
+    if (!meta) return;
+    const availableVars = meta.variables || ['temp', 'salt'];
+    const currentVar = get().variable;
+    const validVar = availableVars.includes(currentVar) ? currentVar : availableVars[0];
+
+    const maxTime = meta.time_range?.length ? meta.time_range.length - 1 : 0;
+    const clampedTime = Math.min(get().timeIndex, maxTime);
+
+    const maxDepth = meta.bounds?.max_depth || 2000;
+    const clampedDepth = Math.min(get().depthLevelMeters, maxDepth);
+
+    set({ metadata: meta, variable: validVar, timeIndex: clampedTime, depthLevelMeters: clampedDepth });
+  },
+
   selectDataset: async (dataset) => {
     if (!dataset) return;
     try {
@@ -723,13 +738,32 @@ export const useOceanStore = create((set, get) => ({
         throw new Error(`Model metadata fetch failed with status ${metaRes.status}`);
       }
       const metadata = await metaRes.json();
-      set({ metadata, timeIndex: 0 });
+      get().sanitizeStateAgainstMetadata(metadata);
       await get().fetchVolumeData();
       set({ isLoading: false });
     } catch (err) {
       console.error('Error selecting dataset:', err);
       set({ isLoading: false, errorState: 'MODEL METADATA UNAVAILABLE' });
     }
+  },
+
+  cycleVariable: () => {
+    const { metadata, variable } = get();
+    const availableVars = metadata?.variables || ['temp', 'salt', 'u', 'v'];
+    const idx = availableVars.indexOf(variable);
+    const nextVar = availableVars[(idx + 1) % availableVars.length];
+    get().setVariable(nextVar);
+  },
+
+  stepDepthLevel: (direction) => {
+    const depthSteps = [0, 50, 100, 200, 500, 1000, 1500, 2000];
+    const { depthLevelMeters } = get();
+    let currentIdx = depthSteps.findIndex((d) => d >= depthLevelMeters);
+    if (currentIdx === -1) currentIdx = depthSteps.length - 1;
+    let nextIdx = currentIdx + direction;
+    if (nextIdx < 0) nextIdx = 0;
+    if (nextIdx >= depthSteps.length) nextIdx = depthSteps.length - 1;
+    get().setDepthLevelMeters(depthSteps[nextIdx]);
   },
 
   fetchVolumeData: async () => {
@@ -873,7 +907,8 @@ export const useOceanStore = create((set, get) => ({
   },
 
   fetchArgoProfile: async (platformNumber, cycle = null, filterQC = true) => {
-    if (!platformNumber) return;
+    if (!platformNumber) return null;
+    if (typeof window === 'undefined' && !API_BASE) return null;
     try {
       let url = `${API_BASE}/api/v1/observations/argo/${encodeURIComponent(platformNumber)}/profile?filter_qc=${filterQC}`;
       if (cycle !== null && cycle !== undefined) {

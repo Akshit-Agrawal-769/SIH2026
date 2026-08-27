@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Radio } from './Icons';
+import { X, Keyboard, HelpCircle } from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
 export const ShortcutsModal = () => {
@@ -8,70 +8,68 @@ export const ShortcutsModal = () => {
   if (!isShortcutsModalOpen) return null;
 
   const shortcuts = [
-    { key: 'H', label: 'Mission Control', description: 'Switch to Mission Control overview dashboard' },
-    { key: 'E', label: '3D Explorer', description: 'Switch to interactive 3D Earth & Ocean Explorer' },
-    { key: 'A', label: 'Argo In-Situ', description: 'Switch to Argo Profiling Float Network' },
-    { key: '1', label: 'Cinematic View', description: 'Low-horizon camera view across ocean swell' },
-    { key: '2', label: 'Platform Lock', description: 'Target camera lock on moored marine station' },
-    { key: '3', label: 'Geospatial View', description: 'Tactical top-down North-Up geospatial plan' },
-    { key: '4', label: 'Subsurface View', description: 'Underwater thermocline depth profiling view' },
-    { key: '5', label: '3D Isometric', description: 'Standard 3D isometric overview' },
-    { key: 'Space', label: 'Play / Pause', description: 'Toggle 4D temporal forecast playback' },
-    { key: '[', label: 'Step Back', description: 'Step to previous 24h forecast timestep' },
-    { key: ']', label: 'Step Forward', description: 'Step to next 24h forecast timestep' },
-    { key: 'C', label: 'Controls Panel', description: 'Toggle left scientific controls & layers rail' },
-    { key: 'I', label: 'Data Inspector', description: 'Toggle right telemetry & float inspector rail' },
-    { key: 'D', label: 'Diagnostics', description: 'Toggle system health & NetCDF diagnostics drawer' },
-    { key: 'G', label: 'Lat/Lon Grid', description: 'Toggle geospatial spherical coordinate grid' },
+    { key: 'V', label: 'Cycle Variable', description: 'Cycle through model variables (Temp → Salt → U → V)' },
+    { key: '↑ / ↓', label: 'Step Depth Level', description: 'Step vertical depth level up or down' },
+    { key: '← / →', label: 'Step Timeline', description: 'Step previous or next model time step' },
+    { key: 'Space', label: 'Play / Pause', description: 'Toggle 4D temporal forecast animation playback' },
+    { key: '1', label: 'Fit Global Earth', description: 'Center and fit 3D planetary Earth sphere' },
+    { key: '2', label: 'Indian Ocean View', description: 'Focus Indian Ocean synoptic basin (10°N, 75°E)' },
+    { key: '3', label: 'Arabian Sea', description: 'Zoom to high-resolution Arabian Sea sector' },
+    { key: '4', label: 'Bay of Bengal', description: 'Zoom to high-resolution Bay of Bengal sector' },
+    { key: '5 / R', label: 'Reset Orientation', description: 'Reset 3D camera to default orientation' },
+    { key: 'H / E', label: 'Explore 3D', description: 'Switch to primary 3D Ocean Explorer' },
+    { key: 'A', label: 'Argo Observations', description: 'Switch to In-Situ Argo Profiling Float workspace' },
+    { key: 'C', label: '4D Comparison', description: 'Switch to Model vs Observation Comparison workspace' },
     { key: 'L', label: 'Go To Location', description: 'Open geospatial coordinate targeting dialog' },
-    { key: 'R', label: 'Reset Camera', description: 'Reset 3D camera to default orientation' },
-    { key: '?', label: 'Help / Shortcuts', description: 'Toggle this keyboard shortcuts reference' },
-    { key: 'Esc', label: 'Close / Dismiss', description: 'Dismiss active modal dialogs or drawers' },
+    { key: 'D', label: 'Diagnostics', description: 'Toggle system telemetry and WebGL diagnostics drawer' },
+    { key: '?', label: 'Shortcuts Reference', description: 'Toggle this keyboard reference dialog' },
+    { key: 'Esc', label: 'Dismiss / Clear', description: 'Dismiss modal dialogs or clear float selection' },
   ];
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-sm select-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) toggleShortcutsModal();
       }}
     >
-      <div className="relative w-full max-w-2xl glass-panel rounded-2xl p-5 text-white/90 flex flex-col gap-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-2xl bg-[var(--surface-rack-backdrop)] backdrop-blur-md border border-[var(--border-hairline)] rounded-sm p-4 text-slate-200 flex flex-col gap-3.5 shadow-2xl font-mono text-xs animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+        <div className="flex items-center justify-between border-b border-[var(--border-hairline)] pb-2.5">
           <div className="flex items-center gap-2">
-            <Radio className="w-4 h-4 text-white/70" />
-            <h2 className="text-xs font-medium tracking-wide uppercase text-white">
-              Keyboard Shortcuts & Controls
+            <Keyboard className="w-4 h-4 text-sky-400" strokeWidth={1.75} />
+            <h2 className="text-xs font-bold tracking-wider uppercase text-slate-100">
+              Keyboard Shortcuts & Instrumentation Controls
             </h2>
           </div>
           <button
             onClick={toggleShortcutsModal}
-            className="p-1 text-white/40 hover:text-white/80 rounded transition-colors"
+            className="p-1 text-slate-400 hover:text-white hover:bg-[var(--surface-well)] rounded-[2px] transition-colors"
+            title="Close Dialog (Esc)"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" strokeWidth={1.75} />
           </button>
         </div>
 
         {/* Shortcuts Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[65vh] overflow-y-auto custom-scrollbar text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
           {shortcuts.map((sc) => (
-            <div key={sc.key} className="p-2.5 bg-black/30 rounded-xl border border-white/[0.05] flex items-start gap-3">
-              <span className="px-2 py-0.5 bg-white/10 border border-white/15 text-white font-mono text-[11px] rounded-md shrink-0 min-w-[28px] text-center shadow-inner">
+            <div key={sc.key} className="p-2 bg-[var(--surface-well)] rounded-[2px] border border-[var(--border-hairline)] flex items-start gap-2.5">
+              <span className="px-1.5 py-0.5 bg-[var(--surface-base)] border border-[var(--border-medium)] text-sky-300 font-bold text-[10px] rounded-[2px] shrink-0 min-w-[28px] text-center">
                 {sc.key}
               </span>
               <div className="flex flex-col gap-0.5">
-                <span className="font-normal text-white/90 text-xs">{sc.label}</span>
-                <span className="text-[10px] text-white/40 font-light">{sc.description}</span>
+                <span className="font-bold text-slate-100 text-[11px]">{sc.label}</span>
+                <span className="text-[10px] text-slate-400 font-sans">{sc.description}</span>
               </div>
             </div>
           ))}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-white/[0.08] pt-2 text-[10px] font-mono text-white/40">
-          <span>INCOIS 3D Ocean Intelligence Platform</span>
-          <span>Press <kbd className="px-1.5 py-0.5 bg-white/10 border border-white/15 rounded text-white/80">Esc</kbd> to close</span>
+        <div className="flex items-center justify-between border-t border-[var(--border-hairline)] pt-2 text-[10px] text-slate-500">
+          <span>INCOIS Ocean Systems · Scientific Workstation</span>
+          <span>Press <kbd className="px-1.5 py-0.5 bg-[var(--surface-base)] border border-[var(--border-hairline)] text-slate-300 rounded-[2px]">Esc</kbd> to close</span>
         </div>
       </div>
     </div>

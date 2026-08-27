@@ -1,20 +1,8 @@
+@import './styles/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root {
-  --ui-bg: #08090c;
-  --ui-panel: rgba(10, 12, 16, 0.72);
-  --ui-panel-solid: #090b10;
-  --ui-panel-hover: rgba(16, 20, 28, 0.85);
-  --ui-border: rgba(255, 255, 255, 0.06);
-  --ui-border-hover: rgba(255, 255, 255, 0.16);
-  --ui-border-active: rgba(255, 255, 255, 0.35);
-  --ui-text: rgba(255, 255, 255, 0.88);
-  --ui-muted: rgba(255, 255, 255, 0.40);
-  --ui-dim: rgba(255, 255, 255, 0.20);
-  --ui-accent: #ffffff;
-}
 
 html, body, #root {
   width: 100%;
@@ -22,86 +10,238 @@ html, body, #root {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background-color: var(--ui-bg);
-  color: var(--ui-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  background-color: var(--surface-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Glassmorphism Styles */
-.glass-panel {
-  background: var(--ui-panel);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--ui-border);
-}
+/* ==========================================================================
+   Scientific Instrument Utility Classes
+   ========================================================================== */
 
-.glass-panel:hover {
-  border-color: var(--ui-border-hover);
-}
-
-.glass-pill {
-  background: rgba(12, 15, 22, 0.6);
+/* Docked Instrument Racks (Left & Right Panels) */
+.instrument-rack {
+  background-color: var(--surface-rack-backdrop);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--ui-border);
+  border-color: var(--border-hairline);
 }
 
-.glass-pill:hover {
-  background: rgba(20, 25, 36, 0.75);
-  border-color: var(--ui-border-hover);
+/* Sunken Control Wells */
+.instrument-well {
+  background-color: var(--surface-well);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
 }
 
+.instrument-well-hover {
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+.instrument-well-hover:hover {
+  background-color: var(--surface-well-hover);
+  border-color: var(--border-medium);
+}
+
+/* Precision Instrument Toggle / Action Button */
+.instrument-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5);
+  height: 26px;
+  padding: 0 var(--space-2);
+  background-color: var(--surface-well);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.instrument-btn:hover {
+  background-color: var(--surface-well-hover);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+}
+
+.instrument-btn:focus-visible {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 1px var(--border-focus);
+}
+
+.instrument-btn-active {
+  background-color: var(--surface-active-tint);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+.instrument-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Segmented Control Switcher */
+.segmented-control {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background-color: var(--surface-base);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-xs);
+}
+
+.segmented-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.segmented-option:hover {
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.segmented-option-active {
+  background-color: var(--surface-well);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Radar Sweep Indeterminate Loading Bar */
+.radar-sweep-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  overflow: hidden;
+  background-color: rgba(56, 189, 248, 0.1);
+}
+
+.radar-sweep-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+  animation: radar-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes radar-sweep {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+
+/* Hairline Structural Borders */
+.hairline-border { border: 1px solid var(--border-hairline); }
+.hairline-t { border-top: 1px solid var(--border-hairline); }
+.hairline-b { border-bottom: 1px solid var(--border-hairline); }
+.hairline-l { border-left: 1px solid var(--border-hairline); }
+.hairline-r { border-right: 1px solid var(--border-hairline); }
+.subtle-divider { border-color: var(--border-subtle); }
+
+/* Monospaced Figures */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-/* Minimal Scientific Scrollbars */
-.custom-scrollbar::-webkit-scrollbar {
+/* Custom Minimal Instrument Scrollbar */
+.custom-scrollbar::-webkit-scrollbar,
+.instrument-scrollbar::-webkit-scrollbar {
   width: 4px;
   height: 4px;
 }
-.custom-scrollbar::-webkit-scrollbar-track {
+.custom-scrollbar::-webkit-scrollbar-track,
+.instrument-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
+.custom-scrollbar::-webkit-scrollbar-thumb,
+.instrument-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-xs);
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.instrument-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 /* Minimal Scientific Sliders */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  height: 3px;
+  background: var(--surface-well);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-xs);
+  height: 4px;
   outline: none;
+  cursor: pointer;
 }
+
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.4);
-  cursor: pointer;
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
-  transition: transform 0.1s ease;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--accent-cyan);
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  cursor: ew-resize;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.4);
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
 }
+
 input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.25);
+  transform: scaleY(1.15);
+  background: #7dd3fc;
 }
+
 input[type="range"]::-moz-range-thumb {
   width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.4);
-  cursor: pointer;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--accent-cyan);
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  cursor: ew-resize;
+}
+
+/* Retain backwards compatibility aliases for glass classes until phased out */
+.glass-panel {
+  background: var(--surface-rack-backdrop);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-hairline);
+}
+
+.glass-pill {
+  background: var(--surface-well);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-hairline);
 }
