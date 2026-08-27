@@ -8,29 +8,36 @@ echo "========================================================"
 echo "  INCOIS 3D OCEAN DATA VISUALIZATION SYSTEM (PS 26067)  "
 echo "========================================================"
 
-# Auto-cleanup any stale instances before starting
+# 1. Kill any existing instances holding ports 8000, 3000, 3001, 5173
 fuser -k 8000/tcp 3000/tcp 3001/tcp 5173/tcp 2>/dev/null || true
-sleep 0.5
+pkill -9 -f "uvicorn app.main:app" 2>/dev/null || true
+pkill -9 -f "vite" 2>/dev/null || true
+sleep 1
 
-# Trap SIGINT and SIGTERM to kill all background services gracefully
+# 2. Trap SIGINT and SIGTERM to kill all background services gracefully
 cleanup() {
     echo ""
     echo "Shutting down backend and frontend services..."
     kill $(jobs -p) 2>/dev/null || true
+    fuser -k 8000/tcp 3000/tcp 2>/dev/null || true
     exit 0
 }
 trap cleanup SIGINT SIGTERM EXIT
 
+# 3. Start Backend
 echo "[1/2] Starting Scientific Backend on http://localhost:8000..."
 cd "$ROOT_DIR/backend"
 python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+BACKEND_PID=$!
 
 # Brief pause for backend startup
-sleep 1.5
+sleep 2
 
+# 4. Start Frontend
 echo "[2/2] Starting WebGL Frontend on http://localhost:3000..."
 cd "$ROOT_DIR/frontend"
 npm run dev &
+FRONTEND_PID=$!
 
 WSL_IP=$(hostname -I | awk '{print $1}')
 
