@@ -6,7 +6,7 @@ import { ObservationModal } from './components/ObservationModal';
 import { DiagnosticsDrawer } from './components/DiagnosticsDrawer';
 import { ShortcutsModal } from './components/ShortcutsModal';
 
-// 8 Dedicated Scientific Workspaces
+// Dedicated Scientific Workspaces
 import { HomePage } from './pages/HomePage';
 import { ExplorerPage } from './pages/ExplorerPage';
 import { CoordinatesPage } from './pages/CoordinatesPage';
@@ -24,11 +24,12 @@ export default function App() {
     fetchInitialData();
 
     const handleKeyDown = (e) => {
-      // Don't trigger when typing in inputs or selects
+      // Ignore keystrokes when typing in form inputs, textareas, or dropdowns
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target?.tagName)) return;
 
       const store = useOceanStore.getState();
       switch (e.key) {
+        // Navigation shortcuts
         case 'h':
         case 'H':
           store.setActivePage('home');
@@ -37,6 +38,41 @@ export default function App() {
         case 'E':
           store.setActivePage('explorer');
           break;
+        case 'a':
+        case 'A':
+          store.setActivePage('argo');
+          break;
+
+        // Camera presets (1-5)
+        case '1':
+          store.triggerCameraAction('cinematic');
+          break;
+        case '2':
+          store.triggerCameraAction('platform');
+          break;
+        case '3':
+          store.triggerCameraAction('geospatial');
+          break;
+        case '4':
+          store.triggerCameraAction('subsurface');
+          break;
+        case '5':
+          store.triggerCameraAction('iso');
+          break;
+
+        // Timeline controls
+        case ' ':
+          e.preventDefault();
+          store.toggleTimelinePlayback();
+          break;
+        case '[':
+          store.stepTimeIndex(-1);
+          break;
+        case ']':
+          store.stepTimeIndex(1);
+          break;
+
+        // Panel toggles
         case 'c':
         case 'C':
           store.toggleControlPanel();
@@ -55,7 +91,7 @@ export default function App() {
           break;
         case 'r':
         case 'R':
-          store.resetCamera();
+          store.triggerCameraAction('reset');
           break;
         case 'l':
         case 'L':
@@ -64,6 +100,8 @@ export default function App() {
         case '?':
           store.toggleShortcutsModal();
           break;
+
+        // Modal dismissal
         case 'Escape':
           if (store.isModalOpen) store.closeModal();
           if (store.isShortcutsModalOpen) store.toggleShortcutsModal();
@@ -77,7 +115,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [fetchInitialData]);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#040711] text-slate-100 flex flex-col font-sans select-none">

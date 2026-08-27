@@ -5,12 +5,14 @@ import os
 import json
 import pytest
 
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+
 def test_natural_earth_canonical_structure():
     """Verify Phase 3 canonical directory structure for Natural Earth 10m shapefiles and processed GeoJSONs."""
-    source_coastline_dir = "datasets/geography/natural-earth/10m/source/coastline"
-    source_land_dir = "datasets/geography/natural-earth/10m/source/land"
-    processed_dir = "datasets/geography/natural-earth/10m/processed"
-    frontend_geo_dir = "frontend/public/geography"
+    source_coastline_dir = os.path.join(REPO_ROOT, "datasets/geography/natural-earth/10m/source/coastline")
+    source_land_dir = os.path.join(REPO_ROOT, "datasets/geography/natural-earth/10m/source/land")
+    processed_dir = os.path.join(REPO_ROOT, "datasets/geography/natural-earth/10m/processed")
+    frontend_geo_dir = os.path.join(REPO_ROOT, "frontend/public/geography")
 
     assert os.path.isdir(source_coastline_dir), f"Missing {source_coastline_dir}"
     assert os.path.isdir(source_land_dir), f"Missing {source_land_dir}"
@@ -26,7 +28,8 @@ def test_natural_earth_canonical_structure():
 
 def test_natural_earth_geojson_integrity():
     """Verify Phase 6 & Phase 23 GeoJSON validation gates."""
-    for base_dir in ["datasets/geography/natural-earth/10m/processed", "frontend/public/geography"]:
+    for rel_dir in ["datasets/geography/natural-earth/10m/processed", "frontend/public/geography"]:
+        base_dir = os.path.join(REPO_ROOT, rel_dir)
         coastline_json_path = os.path.join(base_dir, "coastline.geojson")
         land_json_path = os.path.join(base_dir, "land.geojson")
 

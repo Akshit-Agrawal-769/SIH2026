@@ -33,15 +33,15 @@ export const Header = () => {
   } = useOceanStore();
 
   const navItems = [
-    { id: 'home', label: 'MISSION CONTROL' },
-    { id: 'explorer', label: '3D EXPLORER' },
-    { id: 'coordinates', label: 'COORDINATES' },
-    { id: 'argo', label: 'ARGO IN-SITU' },
-    { id: 'comparison', label: '4D COMPARISON' },
-    { id: 'analytics', label: 'ANALYTICS' },
-    { id: 'data', label: 'DATA CATALOG' },
-    { id: 'settings', label: 'SETTINGS' },
-    { id: 'methodology', label: 'METHODOLOGY' },
+    { id: 'home', label: 'MISSION CONTROL', icon: Activity, iconColor: 'text-cyan-400' },
+    { id: 'explorer', label: '3D EXPLORER', icon: Layers, iconColor: 'text-sky-400' },
+    { id: 'coordinates', label: 'COORDINATES', icon: Crosshair, iconColor: 'text-teal-400' },
+    { id: 'argo', label: 'ARGO IN-SITU', icon: Radio, iconColor: 'text-amber-400' },
+    { id: 'comparison', label: '4D COMPARISON', icon: Compass, iconColor: 'text-indigo-400' },
+    { id: 'analytics', label: 'ANALYTICS', icon: Activity, iconColor: 'text-emerald-400' },
+    { id: 'data', label: 'DATA CATALOG', icon: Database, iconColor: 'text-blue-400' },
+    { id: 'settings', label: 'SETTINGS', icon: Sliders, iconColor: 'text-slate-300' },
+    { id: 'methodology', label: 'METHODOLOGY', icon: Info, iconColor: 'text-purple-400' },
   ];
 
   const getVarLabel = (v) => {
@@ -54,10 +54,6 @@ export const Header = () => {
       case 'u': return 'U-VEL (u)';
       case 'v': return 'V-VEL (v)';
       case 'chl': return 'CHLA (chl)';
-      case 'mld': return 'MLD (depth)';
-      case 'dic': return 'DIC (carbon)';
-      case 'no3': return 'NO3 (nitrate)';
-      case 'pco2': return 'pCO2 (atm)';
       default: return v?.toUpperCase() || 'TEMP';
     }
   };
@@ -108,7 +104,7 @@ export const Header = () => {
                 ))}
               </select>
             ) : (
-              <span className="text-amber-400 font-mono">INCOIS-BIO-ROMS.nc</span>
+              <span className="text-amber-400 font-mono">incois_roms_indian_ocean.nc</span>
             )}
           </div>
 
@@ -225,6 +221,7 @@ export const Header = () => {
       <nav className="flex items-center gap-1 px-3 py-1 bg-[#090e1c] overflow-x-auto scrollbar-thin">
         {navItems.map((item) => {
           const isActive = activePage === item.id;
+          const IconComp = item.icon;
           return (
             <button
               key={item.id}
@@ -235,14 +232,7 @@ export const Header = () => {
                   : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-[#10182c]'
               }`}
             >
-              {item.id === 'home' && <Activity className="w-3 h-3 text-cyan-400" />}
-              {item.id === 'explorer' && <Layers className="w-3 h-3 text-sky-400" />}
-              {item.id === 'coordinates' && <Crosshair className="w-3 h-3 text-teal-400" />}
-              {item.id === 'argo' && <Radio className="w-3 h-3 text-amber-400" />}
-              {item.id === 'comparison' && <Compass className="w-3 h-3 text-indigo-400" />}
-              {item.id === 'analytics' && <Activity className="w-3 h-3 text-emerald-400" />}
-              {item.id === 'data' && <Database className="w-3 h-3 text-blue-400" />}
-              {item.id === 'methodology' && <Info className="w-3 h-3 text-purple-400" />}
+              <IconComp className={`w-3 h-3 ${item.iconColor}`} />
               <span>{item.label}</span>
             </button>
           );

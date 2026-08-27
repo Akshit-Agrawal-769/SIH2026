@@ -13,4 +13,18 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('three')) return 'three';
+            if (id.includes('plotly')) return 'plotly';
+            return 'vendor';
+          }
+        },
+      },
+    },
+  },
 });
