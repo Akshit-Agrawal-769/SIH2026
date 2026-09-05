@@ -20,6 +20,10 @@ import pandas as pd
 import gsw
 import netCDF4
 from app.core.config import settings
+from app.core.metrics import (
+    argoprofile_cache_size, argoprofile_cache_hits, argoprofile_cache_misses,
+    profile_parsing_duration, parsing_errors_total
+)
 
 logger = logging.getLogger(__name__)
 
@@ -592,6 +596,44 @@ class InSituStore:
 
         return results[skip : skip + limit]
 
+    def _resolve_platform_file_path(self, wmo_str: str, target_cycle: int, plat: Optional[Dict[str, Any]]) -> Optional[str]:
+        """
+        Resolves the file path for a platform and cycle using a deterministic strategy.
+        Priority: 1) Indexed cycle_files, 2) Indexed trajectory, 3) Indexed files_dir, 4) Recursive glob search.
+        """
+        # Strategy 1: Use indexed cycle_files mapping
+        if plat:
+            cycle_files = plat.get("cycle_files", {})
+            rel_path = cycle_files.get(str(target_cycle)) or cycle_files.get(target_cycle)
+            if rel_path:
+                return os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
+
+        # Strategy 2: Use indexed trajectory information
+        if plat:
+            for t in plat.get("trajectory", []):
+                if t.get("cycle_number") == target_cycle and t.get("file_rel_path"):
+                    rel_path = t["file_rel_path"]
+                    return os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
+
+        # Strategy 3: Use indexed files_dir (single file or directory)
+        if plat:
+            fdir = plat.get("files_dir")
+            if fdir:
+                full_fdir = os.path.join(PROJECT_ROOT, fdir) if not os.path.isabs(fdir) else fdir
+                if os.path.isfile(full_fdir):
+                    return full_fdir
+                elif os.path.isdir(full_fdir):
+                    candidates = glob.glob(os.path.join(full_fdir, f"*{target_cycle:03d}*.nc")) or glob.glob(os.path.join(full_fdir, f"*{target_cycle}*.nc"))
+                    if candidates:
+                        return candidates[0]
+
+        # Strategy 4: Fallback recursive glob search in datasets directory
+        candidates = glob.glob(os.path.join(self.datasets_dir, "**", f"*{wmo_str}*.nc"), recursive=True)
+        if candidates:
+            return candidates[0]
+
+        return None
+
     def get_profile(
         self,
         platform_number: str,
@@ -606,6 +648,7 @@ class InSituStore:
         wmo_str = str(platform_number).strip().split()[0]
         plat = self._platforms_index.get(wmo_str)
 
+        # Fuzzy matching for platform number (handles partial matches)
         if not plat:
             for k, p in self._platforms_index.items():
                 if k == wmo_str or k.endswith(wmo_str) or wmo_str.endswith(k):
@@ -613,6 +656,7 @@ class InSituStore:
                     wmo_str = k
                     break
 
+        # If platform not in index, try to discover from filesystem
         if not plat:
             cand = glob.glob(os.path.join(self.argo_dir, f"*{wmo_str}*.nc"))
             if cand:
@@ -636,53 +680,37 @@ class InSituStore:
         cache_key = f"{wmo_str}:{target_cycle}:{filter_qc}"
         if cache_key in self._lru_profile_cache:
             self._lru_profile_cache.move_to_end(cache_key)
+            argoprofile_cache_hits.inc()
+            argoprofile_cache_size.set(len(self._lru_profile_cache))
             return self._lru_profile_cache[cache_key]
 
-        cycle_files = plat.get("cycle_files", {})
-        rel_path = cycle_files.get(str(target_cycle)) or cycle_files.get(target_cycle)
+        argoprofile_cache_misses.inc()
 
-        if not rel_path:
-            for t in plat.get("trajectory", []):
-                if t.get("cycle_number") == target_cycle and t.get("file_rel_path"):
-                    rel_path = t["file_rel_path"]
-                    break
+        # Resolve file path using deterministic strategy
+        full_file_path = self._resolve_platform_file_path(wmo_str, target_cycle, plat)
 
-        if not rel_path:
-            fdir = plat.get("files_dir")
-            if fdir:
-                full_fdir = os.path.join(PROJECT_ROOT, fdir) if not os.path.isabs(fdir) else fdir
-                if os.path.isfile(full_fdir):
-                    rel_path = fdir
-                elif os.path.isdir(full_fdir):
-                    candidates = glob.glob(os.path.join(full_fdir, f"*{target_cycle:03d}*.nc")) or glob.glob(os.path.join(full_fdir, f"*{target_cycle}*.nc"))
-                    if candidates:
-                        rel_path = os.path.relpath(candidates[0], PROJECT_ROOT)
-
-        if not rel_path:
-            candidates = glob.glob(os.path.join(self.datasets_dir, "**", f"*{wmo_str}*.nc"), recursive=True)
-            if candidates:
-                rel_path = os.path.relpath(candidates[0], PROJECT_ROOT)
-
-        if not rel_path:
+        if not full_file_path:
+            logger.warning(f"File path not found for platform {wmo_str} cycle {target_cycle}")
             return None
 
-        full_file_path = os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
-
         try:
-            profile = ArgoAdapter.parse_profile_from_file(
-                file_path=full_file_path,
-                target_cycle=target_cycle,
-                filter_qc=filter_qc
-            )
+            with profile_parsing_duration.time():
+                profile = ArgoAdapter.parse_profile_from_file(
+                    file_path=full_file_path,
+                    target_cycle=target_cycle,
+                    filter_qc=filter_qc
+                )
 
             if len(self._lru_profile_cache) >= self.cache_size:
                 self._lru_profile_cache.popitem(last=False)
 
             self._lru_profile_cache[cache_key] = profile
+            argoprofile_cache_size.set(len(self._lru_profile_cache))
             return profile
 
         except Exception as e:
             logger.error(f"Error reading profile for {wmo_str} cycle {target_cycle}: {e}")
+            parsing_errors_total.labels(error_type=type(e).__name__, source='insitu_store').inc()
             return None
 
     def reload(self):
