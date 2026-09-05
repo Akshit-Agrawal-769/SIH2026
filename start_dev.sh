@@ -2,7 +2,7 @@
 # INCOIS 3D Ocean Data Visualization Platform Startup Script (SIH 2026 PS 26067)
 set -e
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "========================================================"
 echo "  INCOIS 3D OCEAN DATA VISUALIZATION SYSTEM (PS 26067)  "
@@ -18,6 +18,7 @@ cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 echo "[1/2] Starting Scientific Backend on http://localhost:8000..."
+source "$ROOT_DIR/.venv/bin/activate"
 cd "$ROOT_DIR/backend"
 python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 
