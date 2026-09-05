@@ -4,6 +4,11 @@ import cesium from 'vite-plugin-cesium';
 
 export default defineConfig({
   plugins: [react(), cesium()],
+  resolve: {
+    alias: {
+      'satellite.js': '/src/utils/satellite-pure.js',
+    },
+  },
   server: {
     port: 3000,
     host: true,

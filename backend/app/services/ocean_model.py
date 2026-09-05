@@ -54,6 +54,7 @@ VAR_ALIASES = {
     "w": ["w", "w_velocity"],
     "chl": ["chl", "chla", "chlorophyll", "CHLA", "CHL", "Sea_surface_chlorophyll_concentration"],
     "mld": ["mld", "mlotst", "MLD", "mixed_layer_depth", "Mixed_layer_depth"],
+    "ssh": ["ssh", "zo", "zos", "zeta", "sea_surface_height", "SSH", "ZETA", "ZO"],
     "dic": ["dic", "DIC", "dissolved_inorganic_carbon", "Sea_surface_dissolved_inorganic_carbon"],
     "no3": ["no3", "NO3", "nitrate", "Sea_surface_nitrate_concentration"],
     "pco2": ["pco2", "pCO2", "pCO2_Original", "pCO2_Int", "pCO2_Clim", "Surface_partial_pressure_of_CO2"],
@@ -714,6 +715,15 @@ class OceanModelRegistry:
             for f in files:
                 models.add(os.path.basename(f))
 
+        # Check datasets root directory for model files (e.g. cmems.nc, INCOIS-BIO-ROMS.nc)
+        if os.path.exists(self.datasets_dir):
+            root_files = glob.glob(os.path.join(self.datasets_dir, "*.nc")) + glob.glob(os.path.join(self.datasets_dir, "*.nc4"))
+            for f in root_files:
+                base = os.path.basename(f)
+                # Exclude in-situ observation files like indian_agro.nc
+                if not ("agro" in base.lower() or "argo" in base.lower()):
+                    models.add(base)
+
         # Check configurable OCEAN_DATASET_PATH
         if settings.OCEAN_DATASET_PATH and os.path.exists(settings.OCEAN_DATASET_PATH):
             models.add(os.path.basename(settings.OCEAN_DATASET_PATH))
@@ -735,15 +745,20 @@ class OceanModelRegistry:
         if os.path.exists(path1):
             return path1
 
-        # 2. Check OCEAN_DATASET_PATH
+        # 2. Check datasets/ root directly
+        path2 = os.path.abspath(os.path.join(self.datasets_dir, safe_filename))
+        if os.path.exists(path2):
+            return path2
+
+        # 3. Check OCEAN_DATASET_PATH
         if settings.OCEAN_DATASET_PATH and os.path.basename(settings.OCEAN_DATASET_PATH) == safe_filename:
             if os.path.exists(settings.OCEAN_DATASET_PATH):
                 return os.path.abspath(settings.OCEAN_DATASET_PATH)
 
-        # 3. Check workspace root
-        path3 = os.path.abspath(os.path.join(self.datasets_dir, "..", safe_filename))
-        if os.path.exists(path3):
-            return path3
+        # 4. Check workspace root
+        path4 = os.path.abspath(os.path.join(self.datasets_dir, "..", safe_filename))
+        if os.path.exists(path4):
+            return path4
 
         return None
 

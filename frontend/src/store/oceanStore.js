@@ -681,19 +681,12 @@ export const useOceanStore = create((set, get) => ({
         console.warn('Model datasets unreachable:', e);
       }
 
-      // 3. Argo in-situ floats
+      // 3. Argo in-situ floats and source providers
       try {
-        const argoRes = await fetch(`${API_BASE}/api/v1/observations/argo`);
-        if (argoRes.ok) {
-          const argoData = await argoRes.json();
-          const argoFloats = Array.isArray(argoData) ? argoData : [];
-          set({ argoFloats });
-          if (argoFloats.length > 0) {
-            set({ selectedFloat: argoFloats[0], selectedCycle: argoFloats[0].cycles?.[0] || null });
-          }
-        }
+        await get().fetchArgoSources();
+        await get().fetchArgoFloats();
       } catch (e) {
-        console.warn('Argo floats unreachable:', e);
+        console.warn('Argo observations unreachable:', e);
       }
 
       if (datasets.length > 0) {
@@ -894,7 +887,8 @@ export const useOceanStore = create((set, get) => ({
   selectFloat: async (float) => {
     if (!float) return;
     const firstCycle = float.cycles?.[0] ?? float.latest_cycle ?? null;
-    const isCoriolis = String(float.source || '').toLowerCase() === 'coriolis' || String(float.dac || '').toLowerCase().includes('coriolis');
+    const src = String(float.source || 'argo').toLowerCase();
+    const dacName = float.dac || (src === 'coriolis' ? 'Coriolis / Euro-Argo GDAC' : (src === 'incois' ? 'INCOIS Ocean Observing Array' : `${src.toUpperCase()} Data Assembly Centre`));
     set({
       selectedFloat: float,
       selectedCycle: firstCycle,
@@ -902,11 +896,11 @@ export const useOceanStore = create((set, get) => ({
       selectedEntity: {
         type: 'float',
         id: float.platform_number,
-        title: `${isCoriolis ? 'Coriolis / Euro-Argo' : 'INCOIS Argo'} Float ${float.platform_number}`,
+        title: `${src.toUpperCase()} Argo Float ${float.platform_number}`,
         subtitle: `Autonomous CTD Profiler (${float.profiles_count} Recorded Cycles)`,
-        coordinates: `${float.latest_position.latitude.toFixed(2)}°N, ${float.latest_position.longitude.toFixed(2)}°E`,
-        details: `${float.dac || 'Coriolis GDAC'} Quality Controlled Data (TEOS-10 Calibrated)`,
-        source: isCoriolis ? 'Coriolis / Euro-Argo GDAC (Ifremer)' : 'INCOIS Ocean Observing Array',
+        coordinates: `${float.latest_position?.latitude?.toFixed(2) ?? 0}°N, ${float.latest_position?.longitude?.toFixed(2) ?? 0}°E`,
+        details: `${dacName} Quality Controlled Data (TEOS-10 Calibrated)`,
+        source: dacName,
         description: 'Conductivity-Temperature-Depth autonomous robotic profiler sampling from 2000m depth to surface every 10 days.',
       },
     });
