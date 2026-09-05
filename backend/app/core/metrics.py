@@ -98,16 +98,5 @@ def update_system_info(version: str, datasets_dir: str):
 
 def get_instrumentator() -> Instrumentator:
     """Get configured Prometheus instrumentator for FastAPI."""
-    instrumentator = Instrumentator(
-        should_group_status_codes=False,
-        should_ignore_untemplated=True,
-        should_group_untemplated=True,
-        should_instrument_requests_inprogress=True,
-        should_instrument_requests_latency=True,
-        should_instrument_requests_defaults=True,
-        excluded_handlers=["/metrics", "/health", "/api/v1/health"],
-        env_var_name="METRICS_ENABLED",
-        inprogress_name="http_requests_inprogress",
-        inprogress_labels=True,
-    )
+    instrumentator = Instrumentator()
     return instrumentator

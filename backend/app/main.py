@@ -38,7 +38,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # Configure Prometheus metrics
 instrumentator = get_instrumentator()
-instrumentator.instrument(app).expose(app, endpoint="/metrics", include_in_doc=False)
+instrumentator.instrument(app).expose(app, endpoint="/metrics")
 
 def cleanup_resources():
     """Cleanup resources on shutdown."""
