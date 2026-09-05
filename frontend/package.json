@@ -10,11 +10,19 @@
     "test": "node test/geography.test.js"
   },
   "dependencies": {
+    "@mapbox/vector-tile": "^3.0.0",
+    "cesium": "^1.145.0",
+    "egm96-universal": "^1.1.1",
+    "lucide-react": "^1.41.0",
+    "mgrs": "^2.2.0",
+    "pbf": "^5.1.2",
     "plotly.js-dist-min": "^2.28.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-plotly.js": "^2.6.0",
+    "satellite.js": "^7.1.0",
     "three": "^0.160.0",
+    "vite-plugin-cesium": "^1.2.23",
     "zustand": "^4.5.0"
   },
   "devDependencies": {

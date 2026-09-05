@@ -56,3 +56,4 @@ htmlcov/
 .env.local
 *.log
 logs/
+project_code.zip

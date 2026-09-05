@@ -68,7 +68,7 @@ export const WorkspacesPanel = () => {
   ];
 
   return (
-    <aside className="absolute right-3 md:right-4 top-12 md:top-14 z-30 w-72 md:w-80 glass-panel rounded-xl text-white/90 select-none overflow-hidden flex flex-col shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+    <aside className="absolute right-3 md:right-4 top-32 md:top-36 z-30 w-72 md:w-80 glass-panel rounded-xl text-white/90 select-none overflow-hidden flex flex-col shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
       {/* Header */}
       <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/[0.06] bg-black/20">
         <div className="flex items-center gap-2">

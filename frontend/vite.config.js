@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import cesium from 'vite-plugin-cesium';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), cesium()],
   server: {
     port: 3000,
     host: true,
@@ -13,7 +14,16 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'esnext'
+    }
+  },
+  esbuild: {
+    target: 'esnext'
+  },
   build: {
+    target: 'esnext',
     chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
