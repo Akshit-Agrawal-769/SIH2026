@@ -20,6 +20,10 @@ import pandas as pd
 from scipy.interpolate import RegularGridInterpolator
 from scipy.spatial import cKDTree
 from app.core.config import settings
+from app.core.metrics import (
+    model_cache_size, model_cache_hits, model_cache_misses,
+    volume_extraction_duration
+)
 
 
 class ModelVerticalCoordinateMissing(ValueError):
@@ -465,197 +469,197 @@ class OceanModel:
         for WebGL2 Data3DTexture (with -1.0 for NaN cells), and returns Float32 byte buffer
         along with physical coordinate metadata.
         """
-        cache_key = (variable, time_idx, target_shape, tuple(sorted(spatial_bounds.items())) if spatial_bounds else None)
-        if cache_key in self._volume_cache:
-            self._volume_cache.move_to_end(cache_key)
-            return self._volume_cache[cache_key]
+        with volume_extraction_duration.labels(variable=variable).time():
+            cache_key = (variable, time_idx, target_shape, tuple(sorted(spatial_bounds.items())) if spatial_bounds else None)
+            if cache_key in self._volume_cache:
+                self._volume_cache.move_to_end(cache_key)
+                return self._volume_cache[cache_key]
 
-        ds = self._ds
-        var_key = self.resolve_variable_name(variable)
-        if not var_key:
-            return None
+            ds = self._ds
+            var_key = self.resolve_variable_name(variable)
+            if not var_key:
+                return None
 
-        da = ds[var_key]
+            da = ds[var_key]
 
-        # 1. Lazy time dimension selection (avoids decompressing all time chunks)
-        t_dim = next((k for k in ["time", "ocean_time", "time_counter", "TIME", "Time"] if k in da.dims), None)
-        if t_dim and t_dim in da.dims:
-            t_len = da.sizes[t_dim]
-            valid_time_idx = min(max(0, time_idx), t_len - 1)
-            da_sub = da.isel({t_dim: valid_time_idx})
-        else:
-            valid_time_idx = 0
-            da_sub = da
+            # 1. Lazy time dimension selection (avoids decompressing all time chunks)
+            t_dim = next((k for k in ["time", "ocean_time", "time_counter", "TIME", "Time"] if k in da.dims), None)
+            if t_dim and t_dim in da.dims:
+                t_len = da.sizes[t_dim]
+                valid_time_idx = min(max(0, time_idx), t_len - 1)
+                da_sub = da.isel({t_dim: valid_time_idx})
+            else:
+                valid_time_idx = 0
+                da_sub = da
 
-        # 2. Optional Spatial Subsetting before materialization
-        if spatial_bounds and self.lat_key in da_sub.dims and self.lon_key in da_sub.dims:
-            min_lon = spatial_bounds.get("min_lon")
-            max_lon = spatial_bounds.get("max_lon")
-            min_lat = spatial_bounds.get("min_lat")
-            max_lat = spatial_bounds.get("max_lat")
-            
-            lats = ds[self.lat_key].values
-            lons = ds[self.lon_key].values
-            lat_slice = slice(min_lat, max_lat) if lats[0] < lats[-1] else slice(max_lat, min_lat)
-            lon_slice = slice(min_lon, max_lon) if lons[0] < lons[-1] else slice(max_lon, min_lon)
-            da_sub = da_sub.sel({self.lat_key: lat_slice, self.lon_key: lon_slice})
+            # 2. Optional Spatial Subsetting before materialization
+            if spatial_bounds and self.lat_key in da_sub.dims and self.lon_key in da_sub.dims:
+                min_lon = spatial_bounds.get("min_lon")
+                max_lon = spatial_bounds.get("max_lon")
+                min_lat = spatial_bounds.get("min_lat")
+                max_lat = spatial_bounds.get("max_lat")
 
-        raw_data = da_sub.values.astype(np.float32)
+                lats = ds[self.lat_key].values
+                lons = ds[self.lon_key].values
+                lat_slice = slice(min_lat, max_lat) if lats[0] < lats[-1] else slice(max_lat, min_lat)
+                lon_slice = slice(min_lon, max_lon) if lons[0] < lons[-1] else slice(max_lat, min_lon)
+                da_sub = da_sub.sel({self.lat_key: lat_slice, self.lon_key: lon_slice})
 
-        # Spatial Bounds
-        min_lon = float(np.nanmin(ds[self.lon_key].values)) if self.lon_key else 0.0
-        max_lon = float(np.nanmax(ds[self.lon_key].values)) if self.lon_key else 1.0
-        min_lat = float(np.nanmin(ds[self.lat_key].values)) if self.lat_key else 0.0
-        max_lat = float(np.nanmax(ds[self.lat_key].values)) if self.lat_key else 1.0
+            raw_data = da_sub.values.astype(np.float32)
 
-        # Physical Vertical Depth Bounds
-        min_depth = 0.0
-        max_depth = 2000.0
-        if self.is_native_s and "s_rho" in ds and "Cs_r" in ds and "h" in ds and "hc" in ds and "Vtransform" in ds:
-            s_rho = ds["s_rho"].values
-            Cs_r = ds["Cs_r"].values
-            hc = float(ds["hc"].values)
-            Vtransform = int(ds["Vtransform"].values)
-            h_max = float(np.nanmax(ds["h"].values))
+            # Spatial Bounds
+            min_lon = float(np.nanmin(ds[self.lon_key].values)) if self.lon_key else 0.0
+            max_lon = float(np.nanmax(ds[self.lon_key].values)) if self.lon_key else 1.0
+            min_lat = float(np.nanmin(ds[self.lat_key].values)) if self.lat_key else 0.0
+            max_lat = float(np.nanmax(ds[self.lat_key].values)) if self.lat_key else 1.0
 
-            zeta_val = 0.0
-            zeta_key = next((k for k in ["zeta", "ssh", "zo"] if k in ds or k in da_sub.coords), None)
-            if zeta_key:
+            # Physical Vertical Depth Bounds
+            min_depth = 0.0
+            max_depth = 2000.0
+            if self.is_native_s and "s_rho" in ds and "Cs_r" in ds and "h" in ds and "hc" in ds and "Vtransform" in ds:
+                s_rho = ds["s_rho"].values
+                Cs_r = ds["Cs_r"].values
+                hc = float(ds["hc"].values)
+                Vtransform = int(ds["Vtransform"].values)
+                h_max = float(np.nanmax(ds["h"].values))
+
+                zeta_val = 0.0
+                zeta_key = next((k for k in ["zeta", "ssh", "zo"] if k in ds or k in da_sub.coords), None)
+                if zeta_key:
+                    try:
+                        zeta_da = ds[zeta_key]
+                        z_tdim = next((k for k in ["time", "ocean_time", "time_counter", "TIME", "Time"] if k in zeta_da.dims), None)
+                        if z_tdim and z_tdim in zeta_da.dims:
+                            z_t_idx = min(max(0, time_idx), zeta_da.sizes[z_tdim] - 1)
+                            zeta_da = zeta_da.isel({z_tdim: z_t_idx})
+                        zeta_val = float(np.nanmean(zeta_da.values))
+                    except Exception:
+                        zeta_val = 0.0
+
+                z_bottom = calculate_roms_vertical_depths(s_rho[0], Cs_r[0], h_max, hc, zeta=zeta_val, Vtransform=Vtransform)
+                z_surface = calculate_roms_vertical_depths(s_rho[-1], Cs_r[-1], h_max, hc, zeta=zeta_val, Vtransform=Vtransform)
+                min_depth = abs(float(z_surface))
+                max_depth = abs(float(z_bottom))
+            elif self.depth_key and self.depth_key in ds:
+                depth_vals = np.abs(ds[self.depth_key].values.flatten())
+                min_depth = float(np.nanmin(depth_vals))
+                max_depth = float(np.nanmax(depth_vals))
+            elif "MLD" in ds:
+                # For 2D surface datasets with MLD variable, use physical MLD scale
                 try:
-                    zeta_da = ds[zeta_key]
-                    z_tdim = next((k for k in ["time", "ocean_time", "time_counter", "TIME", "Time"] if k in zeta_da.dims), None)
-                    if z_tdim and z_tdim in zeta_da.dims:
-                        z_t_idx = min(max(0, time_idx), zeta_da.sizes[z_tdim] - 1)
-                        zeta_da = zeta_da.isel({z_tdim: z_t_idx})
-                    zeta_val = float(np.nanmean(zeta_da.values))
+                    mld_vals = ds["MLD"].isel(TIME=valid_time_idx).values
+                    max_depth = float(np.nanmax(mld_vals)) if np.any(~np.isnan(mld_vals)) else 200.0
                 except Exception:
-                    zeta_val = 0.0
+                    max_depth = 200.0
 
-            z_bottom = calculate_roms_vertical_depths(s_rho[0], Cs_r[0], h_max, hc, zeta=zeta_val, Vtransform=Vtransform)
-            z_surface = calculate_roms_vertical_depths(s_rho[-1], Cs_r[-1], h_max, hc, zeta=zeta_val, Vtransform=Vtransform)
-            min_depth = abs(float(z_surface))
-            max_depth = abs(float(z_bottom))
-        elif self.depth_key and self.depth_key in ds:
-            depth_vals = np.abs(ds[self.depth_key].values.flatten())
-            min_depth = float(np.nanmin(depth_vals))
-            max_depth = float(np.nanmax(depth_vals))
-        elif "MLD" in ds:
-            # For 2D surface datasets with MLD variable, use physical MLD scale
-            try:
-                mld_vals = ds["MLD"].isel(TIME=valid_time_idx).values
-                max_depth = float(np.nanmax(mld_vals)) if np.any(~np.isnan(mld_vals)) else 200.0
-            except Exception:
-                max_depth = 200.0
+            # Reshape/Interpolate to target 3D texture shape (Z, Y, X)
+            nx_tgt, ny_tgt, nz_tgt = target_shape[0], target_shape[1], target_shape[2]
 
-        # Reshape/Interpolate to target 3D texture shape (Z, Y, X)
-        nx_tgt, ny_tgt, nz_tgt = target_shape[0], target_shape[1], target_shape[2]
+            shape = raw_data.shape
+            if len(shape) == 3:
+                nz_curr, ny_curr, nx_curr = shape
+                z_in = np.linspace(0, 1, nz_curr)
+                y_in = np.linspace(0, 1, ny_curr)
+                x_in = np.linspace(0, 1, nx_curr)
 
-        shape = raw_data.shape
-        if len(shape) == 3:
-            nz_curr, ny_curr, nx_curr = shape
-            z_in = np.linspace(0, 1, nz_curr)
-            y_in = np.linspace(0, 1, ny_curr)
-            x_in = np.linspace(0, 1, nx_curr)
+                valid_raw = raw_data[~np.isnan(raw_data)]
+                if len(valid_raw) == 0:
+                    return None
+                fill_val = float(np.mean(valid_raw))
 
-            valid_raw = raw_data[~np.isnan(raw_data)]
-            if len(valid_raw) == 0:
-                return None
-            fill_val = float(np.mean(valid_raw))
+                raw_data_filled = np.nan_to_num(raw_data, nan=fill_val)
+                interp = RegularGridInterpolator(
+                    (z_in, y_in, x_in), raw_data_filled, bounds_error=False, fill_value=fill_val
+                )
 
-            raw_data_filled = np.nan_to_num(raw_data, nan=fill_val)
-            interp = RegularGridInterpolator(
-                (z_in, y_in, x_in), raw_data_filled, bounds_error=False, fill_value=fill_val
-            )
+                z_out = np.linspace(0, 1, nz_tgt)
+                y_out = np.linspace(0, 1, ny_tgt)
+                x_out = np.linspace(0, 1, nx_tgt)
 
-            z_out = np.linspace(0, 1, nz_tgt)
-            y_out = np.linspace(0, 1, ny_tgt)
-            x_out = np.linspace(0, 1, nx_tgt)
+                grid_z, grid_y, grid_x = np.meshgrid(z_out, y_out, x_out, indexing="ij")
+                vol_interp = interp((grid_z, grid_y, grid_x)).astype(np.float32)
 
-            grid_z, grid_y, grid_x = np.meshgrid(z_out, y_out, x_out, indexing="ij")
-            vol_interp = interp((grid_z, grid_y, grid_x)).astype(np.float32)
+                # Preserve NaNs accurately from the source grid
+                nan_interp = RegularGridInterpolator(
+                    (z_in, y_in, x_in), np.isnan(raw_data).astype(np.float32), bounds_error=False, fill_value=1.0
+                )
+                nan_grid = nan_interp((grid_z, grid_y, grid_x)) > 0.5
+                vol_interp[nan_grid] = np.nan
 
-            # Preserve NaNs accurately from the source grid
-            nan_interp = RegularGridInterpolator(
-                (z_in, y_in, x_in), np.isnan(raw_data).astype(np.float32), bounds_error=False, fill_value=1.0
-            )
-            nan_grid = nan_interp((grid_z, grid_y, grid_x)) > 0.5
-            vol_interp[nan_grid] = np.nan
+            elif len(shape) == 2:
+                # 2D Surface fields (e.g. SST, SSS, CHL, MLD, pCO2)
+                ny_curr, nx_curr = shape
+                y_in = np.linspace(0, 1, ny_curr)
+                x_in = np.linspace(0, 1, nx_curr)
 
-        elif len(shape) == 2:
-            # 2D Surface fields (e.g. SST, SSS, CHL, MLD, pCO2)
-            ny_curr, nx_curr = shape
-            y_in = np.linspace(0, 1, ny_curr)
-            x_in = np.linspace(0, 1, nx_curr)
+                valid_raw = raw_data[~np.isnan(raw_data)]
+                if len(valid_raw) == 0:
+                    return None
+                fill_val = float(np.mean(valid_raw))
 
-            valid_raw = raw_data[~np.isnan(raw_data)]
-            if len(valid_raw) == 0:
-                return None
-            fill_val = float(np.mean(valid_raw))
+                raw_data_filled = np.nan_to_num(raw_data, nan=fill_val)
+                interp_2d = RegularGridInterpolator(
+                    (y_in, x_in), raw_data_filled, bounds_error=False, fill_value=fill_val
+                )
 
-            raw_data_filled = np.nan_to_num(raw_data, nan=fill_val)
-            interp_2d = RegularGridInterpolator(
-                (y_in, x_in), raw_data_filled, bounds_error=False, fill_value=fill_val
-            )
+                y_out = np.linspace(0, 1, ny_tgt)
+                x_out = np.linspace(0, 1, nx_tgt)
+                grid_y, grid_x = np.meshgrid(y_out, x_out, indexing="ij")
+                slice_2d = interp_2d((grid_y, grid_x)).astype(np.float32)
 
-            y_out = np.linspace(0, 1, ny_tgt)
-            x_out = np.linspace(0, 1, nx_tgt)
-            grid_y, grid_x = np.meshgrid(y_out, x_out, indexing="ij")
-            slice_2d = interp_2d((grid_y, grid_x)).astype(np.float32)
+                nan_interp_2d = RegularGridInterpolator(
+                    (y_in, x_in), np.isnan(raw_data).astype(np.float32), bounds_error=False, fill_value=1.0
+                )
+                nan_mask_2d = nan_interp_2d((grid_y, grid_x)) > 0.5
+                slice_2d[nan_mask_2d] = np.nan
 
-            nan_interp_2d = RegularGridInterpolator(
-                (y_in, x_in), np.isnan(raw_data).astype(np.float32), bounds_error=False, fill_value=1.0
-            )
-            nan_mask_2d = nan_interp_2d((grid_y, grid_x)) > 0.5
-            slice_2d[nan_mask_2d] = np.nan
+                # Extrude 2D surface field along vertical dimension (Z, Y, X)
+                vol_interp = np.repeat(slice_2d[np.newaxis, :, :], nz_tgt, axis=0)
+            else:
+                vol_interp = np.zeros((nz_tgt, ny_tgt, nx_tgt), dtype=np.float32)
 
-            # Extrude 2D surface field along vertical dimension (Z, Y, X)
-            vol_interp = np.repeat(slice_2d[np.newaxis, :, :], nz_tgt, axis=0)
+            nan_mask = np.isnan(vol_interp)
+            has_nan = bool(np.any(nan_mask))
+            valid_mask = ~nan_mask
 
-        else:
-            vol_interp = np.zeros((nz_tgt, ny_tgt, nx_tgt), dtype=np.float32)
+            min_val = float(np.min(vol_interp[valid_mask])) if np.any(valid_mask) else 0.0
+            max_val = float(np.max(vol_interp[valid_mask])) if np.any(valid_mask) else 1.0
 
-        nan_mask = np.isnan(vol_interp)
-        has_nan = bool(np.any(nan_mask))
-        valid_mask = ~nan_mask
+            if max_val == min_val:
+                max_val += 1e-5
 
-        min_val = float(np.min(vol_interp[valid_mask])) if np.any(valid_mask) else 0.0
-        max_val = float(np.max(vol_interp[valid_mask])) if np.any(valid_mask) else 1.0
+            vol_norm = np.clip((vol_interp - min_val) / (max_val - min_val), 0.0, 1.0).astype(np.float32)
+            vol_norm[nan_mask] = -1.0
 
-        if max_val == min_val:
-            max_val += 1e-5
+            buffer = vol_norm.tobytes()
 
-        vol_norm = np.clip((vol_interp - min_val) / (max_val - min_val), 0.0, 1.0).astype(np.float32)
-        vol_norm[nan_mask] = -1.0
+            metadata = {
+                "min_val": min_val,
+                "max_val": max_val,
+                "dim_x": nx_tgt,
+                "dim_y": ny_tgt,
+                "dim_z": nz_tgt,
+                "min_lon": min_lon,
+                "max_lon": max_lon,
+                "min_lat": min_lat,
+                "max_lat": max_lat,
+                "min_depth": min_depth,
+                "max_depth": max_depth,
+                "variable": variable,
+                "units": da.attrs.get("units", ""),
+                "long_name": da.attrs.get("long_name", variable),
+                "has_nan": has_nan,
+                "nan_value": -1.0,
+            }
 
-        buffer = vol_norm.tobytes()
+            result = (buffer, metadata)
 
-        metadata = {
-            "min_val": min_val,
-            "max_val": max_val,
-            "dim_x": nx_tgt,
-            "dim_y": ny_tgt,
-            "dim_z": nz_tgt,
-            "min_lon": min_lon,
-            "max_lon": max_lon,
-            "min_lat": min_lat,
-            "max_lat": max_lat,
-            "min_depth": min_depth,
-            "max_depth": max_depth,
-            "variable": variable,
-            "units": da.attrs.get("units", ""),
-            "long_name": da.attrs.get("long_name", variable),
-            "has_nan": has_nan,
-            "nan_value": -1.0,
-        }
+            # Update bounded LRU cache
+            if len(self._volume_cache) >= self._max_cache_size:
+                self._volume_cache.popitem(last=False)
+            self._volume_cache[cache_key] = result
 
-        result = (buffer, metadata)
-
-        # Update bounded LRU cache
-        if len(self._volume_cache) >= self._max_cache_size:
-            self._volume_cache.popitem(last=False)
-        self._volume_cache[cache_key] = result
-
-        return result
+            return result
 
     def extract_slice_buffer(
         self,
@@ -750,14 +754,18 @@ class OceanModelRegistry:
 
         if path in self._cache:
             self._cache.move_to_end(path)
+            model_cache_hits.inc()
+            model_cache_size.set(len(self._cache))
             return self._cache[path]
 
+        model_cache_misses.inc()
         model = OceanModel(path)
         if len(self._cache) >= self._max_cache_size:
             oldest_path, oldest_model = self._cache.popitem(last=False)
             oldest_model.close()
-            
+
         self._cache[path] = model
+        model_cache_size.set(len(self._cache))
         return model
 
 
