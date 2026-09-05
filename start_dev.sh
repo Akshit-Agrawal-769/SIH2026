@@ -25,8 +25,12 @@ cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 # 3. Start Backend
+if [ -f "$ROOT_DIR/venv/bin/activate" ]; then
+    source "$ROOT_DIR/venv/bin/activate"
+elif [ -f "$ROOT_DIR/.venv/bin/activate" ]; then
+    source "$ROOT_DIR/.venv/bin/activate"
+fi
 echo "[1/2] Starting Scientific Backend on http://localhost:8000..."
-source "$ROOT_DIR/.venv/bin/activate"
 cd "$ROOT_DIR/backend"
 python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
