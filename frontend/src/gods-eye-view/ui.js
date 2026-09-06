@@ -3328,66 +3328,26 @@ export class StyleManager {
       btn.addEventListener('click', () => this.setStyle(btn.dataset.style));
     });
 
-    // Keyboard shortcuts: 1-7, H, Escape
+    // Keyboard shortcuts: 1-7, H, Escape (disabled in clean scientific mode)
     this._globalKeydownHandler = (e) => {
-      // Ignore when interacting with a form control (except Escape). Global
-      // hotkeys ('1'-'7', 'h', 'o', 'v', 'd', 'c', 'f') otherwise fire while a
-      // <select> dropdown (e.g. HUD layout) is focused and its native
-      // type-ahead is in use, or while typing in a text field (M9).
-      const isFormControl = e.target?.matches?.('select, input, textarea')
-        || e.target === this._locationSearch;
-      if (isFormControl && e.key !== 'Escape') return;
-
-      const keyMap = {
-        '1': 'normal', '2': 'retro', '3': 'surveillance',
-        '4': 'thermal', '5': 'anime', '6': 'noir',
-        '7': 'snow',
-      };
-      if (keyMap[e.key]) this.setStyle(keyMap[e.key]);
-      if (e.key === 'Escape') {
-        if (this._locationSearch.classList.contains('expanded')) {
-          this._locationSearch.classList.remove('expanded');
-          this._locationSearch.value = '';
-          this._locationSearch.blur();
-        }
-      }
-      if (e.key.toLowerCase() === 'h') {
-        this.shareLinkManager?.claimRestoreLane?.('visual');
-        this.hud.toggle();
-        this._updateHudButtonState();
-        this._syncShareState();
-      }
-      if (e.key.toLowerCase() === 'o') this._toggleOrbit();
-      if (e.key.toLowerCase() === 'v') this.toggleCleanView();
-      if (e.key.toLowerCase() === 'f') {
-        document.getElementById('data-panel').classList.toggle('active');
-      }
-      if (e.key.toLowerCase() === 'd') {
-        this.shareLinkManager?.claimRestoreLane?.('visual');
-        this._detectionUserOverridden = true;
-        cycleDetectionMode();
-        this._syncShareState();
-      }
-      if (e.key.toLowerCase() === 'c') {
-        this._toggleCctvEnabled();
-      }
+      return;
     };
     document.addEventListener('keydown', this._globalKeydownHandler);
 
     // Bloom toggle
-    this._bloomBtn.addEventListener('click', () => {
+    this._bloomBtn?.addEventListener('click', () => {
       this.shareLinkManager?.claimRestoreLane?.('visual');
       this._setBloomEnabled(!this.bloomEnabled);
     });
 
     // Bloom intensity slider
-    this._bloomSlider.addEventListener('input', () => {
+    this._bloomSlider?.addEventListener('input', () => {
       this.shareLinkManager?.claimRestoreLane?.('visual');
       this._setBloomIntensity(parseInt(this._bloomSlider.value, 10));
     });
 
     // Sharpen toggle
-    this._sharpenBtn.addEventListener('click', () => {
+    this._sharpenBtn?.addEventListener('click', () => {
       this.shareLinkManager?.claimRestoreLane?.('visual');
       this._setSharpenEnabled(!this.sharpenEnabled);
     });

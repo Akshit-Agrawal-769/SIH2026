@@ -1,7 +1,35 @@
 /* ═══════════════════════════════════════════════
-   GOD'S EYE VIEW — Dark Sci-Fi UI
-   Apple meets Blade Runner
+   GOD'S EYE VIEW — Clean Scientific Mode
    ═══════════════════════════════════════════════ */
+
+/* Surgically suppress all non-ocean GEV tactical, cockpit, and surveillance chrome */
+#title-bar,
+#style-indicator,
+#top-center-actions,
+#global-loading-status,
+#traffic-sync-chip,
+#cctv-sync-chip,
+#safe-frame-overlay,
+#cockpit-hud,
+#view-switcher,
+#pp-toggles,
+#clean-view-exit,
+#command-dock,
+#left-panel-stack,
+#right-context-rail,
+#first-run-launcher,
+#key-setup-chip,
+#key-setup,
+#intel-hud,
+#loading-screen,
+#scope-mask,
+.scope-mask,
+#cesium-credits {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
 
 :root {
   --bg-dark: #0a0a0f;
