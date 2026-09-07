@@ -11,6 +11,7 @@ import {
   Layers,
   Settings,
   HelpCircle,
+  FlaskConical,
 } from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
@@ -131,6 +132,19 @@ export const Header = () => {
         >
           <Folder className="w-3.5 h-3.5" />
           <span>Data Catalog</span>
+        </button>
+
+        {/* Methodology */}
+        <button
+          onClick={() => handleNavClick('methodology')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-normal transition-all ${
+            activePage === 'methodology'
+              ? 'bg-[#4f23a0] text-white shadow-[0_0_12px_rgba(79,35,160,0.7)] border border-violet-400/40'
+              : 'text-slate-300 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <FlaskConical className="w-3.5 h-3.5" />
+          <span>Methodology</span>
         </button>
 
         {/* Missions */}
