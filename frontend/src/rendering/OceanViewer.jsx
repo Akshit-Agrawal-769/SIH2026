@@ -23,6 +23,7 @@ export const OceanViewer = () => {
     sliceDepthMeters,
     enableSlice,
     verticalExaggeration,
+    isLogScale,
     layers,
     cursorProbe,
     setCursorProbe,
@@ -102,8 +103,9 @@ export const OceanViewer = () => {
       sliceDepthMeters,
       enableSlice,
       verticalExaggeration,
+      isLogScale,
     });
-  }, [opacity, threshold, isoValue, renderMode, colormap, sliceDepthMeters, enableSlice, verticalExaggeration]);
+  }, [opacity, threshold, isoValue, renderMode, colormap, sliceDepthMeters, enableSlice, verticalExaggeration, isLogScale]);
 
   // Sync Environmental & Planetary Layers Visibility
   useEffect(() => {

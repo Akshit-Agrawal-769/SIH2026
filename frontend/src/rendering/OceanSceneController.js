@@ -231,6 +231,7 @@ export class OceanSceneController {
         u_stepSize: { value: 0.008 },
         u_sliceZ: { value: 0.0 },
         u_enableSlice: { value: 0 },
+        u_isLogScale: { value: 0 },
       },
     });
     this.volMesh = new THREE.Mesh(this.volGeo, this.volumeMaterial);
@@ -528,12 +529,14 @@ export class OceanSceneController {
     sliceDepthMeters,
     enableSlice,
     verticalExaggeration,
+    isLogScale,
   }) {
     if (this.volumeMaterial) {
       if (opacity !== undefined) this.volumeMaterial.uniforms.u_opacity.value = opacity;
       if (threshold !== undefined) this.volumeMaterial.uniforms.u_threshold.value = threshold;
       if (isoValue !== undefined) this.volumeMaterial.uniforms.u_isoValue.value = isoValue;
       if (renderMode !== undefined) this.volumeMaterial.uniforms.u_renderMode.value = renderMode === 'iso' ? 1 : 0;
+      if (isLogScale !== undefined) this.volumeMaterial.uniforms.u_isLogScale.value = isLogScale ? 1 : 0;
       if (colormap !== undefined) {
         const cCode = COLORMAP_CODES[colormap] || 0;
         this.volumeMaterial.uniforms.u_colormap.value = cCode;

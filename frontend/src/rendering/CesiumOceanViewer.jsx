@@ -8,7 +8,7 @@ export const CesiumOceanViewer = () => {
   const initialized = useRef(false);
 
   // Zustand bindings
-  const { viewMode, targetCoordinate, cameraAction, clearCameraAction, argoFloats, volumeData } = useOceanStore();
+  const { viewMode, targetCoordinate, cameraAction, clearCameraAction, argoFloats, volumeBuffer, volumeMeta } = useOceanStore();
 
   useEffect(() => {
     if (!mountRef.current || initialized.current) return;
@@ -105,7 +105,7 @@ export const CesiumOceanViewer = () => {
   // Sync Volume Data (Point Cloud rendering)
   useEffect(() => {
     const viewer = window.__godsEyeView?.viewer;
-    if (!viewer || !volumeData) return;
+    if (!viewer || !volumeBuffer || !volumeMeta) return;
 
     import('cesium').then((Cesium) => {
       // Remove old points if they exist
@@ -114,46 +114,44 @@ export const CesiumOceanViewer = () => {
         window.__volumePoints = null;
       }
 
-      // If rendering is disabled or mode is invalid, skip
-      if (!volumeData.data || volumeData.data.length === 0) return;
+      // If rendering is disabled or buffer is empty, skip
+      if (!volumeBuffer || volumeBuffer.length === 0) return;
 
-      const { data, dimX, dimY, dimZ, minVal, maxVal, minLon, maxLon, minLat, maxLat, minDepth, maxDepth } = volumeData;
+      const { dimX, dimY, dimZ, minVal, maxVal, minLon, maxLon, minLat, maxLat, minDepth = 0, maxDepth = 2000 } = volumeMeta;
+      const data = volumeBuffer;
       
       const pointCollection = new Cesium.PointPrimitiveCollection();
+      const range = (maxVal !== undefined && minVal !== undefined) ? (maxVal - minVal) : 1;
       
-      const range = maxVal - minVal;
-      
-      // We'll downsample slightly if needed for performance, but 131k points is usually fine.
-      // 64x64x32 grid
-      for (let z = 0; z < dimZ; z+=2) { // stride 2 on depth to save points
-        for (let y = 0; y < dimY; y+=2) {
-          for (let x = 0; x < dimX; x+=2) {
+      // Downsample stride on 64x64x32 grid to keep performance smooth
+      for (let z = 0; z < dimZ; z += 2) {
+        for (let y = 0; y < dimY; y += 2) {
+          for (let x = 0; x < dimX; x += 2) {
             const idx = z * (dimX * dimY) + y * dimX + x;
             const val = data[idx];
             
-            // NaN or dummy value check
-            if (isNaN(val) || val < -900 || val > 1000) continue;
+            // NaN or sentinel check (-1.0 or <-900)
+            if (val === undefined || isNaN(val) || val < -900 || val > 1000 || Math.abs(val - (-1.0)) < 1e-3) continue;
             
-            // Normalize value to 0..1 for coloring (Turbo approximation)
+            // Normalize value to 0..1
             let norm = (val - minVal) / (range || 1);
             norm = Math.max(0, Math.min(1, norm));
             
-            // Jet-like color
+            // Jet/Turbo approximation
             const r = Math.max(0, Math.min(1, 1.5 - Math.abs(4 * norm - 3)));
             const g = Math.max(0, Math.min(1, 1.5 - Math.abs(4 * norm - 2)));
             const b = Math.max(0, Math.min(1, 1.5 - Math.abs(4 * norm - 1)));
 
-            // Calculate geographical pos
-            const lon = minLon + (x / (dimX - 1)) * (maxLon - minLon);
-            const lat = minLat + (y / (dimY - 1)) * (maxLat - minLat);
-            const depth = minDepth + (z / (dimZ - 1)) * (maxDepth - minDepth);
+            const lon = minLon + (x / Math.max(1, dimX - 1)) * (maxLon - minLon);
+            const lat = minLat + (y / Math.max(1, dimY - 1)) * (maxLat - minLat);
+            const depth = minDepth + (z / Math.max(1, dimZ - 1)) * (maxDepth - minDepth);
             
-            // depth is usually positive down, we negate it for altitude, but amplify it for visibility
-            const altitude = -depth * 100; // exaggerate depth 100x
+            // Exaggerate depth for visual inspection
+            const altitude = -depth * 100;
 
             pointCollection.add({
               position: Cesium.Cartesian3.fromDegrees(lon, lat, altitude),
-              color: new Cesium.Color(r, g, b, 0.4),
+              color: new Cesium.Color(r, g, b, 0.45),
               pixelSize: 3,
             });
           }
@@ -170,7 +168,7 @@ export const CesiumOceanViewer = () => {
         window.__volumePoints = null;
       }
     };
-  }, [volumeData]);
+  }, [volumeBuffer, volumeMeta]);
 
   return (
     <div className="relative w-full h-full select-none overflow-hidden bg-[#030712] gev-container">

@@ -1,5 +1,7 @@
 import React from 'react';
+import { useOceanStore } from '../store/oceanStore';
 import { CesiumOceanViewer } from '../rendering/CesiumOceanViewer';
+import { OceanViewer } from '../rendering/OceanViewer';
 import { VitalSignsPanel } from '../components/VitalSignsPanel';
 import { MissionsPanel } from '../components/MissionsPanel';
 import { EventsPanel } from '../components/EventsPanel';
@@ -12,10 +14,12 @@ import { TimelinePanel } from '../components/TimelinePanel';
 import { ScientificHUD } from '../components/ScientificHUD';
 
 export const HomePage = () => {
+  const { engineMode } = useOceanStore();
+
   return (
     <div className="relative w-full h-full overflow-hidden bg-[#030712]">
-      {/* 1. Full-Screen 3D Scientific Globe (Cesium Integration) */}
-      <CesiumOceanViewer />
+      {/* 1. Primary 3D Viewport: Three.js 3D Volumetric Raymarching OR Cesium Globe */}
+      {engineMode === 'cesium' ? <CesiumOceanViewer /> : <OceanViewer />}
 
       {/* 1.1 Tactical & Scientific Telemetry HUD (God's Eye View Style) */}
       <ScientificHUD />

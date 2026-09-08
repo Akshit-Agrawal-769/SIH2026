@@ -518,6 +518,15 @@ export const useOceanStore = create((set, get) => ({
   enableSlice: false,
   verticalExaggeration: 1.0,
 
+  // Engine Mode: 'three' (3D Volumetric Raymarching) | 'cesium' (Planetary Globe)
+  engineMode: 'three',
+  setEngineMode: (engineMode) => set({ engineMode }),
+
+  // Logarithmic / Linear Color Transfer Scale
+  isLogScale: false,
+  setIsLogScale: (isLogScale) => set({ isLogScale }),
+  toggleLogScale: () => set((state) => ({ isLogScale: !state.isLogScale })),
+
   // View Mode: 'globe' (3D Interactive Earth) | 'ocean3d' (Volumetric Raymarching)
   viewMode: 'globe',
   setViewMode: (viewMode) => set({ viewMode }),

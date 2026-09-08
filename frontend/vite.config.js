@@ -1,9 +1,18 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import cesium from 'vite-plugin-cesium';
+import path from 'path';
 
 export default defineConfig({
   plugins: [react(), cesium()],
+  resolve: {
+    alias: [
+      {
+        find: /^satellite\.js$/,
+        replacement: path.resolve(__dirname, 'src/utils/satellite-shim.js'),
+      },
+    ],
+  },
   server: {
     port: 3000,
     host: true,
@@ -27,6 +36,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
+        format: 'es',
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('three')) return 'three';

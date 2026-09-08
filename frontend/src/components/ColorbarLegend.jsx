@@ -6,6 +6,9 @@ export const ColorbarLegend = () => {
   const colormap = useOceanStore((state) => state.colormap);
   const activeVitalSign = useOceanStore((state) => state.activeVitalSign);
 
+  const isLogScale = useOceanStore((state) => state.isLogScale);
+  const toggleLogScale = useOceanStore((state) => state.toggleLogScale);
+
   // Find vital sign details
   const allSigns = [
     ...VITAL_SIGNS_CATALOG.surface,
@@ -50,9 +53,18 @@ export const ColorbarLegend = () => {
         style={{ background: getGradient() }}
       />
 
-      {/* Min - Max Scale */}
-      <div className="flex justify-between items-center mt-1 font-mono text-[9px] text-white/50 tabular-nums">
-        <span>{minVal} {units}</span>
+      {/* Min - Max Scale & Log/Linear Mode */}
+      <div className="flex justify-between items-center mt-1.5 font-mono text-[9px] text-white/50 tabular-nums">
+        <span>{minVal}</span>
+        <button
+          onClick={toggleLogScale}
+          className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-all ${
+            isLogScale ? 'bg-sky-500/30 text-sky-300 border border-sky-400/40' : 'bg-white/10 text-white/60 hover:text-white'
+          }`}
+          title="Toggle Logarithmic / Linear scale transfer function"
+        >
+          {isLogScale ? 'LOG' : 'LIN'}
+        </button>
         <span>{maxVal} {units}</span>
       </div>
     </div>

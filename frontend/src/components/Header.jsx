@@ -18,13 +18,15 @@ export const Header = () => {
     toggleGoToLocationModal,
     toggleShortcutsModal,
     setActivePage,
+    engineMode,
+    setEngineMode,
   } = useOceanStore();
 
   const isHealthy = health?.status === 'healthy';
 
   return (
     <header className="absolute top-0 left-0 right-0 z-40 h-9 md:h-10 px-3 md:px-4 flex items-center justify-between bg-[rgba(6,8,12,0.55)] backdrop-blur-md border-b border-white/[0.06] text-white/90 select-none transition-opacity duration-300">
-      {/* Left: INCOIS Brand */}
+      {/* Left: INCOIS Brand & 3D Engine Mode Switcher */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => {
@@ -39,6 +41,32 @@ export const Header = () => {
             INCOIS <span className="text-white/40 font-light">·</span> Ocean Systems
           </span>
         </button>
+
+        {/* Engine Mode Toggle: Three.js 3D Volumetric vs Cesium Planetary Globe */}
+        <div className="hidden sm:flex items-center bg-black/40 backdrop-blur-md p-0.5 rounded-full border border-white/[0.08] text-[10px] font-mono">
+          <button
+            onClick={() => setEngineMode('three')}
+            className={`px-2 py-0.5 rounded-full transition-all ${
+              engineMode === 'three'
+                ? 'bg-sky-500/25 text-sky-300 font-semibold border border-sky-400/40 shadow-sm'
+                : 'text-white/60 hover:text-white/90'
+            }`}
+            title="3D Volumetric Raymarching Engine (Three.js WebGL2)"
+          >
+            3D OCEAN
+          </button>
+          <button
+            onClick={() => setEngineMode('cesium')}
+            className={`px-2 py-0.5 rounded-full transition-all ${
+              engineMode === 'cesium'
+                ? 'bg-amber-500/25 text-amber-300 font-semibold border border-amber-400/40 shadow-sm'
+                : 'text-white/60 hover:text-white/90'
+            }`}
+            title="Planetary Mission Control Globe (CesiumJS)"
+          >
+            CESIUM
+          </button>
+        </div>
       </div>
 
       {/* Center: Contextual Floating Overlay Pills */}

@@ -26,6 +26,7 @@ export const VolumeFragmentShader = `
   uniform float u_stepSize;
   uniform float u_sliceZ;
   uniform int u_enableSlice;
+  uniform int u_isLogScale; // 0 = Linear, 1 = Logarithmic scaling
 
   varying vec3 vOrigin;
   varying vec3 vDirection;
@@ -140,7 +141,12 @@ export const VolumeFragmentShader = `
         }
 
         if (!sliceClip) {
-          float scalar = texture(u_data, texCoord).r;
+          float rawScalar = texture(u_data, texCoord).r;
+          float scalar = rawScalar;
+          if (u_isLogScale == 1) {
+            // Emphasize subtle low-end gradients via normalized logarithm
+            scalar = clamp(log(1.0 + 9.0 * clamp(rawScalar, 0.0, 1.0)) / 2.302585, 0.0, 1.0);
+          }
 
           if (scalar >= u_threshold) {
             if (u_renderMode == 1) {

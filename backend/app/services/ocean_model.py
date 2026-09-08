@@ -120,12 +120,17 @@ class OceanModel:
         if isinstance(dataset_or_path, str):
             self.file_path = dataset_or_path
             # Open lazily without decoding all variables into memory
-            self._ds = xr.open_dataset(dataset_or_path, decode_times=True)
+            # Supports both local NetCDF files and remote OPeNDAP / THREDDS URLs
+            is_remote_opendap = dataset_or_path.startswith(('http://', 'https://', 'dods://'))
+            engine = 'netcdf4' if is_remote_opendap else None
+            self._ds = xr.open_dataset(dataset_or_path, decode_times=True, engine=engine)
             self._owns_dataset = True
+            self.is_opendap = is_remote_opendap
         else:
             self.file_path = None
             self._ds = dataset_or_path
             self._owns_dataset = False
+            self.is_opendap = False
 
         self._kd_tree = None
         self._kd_shape = None

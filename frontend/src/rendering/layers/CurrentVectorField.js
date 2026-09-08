@@ -82,6 +82,38 @@ export class CurrentVectorField {
     }
   }
 
+  updateFromModelVelocity(uData, vData, dimX, dimY) {
+    if (!uData || !vData || !dimX || !dimY) return;
+    const velAttr = this.geometry.getAttribute('a_velocity');
+    const offAttr = this.geometry.getAttribute('a_offset');
+    if (!velAttr || !offAttr) return;
+
+    const velArray = velAttr.array;
+    const offArray = offAttr.array;
+
+    for (let i = 0; i < this.count; i++) {
+      const x = offArray[i * 3];
+      const z = offArray[i * 3 + 2];
+
+      const uNorm = Math.max(0, Math.min(1, x + 0.5));
+      const vNorm = Math.max(0, Math.min(1, z + 0.5));
+
+      const col = Math.min(dimX - 1, Math.floor(uNorm * (dimX - 1)));
+      const row = Math.min(dimY - 1, Math.floor(vNorm * (dimY - 1)));
+      const gridIdx = row * dimX + col;
+
+      const uVal = uData[gridIdx] || 0;
+      const vVal = vData[gridIdx] || 0;
+
+      if (!isNaN(uVal) && !isNaN(vVal) && Math.abs(uVal) < 10 && Math.abs(vVal) < 10) {
+        velArray[i * 2] = uVal * 0.5;
+        velArray[i * 2 + 1] = vVal * 0.5;
+      }
+    }
+
+    velAttr.needsUpdate = true;
+  }
+
   setVisible(visible) {
     this.mesh.visible = visible;
   }
