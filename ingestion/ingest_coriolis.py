@@ -436,6 +436,66 @@ def build_argo_index(
     return index_payload
 
 
+DAC_METADATA = {
+    "incois": {
+        "title": "INCOIS National Oceanographic Data Centre (India)",
+        "provider": "Indian National Centre for Ocean Information Services (INCOIS)",
+        "source": "INCOIS Argo Data Centre / GDAC",
+        "description": "Authentic in-situ Indian Ocean Argo profiling array",
+    },
+    "coriolis": {
+        "title": "Coriolis / Euro-Argo GDAC Profiling Float Array",
+        "provider": "Coriolis Operational Oceanography / Euro-Argo ERIC / Argo GDAC",
+        "source": "Global Data Assembly Centre (data-argo.ifremer.fr)",
+        "description": "Authentic in-situ Euro-Argo / Coriolis profiling array",
+    },
+    "aoml": {
+        "title": "NOAA / AOML Global Argo Array",
+        "provider": "Atlantic Oceanographic and Meteorological Laboratory (NOAA / USA)",
+        "source": "US Global Ocean Data Assembly Centre (US GODAE)",
+        "description": "Authentic in-situ NOAA / AOML autonomous profiling array",
+    },
+    "csiro": {
+        "title": "CSIRO Marine and Atmospheric Research Array",
+        "provider": "Commonwealth Scientific and Industrial Research Organisation (Australia)",
+        "source": "CSIRO Argo National Data Centre",
+        "description": "Authentic in-situ Australian Argo profiling float array",
+    },
+    "csio": {
+        "title": "CSIO China Argo Project Array",
+        "provider": "Second Institute of Oceanography, MNR (China)",
+        "source": "China Argo Real-time Data Centre",
+        "description": "Authentic in-situ China Argo profiling float array",
+    },
+    "bodc": {
+        "title": "British Oceanographic Data Centre Array",
+        "provider": "National Oceanography Centre / BODC (UK)",
+        "source": "UK Argo Data Assembly Centre",
+        "description": "Authentic in-situ UK Argo profiling float array",
+    },
+    "jma": {
+        "title": "Japan Meteorological Agency Argo Array",
+        "provider": "Japan Meteorological Agency (JMA / Japan)",
+        "source": "JMA Argo National Data Assembly Centre",
+        "description": "Authentic in-situ Japan Meteorological Agency profiling array",
+    },
+    "meds": {
+        "title": "Fisheries and Oceans Canada (MEDS / ISDM) Array",
+        "provider": "Marine Environmental Data Section / DFO (Canada)",
+        "source": "MEDS Argo National Data Assembly Centre",
+        "description": "Authentic in-situ Canadian Argo profiling array",
+    },
+    "argo": {
+        "title": "Argo Global Data Assembly Centre Array",
+        "provider": "International Argo Program / GDAC",
+        "source": "Argo GDAC (data-argo.ifremer.fr)",
+        "description": "Authentic in-situ Argo profiling float dataset",
+    }
+}
+
+ALL_DACS = ["incois", "coriolis", "aoml", "csiro", "csio", "bodc", "jma", "meds", "argo"]
+
+
 def update_manifest(index_payload: Dict[str, Any], manifest_path: str):
     """Updates datasets/manifest.json with authoritative Coriolis Argo provenance and stats."""
     if not os.path.exists(manifest_path):
@@ -446,47 +506,60 @@ def update_manifest(index_payload: Dict[str, Any], manifest_path: str):
 
     argo_entries = manifest.setdefault("datasets", {}).setdefault("argo", [])
     
-    coriolis_platforms = [p for p in index_payload.get("platforms", []) if p.get("source") == "coriolis"]
-    incois_platforms = [p for p in index_payload.get("platforms", []) if p.get("source") in ["incois", "argo"]]
+    platforms_by_source: Dict[str, List[Dict[str, Any]]] = {}
+    for p in index_payload.get("platforms", []):
+        src = p.get("source", "argo")
+        platforms_by_source.setdefault(src, []).append(p)
 
-    coriolis_entry = {
-        "id": "coriolis_argo_gdac",
-        "title": "Coriolis / Euro-Argo GDAC Profiling Float Array",
-        "provider": "Coriolis Operational Oceanography / Euro-Argo ERIC / Argo GDAC",
-        "source": "Global Data Assembly Centre (data-argo.ifremer.fr)",
-        "dataset_type": "In-situ autonomous CTD vertical profiling observations",
-        "format": "NetCDF-3 / NetCDF-4 (CF-1.6 & Argo User's Manual 3.1)",
-        "platforms_count": len(coriolis_platforms),
-        "profiles_count": sum(p.get("profiles_count", 0) for p in coriolis_platforms),
-        "qc_policy": "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific colocation. Flags 3, 4, 9 rejected.",
-        "variables": [
-            "PRES", "PRES_ADJUSTED",
-            "TEMP", "TEMP_ADJUSTED",
-            "PSAL", "PSAL_ADJUSTED",
-            "JULD", "LATITUDE", "LONGITUDE"
-        ],
-        "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
-        "temporal_coverage": "2010 to Present (Continuous 10-day cycle robotic profiling)",
-        "spatial_coverage": "Global Oceans & Indian Ocean Basin",
-        "provenance": {
-            "license": "Argo Open Data Policy (CC-BY 4.0)",
-            "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Coriolis GDAC / Ifremer).",
-            "gdac_mirror": "https://data-argo.ifremer.fr/dac/coriolis/",
-            "validation_status": "CF-1.6 & TEOS-10 Verified"
+    for src in ALL_DACS:
+        plist = platforms_by_source.get(src, [])
+        if not plist and src not in ["incois", "coriolis"]:
+            continue
+        meta_info = DAC_METADATA.get(src, {
+            "title": f"{src.upper()} Argo Profiling Float Array",
+            "provider": f"{src.upper()} Data Assembly Centre",
+            "source": f"Argo GDAC ({src})",
+            "description": f"Authentic in-situ {src.upper()} Argo profiling array",
+        })
+
+        entry_id = f"{src}_argo_gdac"
+        entry = {
+            "id": entry_id,
+            "title": meta_info["title"],
+            "provider": meta_info["provider"],
+            "source": meta_info["source"],
+            "dataset_type": "In-situ autonomous CTD vertical profiling observations",
+            "format": "NetCDF-3 / NetCDF-4 (CF-1.6 & Argo User's Manual 3.1)",
+            "platforms_count": len(plist),
+            "profiles_count": sum(p.get("profiles_count", 0) for p in plist),
+            "qc_policy": "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific colocation. Flags 3, 4, 9 rejected.",
+            "variables": [
+                "PRES", "PRES_ADJUSTED",
+                "TEMP", "TEMP_ADJUSTED",
+                "PSAL", "PSAL_ADJUSTED",
+                "JULD", "LATITUDE", "LONGITUDE"
+            ],
+            "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
+            "temporal_coverage": "2000 to Present (Continuous robotic profiling cycles)",
+            "spatial_coverage": "Global Oceans & Indian Ocean Basin",
+            "provenance": {
+                "license": "Argo Open Data Policy (CC-BY 4.0)",
+                "citation": f"Argo (2026). Argo float data and metadata from Global Data Assembly Centre ({meta_info['provider']}).",
+                "validation_status": "CF-1.6 & TEOS-10 Verified"
+            }
         }
-    }
 
-    existing_idx = next((i for i, e in enumerate(argo_entries) if e.get("id") == "coriolis_argo_gdac"), -1)
-    if existing_idx >= 0:
-        argo_entries[existing_idx] = coriolis_entry
-    else:
-        argo_entries.insert(0, coriolis_entry)
+        existing_idx = next((i for i, e in enumerate(argo_entries) if e.get("id") == entry_id), -1)
+        if existing_idx >= 0:
+            argo_entries[existing_idx] = entry
+        else:
+            argo_entries.append(entry)
 
     manifest["updated_at"] = pd.Timestamp.now(tz="UTC").isoformat()
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
 
-    logger.info("[OK] datasets/manifest.json updated with Coriolis GDAC metadata.")
+    logger.info(f"[OK] datasets/manifest.json updated with {len(platforms_by_source)} Argo GDAC providers.")
 
 
 def main():
@@ -523,7 +596,7 @@ def main():
         if args.index:
             dirs_to_index.append(os.path.abspath(args.index))
         else:
-            for p in ["coriolis", "incois", "argo"]:
+            for p in ALL_DACS:
                 p_dir = os.path.join(PROJECT_ROOT, "datasets", p)
                 if os.path.exists(p_dir):
                     dirs_to_index.append(p_dir)

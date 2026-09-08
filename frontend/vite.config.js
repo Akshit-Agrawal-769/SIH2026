@@ -6,12 +6,9 @@ import path from 'path';
 export default defineConfig({
   plugins: [react(), cesium()],
   resolve: {
-    alias: [
-      {
-        find: /^satellite\.js$/,
-        replacement: path.resolve(__dirname, 'src/utils/satellite-shim.js'),
-      },
-    ],
+    alias: {
+      'satellite.js': path.resolve(__dirname, 'src/utils/satellite-pure.js'),
+    },
   },
   server: {
     port: 3000,

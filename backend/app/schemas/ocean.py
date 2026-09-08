@@ -47,6 +47,7 @@ class ArgoFloatSummary(BaseModel):
     latest_cycle: Optional[int] = None
     cycles: List[int]
     trajectory: Optional[List[Dict[str, Any]]] = []
+    has_local_data: Optional[bool] = False
 
 class ArgoProfileResponse(BaseModel):
     platform_number: str

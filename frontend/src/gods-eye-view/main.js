@@ -70,10 +70,10 @@ function describeError(error) {
  */
 async function init() {
   const loadingScreen = document.getElementById('loading-screen');
-  const loaderStatus = loadingScreen.querySelector('.loader-status');
+  const loaderStatus = loadingScreen ? loadingScreen.querySelector('.loader-status') : null;
 
   try {
-    loaderStatus.textContent = 'Configuring viewer...';
+    if (loaderStatus) loaderStatus.textContent = 'Configuring viewer...';
 
     // A direct Google key provides Google 3D plus GEV place search. Cesium ion
     // can host the same 3D tiles and also powers Bing/world-terrain stacks.
@@ -105,8 +105,7 @@ async function init() {
       creditContainer: (() => {
         const el = document.createElement('div');
         el.id = 'cesium-credits';
-        const parent = window.__GEV_CONTAINER__ || document.body;
-        parent.appendChild(el);
+        el.style.display = 'none';
         return el;
       })(),
       msaaSamples: 4,
@@ -196,93 +195,47 @@ async function init() {
     const weatherEffects = null;
     const cockpitCloudEffects = initCockpitCloudEffects(viewer);
 
-    // If no share link state, do default fly-to Austin
+    // Default camera view to Indian Ocean
     if (!styleManager.hasShareState) {
-      loaderStatus.textContent = 'Flying to Austin, TX...';
-      flyToAustin(viewer);
+      if (loaderStatus) loaderStatus.textContent = 'Navigating to Indian Ocean...';
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(78.0, 12.0, 13500000),
+        orientation: {
+          heading: Cesium.Math.toRadians(0),
+          pitch: Cesium.Math.toRadians(-90),
+          roll: 0,
+        },
+        duration: 2.0,
+      });
     } else {
-      loaderStatus.textContent = 'Restoring shared view...';
+      if (loaderStatus) loaderStatus.textContent = 'Restoring shared view...';
     }
 
-    // Initialize data layer manager
+    // Initialize data layer manager (clean scientific mode without alien feeds)
     const dataManager = new DataLayerManager(viewer, {
       allowQaRegistration: import.meta.env.DEV,
     });
-    dataManager.register(flightsLayer);
-    dataManager.register(militaryFlightsLayer);
-    dataManager.register(earthquakesLayer);
-    dataManager.register(satellitesLayer);
-    dataManager.register(rocketLaunchesLayer);
-    rocketLaunchesLayer.attachDataManager(dataManager);
-    dataManager.register(trafficLayer);
-    dataManager.register(cctvLayer);
-    dataManager.register(radioLayer);
-    dataManager.register(bikeshareLayer);
-    dataManager.register(aisLiveVesselsLayer);
-    dataManager.register(militaryInstallationsLayer);
-    dataManager.register(militaryAwarenessLayer);
-    militaryAwarenessLayer.attachDataManager(dataManager);
-    for (const layer of localDataLayers) {
-      dataManager.register(layer);
+    // Finalize registrations cleanly
+    dataManager.finalizeRegistrations([]);
+    const dataTogglesEl = document.getElementById('data-toggles');
+    if (dataTogglesEl) {
+      dataManager.buildTogglePanel(dataTogglesEl);
     }
-    // Restoration starts only after the complete production registry is sealed.
-    dataManager.finalizeRegistrations(LAYER_STATE_REGISTRY);
-    if (import.meta.env.DEV) {
-      window.__gevQaRegisterLayer = (targetManager, layerModule) => {
-        if (targetManager !== dataManager) throw new Error('QA layer manager mismatch');
-        return dataManager.registerForQa(layerModule);
-      };
-      window.__gevQaUnregisterLayer = (targetManager, layerId) => {
-        if (targetManager !== dataManager) throw new Error('QA layer manager mismatch');
-        return dataManager.unregisterForQa(layerId);
-      };
-    }
-    dataManager.buildTogglePanel(document.getElementById('data-toggles'));
     styleManager.attachDataManager(dataManager);
 
-    // Initialize deterministic scene playback for social clip capture
-    const sceneDirector = new SceneDirector(viewer, styleManager, dataManager);
+    const sceneDirector = null;
+    const annotations = null;
 
-    // Initialize the voice "whiteboard" annotation engine (world-space renderer)
-    const annotations = initAnnotations({ viewer, tileset });
-
-    // Keep startup chrome truthful: a share is not restored until camera,
-    // visual/map/panel lanes, and every requested layer have terminated.
+    // Clean loading screen dismissal
     void Promise.all([
       styleManager.initialRestorePromise,
-      new Promise((resolve) => setTimeout(resolve, 1000)),
+      new Promise((resolve) => setTimeout(resolve, 500)),
     ]).finally(() => {
-      loadingScreen.classList.add('hidden');
-      // Reveal only after the loading cover has yielded. transitionend can be
-      // absent under reduced motion, so a bounded fallback makes this reliable.
-      let firstRunRevealed = false;
-      const revealFirstRun = () => {
-        if (firstRunRevealed) return;
-        firstRunRevealed = true;
-        // dataManager is passed explicitly: the globe missions enable bundled
-        // keyless layers through it, and reaching for styleManager._dataManager
-        // would make a private field part of this feature's contract.
-        initFirstRunExperience({ styleManager, dataManager });
-      };
-      loadingScreen.addEventListener('transitionend', revealFirstRun, { once: true });
-      setTimeout(revealFirstRun, 900);
+      if (loadingScreen) loadingScreen.classList.add('hidden');
     });
 
-    // Provider Settings (the POWER UP chip + dialog). Fire-and-forget: the
-    // module removes its own surface when the dev-server endpoint is absent
-    // (prod builds, non-local visitors), so this costs prod exactly nothing.
-    void initKeySetup();
-
-    // Expose for debugging
-    // Idle render governor: flips the scene into requestRenderMode whenever
-    // nothing animates per frame. Installed AFTER every module above has had
-    // its chance to register pre-install holds. (perf wave 2)
+    // Idle render governor
     installRenderGovernor(viewer);
-
-    // The explicit scope mask replaces the emergent six-pass artifact —
-    // see src/scopeMask.js. Installed before the UI so the DISPLAY-rail
-    // toggle finds it live.
-    installScopeMask(viewer);
 
     // The follow camera recomputes the tracked target's dead-reckon position
     // every frame — tracking anything is a per-frame animation. (perf wave 2)
@@ -327,7 +280,7 @@ async function init() {
       getRenderGovernorDiagnostics,
       requestRender: governorRequestRender,
     };
-    window.__godsEyeView.voiceCommands = initGevVoiceCommands({ viewer, styleManager, dataManager, sceneDirector, annotations });
+    window.__godsEyeView.voiceCommands = null;
 
   } catch (error) {
     console.error("God's Eye View initialization failed:", error);

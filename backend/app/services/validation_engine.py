@@ -148,7 +148,25 @@ class ValidationEngine:
         if not model:
             return None
 
-        return self.validate_profile(argo_profile, model, variable=variable)
+        result = self.validate_profile(argo_profile, model, variable=variable)
+        if result:
+            return result
+
+        # If cycle_number was not specified and latest cycle yielded no valid metrics (e.g. single parking depth),
+        # try earlier cycles for this platform
+        if cycle_number is None:
+            wmo_clean = str(platform_number).strip().split()[0]
+            plat = self.store._platforms_index.get(wmo_clean)
+            if plat:
+                cycles = plat.get("cycles", [])
+                for cyc in reversed(cycles[:-1]):
+                    alt_prof = self.store.get_profile(platform_number, cyc)
+                    if alt_prof and len(alt_prof.get("depths", [])) >= 2:
+                        alt_res = self.validate_profile(alt_prof, model, variable=variable)
+                        if alt_res:
+                            return alt_res
+
+        return None
 
 
 validation_engine = ValidationEngine()

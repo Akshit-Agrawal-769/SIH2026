@@ -268,13 +268,20 @@ class ArgoAdapter:
                 if isinstance(dac_name, bytes):
                     dac_name = dac_name.decode("utf-8", errors="ignore")
 
+                norm_path = file_path.replace("\\", "/").lower()
+                detected_source = "coriolis"
+                for dac_key in ['incois', 'coriolis', 'aoml', 'csiro', 'csio', 'bodc', 'jma', 'meds', 'argo']:
+                    if f"/{dac_key}/" in norm_path or norm_path.startswith(f"{dac_key}/"):
+                        detected_source = dac_key
+                        break
+
                 return {
                     "platform_number": wmo,
                     "cycle_number": cycle_val,
                     "timestamp": time_str or "2023-01-01T00:00:00Z",
                     "latitude": round(lat_val, 4),
                     "longitude": round(lon_val, 4),
-                    "source": "coriolis" if "coriolis" in file_path.lower() else ("incois" if "incois" in file_path.lower() else "argo"),
+                    "source": detected_source,
                     "dac": str(dac_name).strip(),
                     "data_mode": "R",
                     "depths": depths,
@@ -363,13 +370,20 @@ class ArgoAdapter:
                     s_mask &= np.isin(np.asarray(psal_qc)[valid_mask][depth_mask], [1, 2])
                 psals = [float(round(s_valid[i], 3)) if s_mask[i] else None for i in range(len(s_valid))]
 
+            norm_path = file_path.replace("\\", "/").lower()
+            detected_source = "coriolis"
+            for dac_key in ['incois', 'coriolis', 'aoml', 'csiro', 'csio', 'bodc', 'jma', 'meds', 'argo']:
+                if f"/{dac_key}/" in norm_path or norm_path.startswith(f"{dac_key}/"):
+                    detected_source = dac_key
+                    break
+
             return {
                 "platform_number": wmo,
                 "cycle_number": cycle_val,
                 "timestamp": time_str or "2023-01-01T00:00:00Z",
                 "latitude": round(lat_val, 4),
                 "longitude": round(lon_val, 4),
-                "source": "coriolis" if "coriolis" in file_path.lower() else "incois",
+                "source": detected_source,
                 "dac": "Coriolis / GDAC",
                 "data_mode": "R",
                 "depths": depths,
@@ -404,6 +418,7 @@ class InSituStore:
         self._lru_profile_cache: OrderedDict[str, Dict[str, Any]] = OrderedDict()
         self._platforms_index: Dict[str, Dict[str, Any]] = {}
         self._sources_summary: List[Dict[str, Any]] = []
+        self._local_wmos: set = set()
         self._is_indexed = False
 
     def list_available_files(self) -> List[str]:
@@ -492,15 +507,28 @@ class InSituStore:
                     counts_by_source[src]["profiles_count"] += p.get("profiles_count", 0)
 
                 self._sources_summary = list(counts_by_source.values())
+                self._local_wmos = {
+                    w for w, p in self._platforms_index.items()
+                    if self._resolve_platform_file_path(w, None, p)
+                }
+                sorted_items = sorted(
+                    self._platforms_index.items(),
+                    key=lambda item: 0 if item[0] in self._local_wmos else 1
+                )
+                self._platforms_index = {k: v for k, v in sorted_items}
                 self._is_indexed = True
-                logger.info(f"Loaded in-situ index: {len(self._platforms_index)} platforms across {len(self._sources_summary)} sources.")
+                logger.info(f"Loaded in-situ index: {len(self._platforms_index)} platforms ({len(self._local_wmos)} with local files) across {len(self._sources_summary)} sources.")
                 return
             except Exception as e:
                 logger.error(f"Failed to load argo_index.json: {e}")
 
         logger.info("Generating in-memory in-situ observation index...")
-        from ingestion.ingest_coriolis import build_argo_index
-        dirs_to_index = [d for d in [self.coriolis_dir, self.incois_dir, self.argo_dir] if os.path.exists(d)]
+        from ingestion.ingest_coriolis import build_argo_index, ALL_DACS
+        dirs_to_index = [
+            os.path.join(self.datasets_dir, d)
+            for d in ALL_DACS
+            if os.path.isdir(os.path.join(self.datasets_dir, d))
+        ]
         if dirs_to_index:
             payload = build_argo_index(dirs_to_index, self.index_file)
             self._platforms_index = {str(p["platform_number"]).split()[0]: p for p in payload.get("platforms", [])}
@@ -592,6 +620,7 @@ class InSituStore:
                 "latest_cycle": plat.get("latest_cycle"),
                 "cycles": plat.get("cycles", [1]),
                 "trajectory": plat.get("trajectory", []),
+                "has_local_data": clean_wmo in self._local_wmos,
             })
 
         return results[skip : skip + limit]
@@ -606,14 +635,18 @@ class InSituStore:
             cycle_files = plat.get("cycle_files", {})
             rel_path = cycle_files.get(str(target_cycle)) or cycle_files.get(target_cycle)
             if rel_path:
-                return os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
+                full_p = os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
+                if os.path.exists(full_p):
+                    return full_p
 
         # Strategy 2: Use indexed trajectory information
         if plat:
             for t in plat.get("trajectory", []):
                 if t.get("cycle_number") == target_cycle and t.get("file_rel_path"):
                     rel_path = t["file_rel_path"]
-                    return os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
+                    full_p = os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
+                    if os.path.exists(full_p):
+                        return full_p
 
         # Strategy 3: Use indexed files_dir (single file or directory)
         if plat:
@@ -630,6 +663,10 @@ class InSituStore:
         # Strategy 4: Fallback recursive glob search in datasets directory
         candidates = glob.glob(os.path.join(self.datasets_dir, "**", f"*{wmo_str}*.nc"), recursive=True)
         if candidates:
+            if target_cycle is not None:
+                matched = [c for c in candidates if f"_{target_cycle:03d}." in c or f"_{target_cycle}." in c]
+                if matched:
+                    return matched[0]
             return candidates[0]
 
         return None

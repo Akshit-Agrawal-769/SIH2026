@@ -1,45 +1,70 @@
 import React from 'react';
 import {
-  Search,
-  Layers,
-  Activity,
+  Compass,
+  Crosshair,
+  Split,
+  BarChart2,
+  Folder,
   Radio,
   Zap,
-  Sliders,
-  Menu,
+  Search,
+  Layers,
+  Settings,
+  HelpCircle,
+  FlaskConical,
 } from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
 export const Header = () => {
   const {
+    activePage,
+    setActivePage,
     activeOverlay,
     toggleOverlay,
-    health,
+    closeAllOverlays,
     toggleGoToLocationModal,
-    toggleShortcutsModal,
-    setActivePage,
     engineMode,
     setEngineMode,
   } = useOceanStore();
 
-  const isHealthy = health?.status === 'healthy';
+  const handleNavClick = (pageId, overlayName = null) => {
+    if (overlayName) {
+      toggleOverlay(overlayName);
+    } else {
+      closeAllOverlays();
+      setActivePage(pageId);
+    }
+  };
 
   return (
-    <header className="absolute top-0 left-0 right-0 z-40 h-9 md:h-10 px-3 md:px-4 flex items-center justify-between bg-[rgba(6,8,12,0.55)] backdrop-blur-md border-b border-white/[0.06] text-white/90 select-none transition-opacity duration-300">
+    <header className="absolute top-0 left-0 right-0 z-40 h-14 px-5 flex items-center justify-between bg-[rgba(6,12,24,0.75)] backdrop-blur-md border-b border-sky-500/15 text-white select-none transition-all">
       {/* Left: INCOIS Brand & 3D Engine Mode Switcher */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => {
             setActivePage('home');
-            useOceanStore.getState().closeAllOverlays();
+            closeAllOverlays();
           }}
-          className="flex items-center gap-2 group focus:outline-none"
-          title="Eyes on the Ocean · INCOIS Ocean Systems"
+          className="flex items-center gap-2.5 group focus:outline-none text-left"
+          title="INCOIS Ocean Systems — 3D Ocean Data Visualization & Analysis"
         >
-          <div className="w-1.5 h-1.5 rounded-full bg-white/90 shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
-          <span className="text-[13px] font-normal tracking-wide text-white/90 group-hover:text-white transition-colors">
-            INCOIS <span className="text-white/40 font-light">·</span> Ocean Systems
-          </span>
+          {/* Oceanic Emblem */}
+          <div className="relative w-8 h-8 rounded-full bg-gradient-to-tr from-[#0052a3] to-[#00a3ff] flex items-center justify-center p-1.5 shadow-[0_0_12px_rgba(0,163,255,0.4)] border border-sky-400/40 group-hover:border-sky-300 transition-all">
+            <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-white stroke-[2.2]" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 12c3-4 6-4 9 0s6 4 9 0" />
+              <path d="M2 17c3-4 6-4 9 0s6 4 9 0" opacity="0.6" />
+              <circle cx="12" cy="6" r="2" fill="white" />
+            </svg>
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-sm tracking-wide text-white">INCOIS</span>
+              <span className="font-light text-xs text-slate-300">Ocean Systems</span>
+            </div>
+            <span className="text-[10px] text-slate-400 block -mt-0.5 tracking-tight">
+              3D Ocean Data Visualization &amp; Analysis
+            </span>
+          </div>
         </button>
 
         {/* Engine Mode Toggle: Three.js 3D Volumetric vs Cesium Planetary Globe */}
@@ -69,119 +94,157 @@ export const Header = () => {
         </div>
       </div>
 
-      {/* Center: Contextual Floating Overlay Pills */}
-      <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md p-0.5 rounded-full border border-white/[0.06] shadow-sm">
+      {/* Center: Navigation Pills */}
+      <nav className="flex items-center gap-1 bg-black/40 backdrop-blur-md p-1 rounded-full border border-sky-500/20 shadow-inner">
+        {/* Explore */}
         <button
-          onClick={() => toggleOverlay('vitalSigns')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-normal transition-all ${
-            activeOverlay === 'vitalSigns'
-              ? 'bg-white/15 text-white shadow-sm'
-              : 'text-white/60 hover:text-white/90 hover:bg-white/5'
+          onClick={() => handleNavClick('home')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+            activePage === 'home' && !activeOverlay
+              ? 'bg-[#0072ce] text-white shadow-[0_0_12px_rgba(0,114,206,0.6)] border border-sky-300/40'
+              : 'text-slate-300 hover:text-white hover:bg-white/10'
           }`}
-          title="Ocean Vital Signs"
         >
-          <Activity className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Vital Signs</span>
+          <Compass className="w-3.5 h-3.5" />
+          <span>Explore</span>
         </button>
 
+        {/* Argo */}
         <button
-          onClick={() => toggleOverlay('missions')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-normal transition-all ${
-            activeOverlay === 'missions'
-              ? 'bg-white/15 text-white shadow-sm'
-              : 'text-white/60 hover:text-white/90 hover:bg-white/5'
+          onClick={() => handleNavClick('argo')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-normal transition-all ${
+            activePage === 'argo'
+              ? 'bg-[#0072ce] text-white shadow-[0_0_12px_rgba(0,114,206,0.6)] border border-sky-300/40'
+              : 'text-slate-300 hover:text-white hover:bg-white/10'
           }`}
-          title="Observing Missions & In-Situ Fleet"
+        >
+          <Crosshair className="w-3.5 h-3.5" />
+          <span>Argo</span>
+        </button>
+
+        {/* Model vs Obs */}
+        <button
+          onClick={() => handleNavClick('comparison')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-normal transition-all ${
+            activePage === 'comparison'
+              ? 'bg-[#0072ce] text-white shadow-[0_0_12px_rgba(0,114,206,0.6)] border border-sky-300/40'
+              : 'text-slate-300 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Split className="w-3.5 h-3.5" />
+          <span>Model vs Obs</span>
+        </button>
+
+        {/* Analytics */}
+        <button
+          onClick={() => handleNavClick('analytics')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-normal transition-all ${
+            activePage === 'analytics'
+              ? 'bg-[#0072ce] text-white shadow-[0_0_12px_rgba(0,114,206,0.6)] border border-sky-300/40'
+              : 'text-slate-300 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <BarChart2 className="w-3.5 h-3.5" />
+          <span>Analytics</span>
+        </button>
+
+        {/* Data Catalog */}
+        <button
+          onClick={() => handleNavClick('data')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-normal transition-all ${
+            activePage === 'data'
+              ? 'bg-[#0072ce] text-white shadow-[0_0_12px_rgba(0,114,206,0.6)] border border-sky-300/40'
+              : 'text-slate-300 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Folder className="w-3.5 h-3.5" />
+          <span>Data Catalog</span>
+        </button>
+
+        {/* Methodology */}
+        <button
+          onClick={() => handleNavClick('methodology')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-normal transition-all ${
+            activePage === 'methodology'
+              ? 'bg-[#4f23a0] text-white shadow-[0_0_12px_rgba(79,35,160,0.7)] border border-violet-400/40'
+              : 'text-slate-300 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <FlaskConical className="w-3.5 h-3.5" />
+          <span>Methodology</span>
+        </button>
+
+        {/* Missions */}
+        <button
+          onClick={() => handleNavClick('home', 'missions')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-normal transition-all ${
+            activeOverlay === 'missions'
+              ? 'bg-[#0072ce] text-white shadow-[0_0_12px_rgba(0,114,206,0.6)] border border-sky-300/40'
+              : 'text-slate-300 hover:text-white hover:bg-white/10'
+          }`}
         >
           <Radio className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Missions</span>
+          <span>Missions</span>
         </button>
 
+        {/* Events */}
         <button
-          onClick={() => toggleOverlay('events')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-normal transition-all ${
+          onClick={() => handleNavClick('home', 'events')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-normal transition-all ${
             activeOverlay === 'events'
-              ? 'bg-white/15 text-white shadow-sm'
-              : 'text-white/60 hover:text-white/90 hover:bg-white/5'
+              ? 'bg-[#0072ce] text-white shadow-[0_0_12px_rgba(0,114,206,0.6)] border border-sky-300/40'
+              : 'text-slate-300 hover:text-white hover:bg-white/10'
           }`}
-          title="Extreme Ocean Events & Anomalies"
         >
           <Zap className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Events</span>
+          <span>Events</span>
         </button>
+      </nav>
 
-        <button
-          onClick={() => toggleOverlay('depth')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-normal transition-all ${
-            activeOverlay === 'depth'
-              ? 'bg-white/15 text-white shadow-sm'
-              : 'text-white/60 hover:text-white/90 hover:bg-white/5'
-          }`}
-          title="Subsurface Depth Exploration"
-        >
-          <Sliders className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Depth</span>
-        </button>
-      </div>
-
-      {/* Right Tools & Status Icons */}
-      <div className="flex items-center gap-1.5 md:gap-2">
-        {/* Search Location */}
+      {/* Right: Utility Tools */}
+      <div className="flex items-center gap-2">
+        {/* Search */}
         <button
           onClick={toggleGoToLocationModal}
-          className="p-1.5 rounded text-white/60 hover:text-white hover:bg-white/5 transition-colors"
-          title="Search Geographic Location or Coordinates (L)"
+          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+          title="Search Coordinates or Locations"
         >
-          <Search className="w-3.5 h-3.5" />
+          <Search className="w-4 h-4" />
         </button>
 
-        {/* Layer Visibility Stack */}
+        {/* Layers */}
         <button
           onClick={() => toggleOverlay('layers')}
-          className={`p-1.5 rounded transition-colors ${
+          className={`p-2 rounded-lg transition-colors ${
             activeOverlay === 'layers'
-              ? 'text-white bg-white/15'
-              : 'text-white/60 hover:text-white hover:bg-white/5'
+              ? 'text-white bg-sky-600/30 border border-sky-400/40'
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
           }`}
-          title="Toggle Planetary 3D Layers"
+          title="Data Layers"
         >
-          <Layers className="w-3.5 h-3.5" />
+          <Layers className="w-4 h-4" />
         </button>
 
-        {/* Workspaces & Scientific Tools Menu */}
+        {/* Settings */}
         <button
-          onClick={() => toggleOverlay('workspaces')}
-          className={`p-1.5 rounded transition-colors ${
-            activeOverlay === 'workspaces'
-              ? 'text-white bg-white/15'
-              : 'text-white/60 hover:text-white hover:bg-white/5'
+          onClick={() => setActivePage('settings')}
+          className={`p-2 rounded-lg transition-colors ${
+            activePage === 'settings'
+              ? 'text-white bg-sky-600/30 border border-sky-400/40'
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
           }`}
-          title="Scientific Workspaces & Data Tools"
+          title="Settings & System Configuration"
         >
-          <Menu className="w-3.5 h-3.5" />
+          <Settings className="w-4 h-4" />
         </button>
 
-        {/* System Health Dot */}
-        <div
-          className="flex items-center px-1 py-1"
-          title={`INCOIS Model & Telemetry Status: ${isHealthy ? 'Operational' : 'Active'}`}
-        >
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              isHealthy
-                ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]'
-                : 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.7)]'
-            }`}
-          />
-        </div>
-
-        {/* Shortcuts / Help */}
+        {/* Help */}
         <button
           onClick={toggleShortcutsModal}
-          className="p-1 text-white/40 hover:text-white/80 transition-colors text-[11px] font-mono"
-          title="Keyboard Shortcuts (?)"
+          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+          title="Keyboard Shortcuts & System Help"
         >
-          ?
+          <HelpCircle className="w-4 h-4" />
         </button>
       </div>
     </header>

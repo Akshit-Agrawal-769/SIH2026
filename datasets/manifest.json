@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated_at": "2026-08-27T17:32:51.353152+00:00",
+  "updated_at": "2026-09-05T17:01:42.062780+00:00",
   "policy": "STRICT NO MOCK DATA",
   "datasets": {
     "model": [
@@ -91,6 +91,55 @@
           "license": "Open Data / Government of India",
           "citation": "INCOIS INDOFOS Ocean State Forecast System (2026)"
         }
+      },
+      {
+        "id": "cmems_armor3d",
+        "filename": "cmems.nc",
+        "title": "ARMOR3D REP - TSHUVMld Global Ocean Observation-based Product",
+        "institution": "Copernicus Marine Environment Monitoring Service (CMEMS) / CLS",
+        "source": "Copernicus Marine Service (marine.copernicus.eu)",
+        "conventions": "CF-1.11",
+        "domain": "Global Ocean (-180.0°E to 180.0°E, -82.0°N to 90.0°N)",
+        "spatial_bounds": {
+          "min_lon": -180.0,
+          "max_lon": 179.875,
+          "min_lat": -82.0,
+          "max_lat": 89.875
+        },
+        "dimensions": {
+          "time": 1,
+          "depth": 1,
+          "latitude": 1378,
+          "longitude": 2880
+        },
+        "temporal_coverage": {
+          "start": "2023-01-01T00:00:00Z",
+          "end": "2023-01-01T00:00:00Z",
+          "steps": 1,
+          "resolution": "weekly"
+        },
+        "variables": [
+          "to",
+          "so",
+          "ugo",
+          "vgo",
+          "zo",
+          "mlotst"
+        ],
+        "canonical_aliases": {
+          "to": "SST",
+          "so": "SSS",
+          "ugo": "velocity_u",
+          "vgo": "velocity_v",
+          "zo": "SSH",
+          "mlotst": "MLD"
+        },
+        "vertical_coordinate_type": "standard_depth",
+        "provenance": {
+          "provider": "Copernicus Marine Service",
+          "license": "Copernicus Open Access License",
+          "citation": "Copernicus Marine Service (2026). Global Ocean Observation-based 3D Product ARMOR3D."
+        }
       }
     ],
     "argo": [
@@ -116,12 +165,11 @@
           "LONGITUDE"
         ],
         "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
-        "temporal_coverage": "2010 to Present (Continuous 10-day cycle robotic profiling)",
+        "temporal_coverage": "2000 to Present (Continuous robotic profiling cycles)",
         "spatial_coverage": "Global Oceans & Indian Ocean Basin",
         "provenance": {
           "license": "Argo Open Data Policy (CC-BY 4.0)",
-          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Coriolis GDAC / Ifremer).",
-          "gdac_mirror": "https://data-argo.ifremer.fr/dac/coriolis/",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Coriolis Operational Oceanography / Euro-Argo ERIC / Argo GDAC).",
           "validation_status": "CF-1.6 & TEOS-10 Verified"
         }
       },
@@ -169,6 +217,246 @@
           "provider": "International Argo Program / Coriolis GDAC",
           "license": "Argo Open Data Policy (CC-BY 4.0)",
           "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Argo GDAC)."
+        }
+      },
+      {
+        "id": "incois_argo_gdac",
+        "title": "INCOIS National Oceanographic Data Centre (India)",
+        "provider": "Indian National Centre for Ocean Information Services (INCOIS)",
+        "source": "INCOIS Argo Data Centre / GDAC",
+        "dataset_type": "In-situ autonomous CTD vertical profiling observations",
+        "format": "NetCDF-3 / NetCDF-4 (CF-1.6 & Argo User's Manual 3.1)",
+        "platforms_count": 293,
+        "profiles_count": 41623,
+        "qc_policy": "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific colocation. Flags 3, 4, 9 rejected.",
+        "variables": [
+          "PRES",
+          "PRES_ADJUSTED",
+          "TEMP",
+          "TEMP_ADJUSTED",
+          "PSAL",
+          "PSAL_ADJUSTED",
+          "JULD",
+          "LATITUDE",
+          "LONGITUDE"
+        ],
+        "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
+        "temporal_coverage": "2000 to Present (Continuous robotic profiling cycles)",
+        "spatial_coverage": "Global Oceans & Indian Ocean Basin",
+        "provenance": {
+          "license": "Argo Open Data Policy (CC-BY 4.0)",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Indian National Centre for Ocean Information Services (INCOIS)).",
+          "validation_status": "CF-1.6 & TEOS-10 Verified"
+        }
+      },
+      {
+        "id": "aoml_argo_gdac",
+        "title": "NOAA / AOML Global Argo Array",
+        "provider": "Atlantic Oceanographic and Meteorological Laboratory (NOAA / USA)",
+        "source": "US Global Ocean Data Assembly Centre (US GODAE)",
+        "dataset_type": "In-situ autonomous CTD vertical profiling observations",
+        "format": "NetCDF-3 / NetCDF-4 (CF-1.6 & Argo User's Manual 3.1)",
+        "platforms_count": 518,
+        "profiles_count": 67442,
+        "qc_policy": "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific colocation. Flags 3, 4, 9 rejected.",
+        "variables": [
+          "PRES",
+          "PRES_ADJUSTED",
+          "TEMP",
+          "TEMP_ADJUSTED",
+          "PSAL",
+          "PSAL_ADJUSTED",
+          "JULD",
+          "LATITUDE",
+          "LONGITUDE"
+        ],
+        "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
+        "temporal_coverage": "2000 to Present (Continuous robotic profiling cycles)",
+        "spatial_coverage": "Global Oceans & Indian Ocean Basin",
+        "provenance": {
+          "license": "Argo Open Data Policy (CC-BY 4.0)",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Atlantic Oceanographic and Meteorological Laboratory (NOAA / USA)).",
+          "validation_status": "CF-1.6 & TEOS-10 Verified"
+        }
+      },
+      {
+        "id": "csiro_argo_gdac",
+        "title": "CSIRO Marine and Atmospheric Research Array",
+        "provider": "Commonwealth Scientific and Industrial Research Organisation (Australia)",
+        "source": "CSIRO Argo National Data Centre",
+        "dataset_type": "In-situ autonomous CTD vertical profiling observations",
+        "format": "NetCDF-3 / NetCDF-4 (CF-1.6 & Argo User's Manual 3.1)",
+        "platforms_count": 212,
+        "profiles_count": 27193,
+        "qc_policy": "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific colocation. Flags 3, 4, 9 rejected.",
+        "variables": [
+          "PRES",
+          "PRES_ADJUSTED",
+          "TEMP",
+          "TEMP_ADJUSTED",
+          "PSAL",
+          "PSAL_ADJUSTED",
+          "JULD",
+          "LATITUDE",
+          "LONGITUDE"
+        ],
+        "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
+        "temporal_coverage": "2000 to Present (Continuous robotic profiling cycles)",
+        "spatial_coverage": "Global Oceans & Indian Ocean Basin",
+        "provenance": {
+          "license": "Argo Open Data Policy (CC-BY 4.0)",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Commonwealth Scientific and Industrial Research Organisation (Australia)).",
+          "validation_status": "CF-1.6 & TEOS-10 Verified"
+        }
+      },
+      {
+        "id": "csio_argo_gdac",
+        "title": "CSIO China Argo Project Array",
+        "provider": "Second Institute of Oceanography, MNR (China)",
+        "source": "China Argo Real-time Data Centre",
+        "dataset_type": "In-situ autonomous CTD vertical profiling observations",
+        "format": "NetCDF-3 / NetCDF-4 (CF-1.6 & Argo User's Manual 3.1)",
+        "platforms_count": 123,
+        "profiles_count": 13739,
+        "qc_policy": "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific colocation. Flags 3, 4, 9 rejected.",
+        "variables": [
+          "PRES",
+          "PRES_ADJUSTED",
+          "TEMP",
+          "TEMP_ADJUSTED",
+          "PSAL",
+          "PSAL_ADJUSTED",
+          "JULD",
+          "LATITUDE",
+          "LONGITUDE"
+        ],
+        "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
+        "temporal_coverage": "2000 to Present (Continuous robotic profiling cycles)",
+        "spatial_coverage": "Global Oceans & Indian Ocean Basin",
+        "provenance": {
+          "license": "Argo Open Data Policy (CC-BY 4.0)",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Second Institute of Oceanography, MNR (China)).",
+          "validation_status": "CF-1.6 & TEOS-10 Verified"
+        }
+      },
+      {
+        "id": "bodc_argo_gdac",
+        "title": "British Oceanographic Data Centre Array",
+        "provider": "National Oceanography Centre / BODC (UK)",
+        "source": "UK Argo Data Assembly Centre",
+        "dataset_type": "In-situ autonomous CTD vertical profiling observations",
+        "format": "NetCDF-3 / NetCDF-4 (CF-1.6 & Argo User's Manual 3.1)",
+        "platforms_count": 43,
+        "profiles_count": 4535,
+        "qc_policy": "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific colocation. Flags 3, 4, 9 rejected.",
+        "variables": [
+          "PRES",
+          "PRES_ADJUSTED",
+          "TEMP",
+          "TEMP_ADJUSTED",
+          "PSAL",
+          "PSAL_ADJUSTED",
+          "JULD",
+          "LATITUDE",
+          "LONGITUDE"
+        ],
+        "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
+        "temporal_coverage": "2000 to Present (Continuous robotic profiling cycles)",
+        "spatial_coverage": "Global Oceans & Indian Ocean Basin",
+        "provenance": {
+          "license": "Argo Open Data Policy (CC-BY 4.0)",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (National Oceanography Centre / BODC (UK)).",
+          "validation_status": "CF-1.6 & TEOS-10 Verified"
+        }
+      },
+      {
+        "id": "jma_argo_gdac",
+        "title": "Japan Meteorological Agency Argo Array",
+        "provider": "Japan Meteorological Agency (JMA / Japan)",
+        "source": "JMA Argo National Data Assembly Centre",
+        "dataset_type": "In-situ autonomous CTD vertical profiling observations",
+        "format": "NetCDF-3 / NetCDF-4 (CF-1.6 & Argo User's Manual 3.1)",
+        "platforms_count": 9,
+        "profiles_count": 953,
+        "qc_policy": "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific colocation. Flags 3, 4, 9 rejected.",
+        "variables": [
+          "PRES",
+          "PRES_ADJUSTED",
+          "TEMP",
+          "TEMP_ADJUSTED",
+          "PSAL",
+          "PSAL_ADJUSTED",
+          "JULD",
+          "LATITUDE",
+          "LONGITUDE"
+        ],
+        "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
+        "temporal_coverage": "2000 to Present (Continuous robotic profiling cycles)",
+        "spatial_coverage": "Global Oceans & Indian Ocean Basin",
+        "provenance": {
+          "license": "Argo Open Data Policy (CC-BY 4.0)",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Japan Meteorological Agency (JMA / Japan)).",
+          "validation_status": "CF-1.6 & TEOS-10 Verified"
+        }
+      },
+      {
+        "id": "meds_argo_gdac",
+        "title": "Fisheries and Oceans Canada (MEDS / ISDM) Array",
+        "provider": "Marine Environmental Data Section / DFO (Canada)",
+        "source": "MEDS Argo National Data Assembly Centre",
+        "dataset_type": "In-situ autonomous CTD vertical profiling observations",
+        "format": "NetCDF-3 / NetCDF-4 (CF-1.6 & Argo User's Manual 3.1)",
+        "platforms_count": 5,
+        "profiles_count": 468,
+        "qc_policy": "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific colocation. Flags 3, 4, 9 rejected.",
+        "variables": [
+          "PRES",
+          "PRES_ADJUSTED",
+          "TEMP",
+          "TEMP_ADJUSTED",
+          "PSAL",
+          "PSAL_ADJUSTED",
+          "JULD",
+          "LATITUDE",
+          "LONGITUDE"
+        ],
+        "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
+        "temporal_coverage": "2000 to Present (Continuous robotic profiling cycles)",
+        "spatial_coverage": "Global Oceans & Indian Ocean Basin",
+        "provenance": {
+          "license": "Argo Open Data Policy (CC-BY 4.0)",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (Marine Environmental Data Section / DFO (Canada)).",
+          "validation_status": "CF-1.6 & TEOS-10 Verified"
+        }
+      },
+      {
+        "id": "argo_argo_gdac",
+        "title": "Argo Global Data Assembly Centre Array",
+        "provider": "International Argo Program / GDAC",
+        "source": "Argo GDAC (data-argo.ifremer.fr)",
+        "dataset_type": "In-situ autonomous CTD vertical profiling observations",
+        "format": "NetCDF-3 / NetCDF-4 (CF-1.6 & Argo User's Manual 3.1)",
+        "platforms_count": 2,
+        "profiles_count": 318,
+        "qc_policy": "Strict QC Policy: Flags 1 (Good) and 2 (Probably Good) verified for scientific colocation. Flags 3, 4, 9 rejected.",
+        "variables": [
+          "PRES",
+          "PRES_ADJUSTED",
+          "TEMP",
+          "TEMP_ADJUSTED",
+          "PSAL",
+          "PSAL_ADJUSTED",
+          "JULD",
+          "LATITUDE",
+          "LONGITUDE"
+        ],
+        "vertical_coordinate": "Calculated physical depth in meters via TEOS-10 (gsw.z_from_p) from sea pressure in dbar",
+        "temporal_coverage": "2000 to Present (Continuous robotic profiling cycles)",
+        "spatial_coverage": "Global Oceans & Indian Ocean Basin",
+        "provenance": {
+          "license": "Argo Open Data Policy (CC-BY 4.0)",
+          "citation": "Argo (2026). Argo float data and metadata from Global Data Assembly Centre (International Argo Program / GDAC).",
+          "validation_status": "CF-1.6 & TEOS-10 Verified"
         }
       }
     ]

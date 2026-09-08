@@ -71,8 +71,34 @@ export const CesiumOceanViewer = () => {
             name: `Argo Float ${float.platform_number}`,
             description: `Source: ${float.source} <br/> Profiles: ${float.profiles_count}`
           });
+          entity._argoFloat = float;
           window.__argoFloatEntities.push(entity);
         });
+
+        // Set up click & mouse move handlers on viewer
+        if (!window.__oceanScreenHandler && viewer.canvas) {
+          const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
+          handler.setInputAction((movement) => {
+            const picked = viewer.scene.pick(movement.position);
+            if (Cesium.defined(picked) && picked.id && picked.id._argoFloat) {
+              useOceanStore.getState().selectFloat(picked.id._argoFloat);
+            }
+          }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+          handler.setInputAction((movement) => {
+            const ray = viewer.camera.getPickRay(movement.endPosition);
+            if (!ray) return;
+            const cartesian = viewer.scene.globe.pick(ray, viewer.scene);
+            if (cartesian) {
+              const carto = Cesium.Cartographic.fromCartesian(cartesian);
+              const lon = Cesium.Math.toDegrees(carto.longitude);
+              const lat = Cesium.Math.toDegrees(carto.latitude);
+              useOceanStore.setState({ cursorCoords: { lon, lat, depth: 0 } });
+            }
+          }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+          window.__oceanScreenHandler = handler;
+        }
       });
     }
   }, [argoFloats]);
@@ -85,7 +111,13 @@ export const CesiumOceanViewer = () => {
     import('cesium').then((Cesium) => {
       if (cameraAction === 'fit_indian_ocean') {
         viewer.camera.flyTo({
-          destination: Cesium.Cartesian3.fromDegrees(75.0, 10.0, 8000000)
+          destination: Cesium.Cartesian3.fromDegrees(78.0, 12.0, 13500000),
+          orientation: {
+            heading: Cesium.Math.toRadians(0),
+            pitch: Cesium.Math.toRadians(-90),
+            roll: 0,
+          },
+          duration: 1.5,
         });
       } else if (cameraAction === 'arabian_sea') {
         viewer.camera.flyTo({
