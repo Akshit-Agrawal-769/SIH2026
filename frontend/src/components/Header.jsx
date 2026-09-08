@@ -23,6 +23,7 @@ export const Header = () => {
     toggleOverlay,
     closeAllOverlays,
     toggleGoToLocationModal,
+    toggleShortcutsModal,
     engineMode,
     setEngineMode,
   } = useOceanStore();
