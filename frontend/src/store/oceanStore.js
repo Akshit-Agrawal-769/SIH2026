@@ -519,7 +519,7 @@ export const useOceanStore = create((set, get) => ({
   verticalExaggeration: 1.0,
 
   // Engine Mode: 'three' (3D Volumetric Raymarching) | 'cesium' (Planetary Globe)
-  engineMode: 'three',
+  engineMode: 'cesium',
   setEngineMode: (engineMode) => set({ engineMode }),
 
   // Logarithmic / Linear Color Transfer Scale

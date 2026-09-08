@@ -3,17 +3,37 @@
 @tailwind utilities;
 
 :root {
-  --ui-bg: #08090c;
-  --ui-panel: rgba(10, 12, 16, 0.72);
-  --ui-panel-solid: #090b10;
-  --ui-panel-hover: rgba(16, 20, 28, 0.85);
-  --ui-border: rgba(255, 255, 255, 0.06);
-  --ui-border-hover: rgba(255, 255, 255, 0.16);
-  --ui-border-active: rgba(255, 255, 255, 0.35);
-  --ui-text: rgba(255, 255, 255, 0.88);
-  --ui-muted: rgba(255, 255, 255, 0.40);
-  --ui-dim: rgba(255, 255, 255, 0.20);
-  --ui-accent: #ffffff;
+  /* Surface Layers */
+  --surface-base: #030712;
+  --surface-panel: rgba(5, 12, 28, 0.78);
+  --surface-panel-solid: #060e22;
+  --surface-panel-hover: rgba(10, 22, 48, 0.88);
+  --surface-card: rgba(8, 16, 36, 0.65);
+  --surface-card-hover: rgba(14, 28, 60, 0.8);
+  --surface-control: rgba(4, 9, 22, 0.7);
+
+  /* Borders & Specular Edges */
+  --border-subtle: rgba(56, 189, 248, 0.12);
+  --border-default: rgba(56, 189, 248, 0.22);
+  --border-hover: rgba(56, 189, 248, 0.45);
+  --border-active: rgba(56, 189, 248, 0.75);
+  --border-light: rgba(255, 255, 255, 0.08);
+
+  /* Typography */
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --text-cyan: #38bdf8;
+  --text-emerald: #34d399;
+  --text-amber: #fbbf24;
+
+  /* Atmospheric Glows & Shadows */
+  --glow-cyan: 0 0 20px -3px rgba(56, 189, 248, 0.4);
+  --glow-cyan-sm: 0 0 10px -1px rgba(56, 189, 248, 0.3);
+  --glow-azure: 0 0 24px -4px rgba(14, 165, 233, 0.45);
+  --shadow-mission: 0 12px 36px 0 rgba(0, 0, 0, 0.65);
+  --shadow-glass: 0 8px 24px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
 }
 
 html, body, #root {
@@ -22,39 +42,91 @@ html, body, #root {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background-color: var(--ui-bg);
-  color: var(--ui-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  background-color: var(--surface-base);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Glassmorphism Styles */
+/* Tabular Numerals for Scientific Precision */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mission Control Glassmorphism Panels */
 .glass-panel {
-  background: var(--ui-panel);
+  background: var(--surface-panel);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--ui-border);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-glass);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
 
 .glass-panel:hover {
-  border-color: var(--ui-border-hover);
+  border-color: var(--border-hover);
 }
 
+.glass-panel-elevated {
+  background: rgba(6, 15, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-mission), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Glass Pill Buttons & Interactive Elements */
 .glass-pill {
-  background: rgba(12, 15, 22, 0.6);
+  background: var(--surface-control);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--ui-border);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-pill:hover {
-  background: rgba(20, 25, 36, 0.75);
-  border-color: var(--ui-border-hover);
+  background: rgba(14, 28, 60, 0.85);
+  border-color: var(--border-hover);
+  color: #ffffff;
+  box-shadow: var(--glow-cyan-sm);
 }
 
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
+.glass-pill-active {
+  background: rgba(14, 165, 233, 0.22);
+  border-color: rgba(56, 189, 248, 0.7);
+  color: #ffffff;
+  box-shadow: var(--glow-cyan-sm);
+}
+
+/* Scientific Action Buttons */
+.btn-sci-primary {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.3) 0%, rgba(2, 132, 199, 0.45) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  color: #ffffff;
+  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-sci-primary:hover {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.45) 0%, rgba(2, 132, 199, 0.6) 100%);
+  border-color: rgba(56, 189, 248, 0.9);
+  box-shadow: var(--glow-cyan);
+  transform: translateY(-1px);
+}
+
+.btn-sci-secondary {
+  background: rgba(6, 14, 30, 0.75);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.btn-sci-secondary:hover {
+  background: rgba(12, 24, 52, 0.85);
+  border-color: var(--border-hover);
+  color: #ffffff;
 }
 
 /* Minimal Scientific Scrollbars */
@@ -63,45 +135,195 @@ html, body, #root {
   height: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.2);
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
+  background: rgba(56, 189, 248, 0.25);
+  border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(56, 189, 248, 0.55);
 }
 
-/* Minimal Scientific Sliders */
+/* Precision Scientific Sliders */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  height: 3px;
+  border-radius: 4px;
+  height: 4px;
   outline: none;
+  transition: background 0.2s ease;
 }
+
+input[type="range"]:hover {
+  background: rgba(56, 189, 248, 0.2);
+}
+
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.4);
+  background: #38bdf8;
+  border: 1.5px solid #ffffff;
   cursor: pointer;
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
-  transition: transform 0.1s ease;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
+
 input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.25);
+  transform: scale(1.3);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 1);
 }
+
 input[type="range"]::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.4);
+  background: #38bdf8;
+  border: 1.5px solid #ffffff;
   cursor: pointer;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+}
+
+/* Pulsing Status Beacon */
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.92);
+  }
+}
+
+.pulse-beacon {
+  animation: pulseGlow 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Radar Sweep Keyframe for In-Situ Sensor Locations */
+@keyframes radarSweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.radar-sweep {
+  animation: radarSweep 6s linear infinite;
+}
+
+/* Micro Entry Animations */
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-slide {
+  animation: fadeInSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Translucent Mission Control Panels (high transparency so Cesium globe shines through) */
+.mission-panel {
+  background: rgba(3, 7, 18, 0.58);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 0 20px rgba(6, 182, 212, 0.08);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mission-panel:hover {
+  border-color: rgba(56, 189, 248, 0.38);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(6, 182, 212, 0.15);
+}
+
+.glow-text-cyan {
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.65);
+}
+
+.glow-border-cyan {
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.25), inset 0 0 12px rgba(6, 182, 212, 0.1);
+}
+
+.panel-transition {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hud-vignette {
+  pointer-events: none;
+  box-shadow: inset 0 0 120px rgba(0, 3, 10, 0.7);
+}
+
+/* Subtle Scientific Scan Line */
+@keyframes scanLine {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.12;
+  }
+  80% {
+    opacity: 0.12;
+  }
+  100% {
+    transform: translateY(1200%);
+    opacity: 0;
+  }
+}
+
+.scan-line {
+  animation: scanLine 9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Restrained Scientific Signal Stream Bars */
+@keyframes signalBar {
+  0%, 100% {
+    height: 25%;
+  }
+  50% {
+    height: 95%;
+  }
+}
+
+.signal-bar-1 { animation: signalBar 1.2s ease-in-out infinite; }
+.signal-bar-2 { animation: signalBar 0.85s ease-in-out infinite 0.15s; }
+.signal-bar-3 { animation: signalBar 1.4s ease-in-out infinite 0.35s; }
+
+/* Data Shimmer for High-Precision Telemetry Tags */
+@keyframes dataShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.data-shimmer {
+  background: linear-gradient(90deg, rgba(6, 182, 212, 0) 0%, rgba(6, 182, 212, 0.18) 50%, rgba(6, 182, 212, 0) 100%);
+  background-size: 200% 100%;
+  animation: dataShimmer 5s ease-in-out infinite;
+}
+
+/* Precision Scientific Badge */
+.sci-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
 }

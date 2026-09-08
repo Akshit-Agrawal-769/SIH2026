@@ -1,38 +1,31 @@
 import React from 'react';
-import { X, Layers, RotateCcw, Eye, EyeOff, Globe, Sparkles, Map, Flag, Compass, Radio, Activity, Navigation, Wind } from 'lucide-react';
+import { X, Layers, RotateCcw, Globe, Sparkles, Map, Flag, Compass, Radio, Activity, Navigation, Wind } from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
 export const ControlPanel = () => {
   const {
     activeOverlay,
     toggleOverlay,
-    viewMode,
-    setViewMode,
     colormap,
     setColormap,
-    opacity,
-    setOpacity,
-    verticalExaggeration,
-    setVerticalExaggeration,
     layers,
     toggleLayer,
-    setLayer,
   } = useOceanStore();
 
   if (activeOverlay !== 'layers') return null;
 
   const layerItems = [
-    { id: 'earthGlobe', label: '3D Earth Globe', icon: <Globe className="w-3.5 h-3.5" />, desc: 'Spherical oceanic base' },
-    { id: 'modelCoverage', label: 'Scientific Data Layer', icon: <Activity className="w-3.5 h-3.5" />, desc: 'ROMS surface scalar field' },
-    { id: 'currentVectors', label: 'Current Streamlines', icon: <Wind className="w-3.5 h-3.5" />, desc: 'Animated particle flow vectors' },
-    { id: 'satellites', label: 'Satellite Orbits', icon: <Navigation className="w-3.5 h-3.5" />, desc: 'Oceansat & SARAL paths' },
-    { id: 'events', label: 'Ocean Events', icon: <Sparkles className="w-3.5 h-3.5" />, desc: 'Cyclones & Thermal anomalies' },
-    { id: 'argoSensors', label: 'Argo In-Situ Array', icon: <Radio className="w-3.5 h-3.5" />, desc: 'Profiling CTD floats' },
-    { id: 'coastlines', label: 'High-Res Coastlines', icon: <Map className="w-3.5 h-3.5" />, desc: 'Natural Earth 10m vectors' },
-    { id: 'land', label: 'Continental Landmass', icon: <Map className="w-3.5 h-3.5" />, desc: 'Topographic land polygons' },
-    { id: 'countryBorders', label: 'Country Boundaries', icon: <Flag className="w-3.5 h-3.5" />, desc: 'Geopolitical borders' },
-    { id: 'graticule', label: 'Lat / Lon Graticule', icon: <Compass className="w-3.5 h-3.5" />, desc: 'Spherical parallels & meridians' },
-    { id: 'atmosphere', label: 'Atmospheric Glow', icon: <Sparkles className="w-3.5 h-3.5" />, desc: 'Fresnel limb scattering' },
+    { id: 'earthGlobe', label: '3D Planetary Globe', icon: <Globe className="w-3.5 h-3.5" />, desc: 'Spherical oceanic base surface' },
+    { id: 'modelCoverage', label: 'Numerical Ocean Field', icon: <Activity className="w-3.5 h-3.5" />, desc: 'ROMS surface scalar field' },
+    { id: 'currentVectors', label: 'Current Velocity Streamlines', icon: <Wind className="w-3.5 h-3.5" />, desc: 'Eulerian velocity field vectors' },
+    { id: 'satellites', label: 'Satellite Orbital Tracks', icon: <Navigation className="w-3.5 h-3.5" />, desc: 'Oceansat-3 & SARAL altimetry' },
+    { id: 'events', label: 'Extreme Ocean Events', icon: <Sparkles className="w-3.5 h-3.5" />, desc: 'Cyclones & thermal anomalies' },
+    { id: 'argoSensors', label: 'Argo In-Situ Float Array', icon: <Radio className="w-3.5 h-3.5" />, desc: 'Autonomous CTD profiling floats' },
+    { id: 'coastlines', label: 'High-Res Natural Coastlines', icon: <Map className="w-3.5 h-3.5" />, desc: 'Natural Earth 10m vectors' },
+    { id: 'land', label: 'Continental Topography', icon: <Map className="w-3.5 h-3.5" />, desc: 'Topographic land polygons' },
+    { id: 'countryBorders', label: 'Geopolitical Boundaries', icon: <Flag className="w-3.5 h-3.5" />, desc: 'International maritime borders' },
+    { id: 'graticule', label: 'Lat / Lon Coordinate Graticule', icon: <Compass className="w-3.5 h-3.5" />, desc: 'Spherical parallels & meridians' },
+    { id: 'atmosphere', label: 'Atmospheric Limb Scattering', icon: <Sparkles className="w-3.5 h-3.5" />, desc: 'Fresnel limb atmospheric glow' },
   ];
 
   const colormaps = [
@@ -43,78 +36,90 @@ export const ControlPanel = () => {
   ];
 
   return (
-    <aside className="absolute right-3 md:right-4 top-32 md:top-36 z-30 w-72 md:w-80 max-h-[calc(100vh-200px)] glass-panel rounded-xl text-white/90 select-none overflow-hidden flex flex-col shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/[0.06] bg-black/20">
+    <aside className="absolute right-6 top-20 z-30 w-80 max-h-[calc(100vh-140px)] bg-[rgba(4,10,24,0.88)] backdrop-blur-2xl rounded-2xl border border-sky-500/25 shadow-panel-dark text-white select-none overflow-hidden flex flex-col animate-fade-slide">
+      {/* ─── Header ─── */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-black/30">
         <div className="flex items-center gap-2">
-          <Layers className="w-3.5 h-3.5 text-white/70" />
-          <span className="text-xs font-medium text-white/90">Visualization Layers</span>
+          <div className="w-2 h-2 rounded-full bg-sky-400 pulse-beacon" />
+          <div>
+            <h2 className="text-xs font-bold font-mono tracking-wider text-white uppercase">
+              VISUALIZATION LAYERS
+            </h2>
+            <span className="text-[9px] text-slate-400 block -mt-0.5">
+              GRAPHICAL OVERLAYS &amp; SENSORS
+            </span>
+          </div>
         </div>
         <button
           onClick={() => toggleOverlay('layers')}
-          className="p-1 text-white/40 hover:text-white/80 rounded transition-colors"
+          className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"
           title="Close Panel"
         >
-          <X className="w-3.5 h-3.5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Layer Toggles */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-2 flex flex-col gap-1">
+      {/* ─── Layer Toggles ─── */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-1">
         {layerItems.map((item) => {
           const isEnabled = !!layers[item.id];
           return (
             <button
               key={item.id}
               onClick={() => toggleLayer(item.id)}
-              className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${
+              className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all ${
                 isEnabled
-                  ? 'bg-white/15 border border-white/20 text-white'
-                  : 'bg-black/20 hover:bg-white/5 border border-transparent text-white/50 hover:text-white/80'
+                  ? 'bg-sky-500/15 border border-sky-400/40 text-white shadow-sm'
+                  : 'bg-black/30 hover:bg-sky-500/10 border border-transparent text-slate-400 hover:text-white'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <div className={`p-1 rounded ${isEnabled ? 'text-white' : 'text-white/40'}`}>
+                <div className={`p-1.5 rounded-lg bg-black/40 border border-white/[0.08] ${isEnabled ? 'text-sky-300' : 'text-slate-500'}`}>
                   {item.icon}
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs font-normal leading-tight">{item.label}</span>
-                  <span className="text-[10px] text-white/40 font-light">{item.desc}</span>
+                  <span className="text-xs font-medium leading-tight">{item.label}</span>
+                  <span className="text-[9.5px] text-slate-400 font-sans">{item.desc}</span>
                 </div>
               </div>
 
+              {/* Glowing Switch Pill */}
               <div
-                className={`w-2 h-2 rounded-full transition-all ${
-                  isEnabled ? 'bg-white shadow-[0_0_6px_rgba(255,255,255,0.9)]' : 'bg-white/20'
+                className={`w-8 h-4 rounded-full p-0.5 transition-all flex items-center ${
+                  isEnabled
+                    ? 'bg-sky-500 justify-end shadow-glow-cyan-sm'
+                    : 'bg-slate-800 justify-start'
                 }`}
-              />
+              >
+                <div className="w-3 h-3 rounded-full bg-white shadow-sm" />
+              </div>
             </button>
           );
         })}
 
-        {/* Colormaps Section */}
-        <div className="mt-2 pt-2 border-t border-white/[0.06]">
-          <span className="text-[10px] text-white/40 font-mono uppercase px-1 block mb-1">
-            Colormap Palette
+        {/* ─── Colormaps Section ─── */}
+        <div className="mt-2 pt-2.5 border-t border-white/[0.08]">
+          <span className="text-[10px] text-slate-400 font-mono uppercase px-1 block mb-2 font-semibold">
+            Colormap Scientific Transfer Function
           </span>
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-2 gap-1.5">
             {colormaps.map((cm) => {
               const isSelected = colormap === cm.id;
               return (
                 <button
                   key={cm.id}
                   onClick={() => setColormap(cm.id)}
-                  className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-left transition-all ${
+                  className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all ${
                     isSelected
-                      ? 'bg-white/15 border-white/25 text-white'
-                      : 'bg-black/20 border-transparent text-white/60 hover:text-white hover:bg-white/5'
+                      ? 'bg-sky-500/20 border-sky-400/50 text-white shadow-glow-cyan-sm'
+                      : 'bg-black/30 border-white/[0.06] text-slate-400 hover:text-white hover:bg-sky-500/10'
                   }`}
                 >
                   <div
-                    className="w-3.5 h-2.5 rounded-sm border border-white/20 shrink-0"
+                    className="w-4 h-3 rounded-md border border-white/20 shrink-0 shadow-inner"
                     style={{ background: cm.gradient }}
                   />
-                  <span className="text-[11px] font-normal">{cm.label}</span>
+                  <span className="text-xs font-mono font-medium">{cm.label}</span>
                 </button>
               );
             })}

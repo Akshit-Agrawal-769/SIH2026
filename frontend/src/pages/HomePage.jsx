@@ -22,17 +22,20 @@ export const HomePage = () => {
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-[#030712]">
-      {/* 1. Primary 3D Viewport: Three.js 3D Volumetric Raymarching OR Cesium Globe */}
+      {/* 1. Primary 3D Viewport: Cesium Globe (Undeniable Centerpiece) OR Three.js Volumetric */}
       {engineMode === 'cesium' ? <CesiumOceanViewer /> : <OceanViewer />}
 
-      {/* 2. Left Panel: Location & Data */}
+      {/* 1.1 Filmic Mission Control Viewport Vignette */}
+      <div className="absolute inset-0 hud-vignette pointer-events-none z-10" />
+
+      {/* 2. Left Panel: Location & Ocean Intelligence */}
       <LocationDataPanel />
 
       {/* 3. Floating Vertical Globe Controls */}
       <GlobeControls />
 
       {/* 4. Right Panels Stack: View & Region, Active Layer, Selected Feature */}
-      <div className="absolute top-20 right-6 z-30 flex flex-col gap-3.5">
+      <div className="absolute top-18 right-6 z-30 flex flex-col gap-3">
         <ViewRegionPanel />
         <ActiveLayerPanel />
         <SelectedFeaturePanel />

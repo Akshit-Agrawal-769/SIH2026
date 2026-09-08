@@ -63,7 +63,7 @@ const IconFlask      = ({ className }) => (
 
 // ─── CopyBlock — interactive code snippet with copy button ──────────────────
 
-function CopyBlock({ code, lang = 'python', accentColor = '#00d4aa' }) {
+function CopyBlock({ code, lang = 'python', accentColor = '#00f2fe' }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(code).then(() => {
@@ -73,31 +73,30 @@ function CopyBlock({ code, lang = 'python', accentColor = '#00d4aa' }) {
   }, [code]);
 
   return (
-    <div className="relative group rounded-lg overflow-hidden border border-white/8"
-         style={{ background: 'rgba(5, 10, 22, 0.9)' }}>
+    <div className="relative group rounded-xl overflow-hidden border border-slate-800/90 shadow-lg"
+         style={{ background: 'rgba(2, 6, 18, 0.95)' }}>
       {/* language badge */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-white/6"
-           style={{ background: 'rgba(255,255,255,0.03)' }}>
-        <span className="text-[10px] font-mono tracking-widest uppercase"
-              style={{ color: accentColor, opacity: 0.85 }}>{lang}</span>
+      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800/60"
+           style={{ background: 'rgba(255,255,255,0.02)' }}>
+        <span className="text-[10px] font-mono tracking-widest uppercase font-semibold"
+              style={{ color: accentColor, opacity: 0.9 }}>{lang}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono transition-all duration-200"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono transition-all duration-200"
           style={{
-            background: copied ? 'rgba(0,212,170,0.15)' : 'rgba(255,255,255,0.05)',
-            color: copied ? '#00d4aa' : 'rgba(255,255,255,0.45)',
-            border: `1px solid ${copied ? 'rgba(0,212,170,0.4)' : 'rgba(255,255,255,0.1)'}`,
+            background: copied ? 'rgba(6,182,212,0.2)' : 'rgba(255,255,255,0.04)',
+            color: copied ? '#00f2fe' : 'rgba(255,255,255,0.55)',
+            border: `1px solid ${copied ? 'rgba(6,182,212,0.5)' : 'rgba(255,255,255,0.08)'}`,
           }}
-          title="Copy to clipboard"
+          title="Copy code snippet"
         >
           {copied
-            ? <><IconCheck className="w-3 h-3" /><span>Copied</span></>
-            : <><IconCopy className="w-3 h-3" /><span>Copy</span></>
+            ? <><IconCheck className="w-3 h-3 text-cyan-400" /><span className="text-cyan-300 font-semibold">COPIED</span></>
+            : <><IconCopy className="w-3 h-3" /><span>COPY</span></>
           }
         </button>
       </div>
-      <pre className="overflow-x-auto p-4 text-[11.5px] leading-relaxed custom-scrollbar"
-           style={{ fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace', color: 'rgba(220,235,255,0.88)' }}>
+      <pre className="overflow-x-auto p-4 text-[11.5px] leading-relaxed custom-scrollbar font-mono text-slate-200">
         <code>{code}</code>
       </pre>
     </div>
@@ -108,15 +107,18 @@ function CopyBlock({ code, lang = 'python', accentColor = '#00d4aa' }) {
 
 function FormulaCard({ label, formula, description, color = '#38bdf8' }) {
   return (
-    <div className="rounded-xl p-4 flex flex-col gap-2 border transition-all duration-200 hover:scale-[1.01]"
-         style={{ background: 'rgba(8,16,36,0.8)', borderColor: `${color}22` }}>
-      <span className="text-[10px] font-mono font-bold tracking-widest uppercase" style={{ color }}>{label}</span>
-      <div className="rounded-lg px-4 py-3 text-center font-mono text-sm font-semibold border"
-           style={{ background: `${color}0a`, borderColor: `${color}30`, color: `${color}ee`, letterSpacing: '0.04em' }}>
+    <div className="rounded-xl p-4 flex flex-col gap-2.5 border transition-all duration-200 hover:border-sky-500/40 hover:scale-[1.01] shadow-sm"
+         style={{ background: 'rgba(4, 10, 24, 0.85)', borderColor: `${color}25` }}>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-mono font-bold tracking-widest uppercase" style={{ color }}>{label}</span>
+        <span className="text-[9px] font-mono text-slate-500">ANALYTICAL FORMULA</span>
+      </div>
+      <div className="rounded-lg px-4 py-3 text-center font-mono text-sm font-semibold border shadow-inner"
+           style={{ background: `${color}0c`, borderColor: `${color}35`, color: `${color}ff`, letterSpacing: '0.04em' }}>
         {formula}
       </div>
       {description && (
-        <p className="text-[11px] text-slate-500 leading-relaxed">{description}</p>
+        <p className="text-[11px] text-slate-400 leading-relaxed font-sans">{description}</p>
       )}
     </div>
   );
@@ -127,33 +129,42 @@ function FormulaCard({ label, formula, description, color = '#38bdf8' }) {
 function Section({ id, icon: Icon, title, badge, accentColor = '#38bdf8', defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-2xl overflow-hidden border transition-all duration-300"
-         style={{ background: 'rgba(6,14,32,0.72)', borderColor: open ? `${accentColor}33` : 'rgba(255,255,255,0.06)' }}>
+    <div className="rounded-2xl overflow-hidden border transition-all duration-300 shadow-md backdrop-blur-xl"
+         style={{
+           background: 'rgba(4, 10, 24, 0.85)',
+           borderColor: open ? `${accentColor}40` : 'rgba(255,255,255,0.07)',
+           boxShadow: open ? `0 0 25px ${accentColor}10` : 'none',
+         }}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/3 transition-colors duration-200"
+        className="w-full flex items-center justify-between px-6 py-4.5 hover:bg-white/[0.03] transition-colors duration-200"
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-               style={{ background: `${accentColor}18`, border: `1px solid ${accentColor}33` }}>
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border"
+               style={{ background: `${accentColor}18`, borderColor: `${accentColor}40` }}>
             <Icon className="w-4.5 h-4.5" style={{ color: accentColor }} />
           </div>
           <div className="text-left min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm text-white tracking-tight">{title}</span>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="font-semibold text-sm text-slate-100 tracking-tight">{title}</span>
               {badge && (
-                <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0"
-                      style={{ background: `${accentColor}20`, color: accentColor, border: `1px solid ${accentColor}40` }}>
+                <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0 border"
+                      style={{ background: `${accentColor}20`, color: accentColor, borderColor: `${accentColor}40` }}>
                   {badge}
                 </span>
               )}
             </div>
           </div>
         </div>
-        <IconChevronDown
-          className="w-4 h-4 shrink-0 ml-4 transition-transform duration-300"
-          style={{ color: 'rgba(255,255,255,0.35)', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
-        />
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest hidden sm:inline">
+            {open ? 'COLLAPSE' : 'EXPAND'}
+          </span>
+          <IconChevronDown
+            className="w-4 h-4 shrink-0 transition-transform duration-300 text-slate-400"
+            style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          />
+        </div>
       </button>
       <div style={{
         display: 'grid',
@@ -161,8 +172,8 @@ function Section({ id, icon: Icon, title, badge, accentColor = '#38bdf8', defaul
         transition: 'grid-template-rows 0.35s cubic-bezier(0.4,0,0.2,1)',
       }}>
         <div style={{ overflow: 'hidden' }}>
-          <div className="px-6 pb-6 pt-1 flex flex-col gap-5"
-               style={{ borderTop: `1px solid ${accentColor}14` }}>
+          <div className="px-6 pb-6 pt-2 flex flex-col gap-5 border-t"
+               style={{ borderColor: `${accentColor}20` }}>
             {children}
           </div>
         </div>
@@ -175,26 +186,26 @@ function Section({ id, icon: Icon, title, badge, accentColor = '#38bdf8', defaul
 
 function PipelineFlow({ steps }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 py-1">
+    <div className="flex flex-wrap items-center gap-2 py-1.5">
       {steps.map((step, i) => (
         <React.Fragment key={i}>
           <div className="flex flex-col items-center gap-1">
-            <div className="px-3 py-2 rounded-xl text-[11px] font-mono font-semibold border whitespace-nowrap"
+            <div className="px-3.5 py-2 rounded-xl text-[11px] font-mono font-semibold border whitespace-nowrap transition-all duration-200 hover:scale-105"
                  style={{
-                   background: `${step.color}12`,
-                   borderColor: `${step.color}40`,
+                   background: `${step.color}14`,
+                   borderColor: `${step.color}45`,
                    color: step.color,
-                   boxShadow: `0 0 12px ${step.color}14`,
+                   boxShadow: `0 0 12px ${step.color}18`,
                  }}>
               {step.icon && <span className="mr-1.5">{step.icon}</span>}
               {step.label}
             </div>
             {step.sub && (
-              <span className="text-[9px] text-slate-600 font-mono">{step.sub}</span>
+              <span className="text-[9px] text-slate-500 font-mono">{step.sub}</span>
             )}
           </div>
           {i < steps.length - 1 && (
-            <IconArrowRight className="w-3.5 h-3.5 shrink-0" style={{ color: 'rgba(255,255,255,0.18)' }} />
+            <IconArrowRight className="w-3.5 h-3.5 shrink-0 text-slate-600" />
           )}
         </React.Fragment>
       ))}
@@ -204,17 +215,17 @@ function PipelineFlow({ steps }) {
 
 // ─── Sub-tab switcher ─────────────────────────────────────────────────────────
 
-function SubTabs({ tabs, active, onChange, accentColor }) {
+function SubTabs({ tabs, active, onChange, accentColor = '#00f2fe' }) {
   return (
-    <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.06)' }}>
+    <div className="flex gap-1.5 p-1 rounded-xl bg-slate-950/80 border border-slate-800/80">
       {tabs.map(t => (
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
-          className="flex-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200"
+          className="flex-1 px-3.5 py-1.5 rounded-lg text-[11px] font-mono font-medium tracking-wider uppercase transition-all duration-200"
           style={active === t.id
-            ? { background: `${accentColor}22`, color: accentColor, border: `1px solid ${accentColor}44` }
-            : { color: 'rgba(255,255,255,0.4)', border: '1px solid transparent' }
+            ? { background: `${accentColor}20`, color: accentColor, border: `1px solid ${accentColor}50`, boxShadow: `0 0 10px ${accentColor}18` }
+            : { color: 'rgba(255,255,255,0.45)', border: '1px solid transparent' }
           }
         >
           {t.label}
@@ -236,42 +247,39 @@ export const MethodologyPage = () => {
 
   return (
     <div
-      className="flex-1 w-full overflow-y-auto custom-scrollbar select-text"
-      style={{
-        background: 'linear-gradient(180deg, #030b18 0%, #040d1c 40%, #030a16 100%)',
-        fontFamily: '"Space Grotesk", "Inter", system-ui, sans-serif',
-      }}
+      className="flex-1 w-full overflow-y-auto custom-scrollbar select-text bg-[#030712] font-sans text-slate-100"
     >
       {/* ── Ambient glow backdrop ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-        <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-5"
-             style={{ background: 'radial-gradient(circle, #00f2fe 0%, transparent 70%)', filter: 'blur(60px)' }} />
-        <div className="absolute bottom-1/3 right-1/4 w-80 h-80 rounded-full opacity-4"
-             style={{ background: 'radial-gradient(circle, #7c3aed 0%, transparent 70%)', filter: 'blur(80px)' }} />
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full opacity-10 pointer-events-none"
+             style={{ background: 'radial-gradient(circle, #00f2fe 0%, transparent 70%)', filter: 'blur(80px)' }} />
+        <div className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full opacity-10 pointer-events-none"
+             style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)', filter: 'blur(90px)' }} />
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto px-5 sm:px-8 py-10 flex flex-col gap-6">
+      <div className="relative z-10 max-w-5xl mx-auto px-5 sm:px-8 py-8 flex flex-col gap-6">
 
         {/* ── Page Header ── */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 pb-6"
-             style={{ borderBottom: '1px solid rgba(0,242,254,0.1)' }}>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
-                   style={{ background: 'rgba(0,242,254,0.1)', border: '1px solid rgba(0,242,254,0.25)', boxShadow: '0 0 20px rgba(0,242,254,0.12)' }}>
-                <IconFlask className="w-5 h-5" style={{ color: '#00f2fe' }} />
+        <div className="rounded-2xl p-6 border border-sky-500/20 bg-[rgba(4,10,24,0.85)] backdrop-blur-2xl shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-cyan-500/10 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+                <IconFlask className="w-5 h-5 text-cyan-400" />
               </div>
               <div>
-                <span className="text-[10px] font-mono tracking-[0.25em] uppercase"
-                      style={{ color: '#00f2fe', opacity: 0.75 }}>
-                  INCOIS · SIH 2026 · PS-26067
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold tracking-widest text-cyan-400 uppercase">
+                    INCOIS RESEARCH ARCHIVE
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-500">·</span>
+                  <span className="text-[10px] font-mono text-slate-400">SPECIFICATION PS-26067</span>
+                </div>
                 <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-tight">
                   Scientific Methodology &amp; Architecture
                 </h1>
               </div>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed max-w-2xl mt-1">
+            <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
               Authoritative documentation of the data ingestion pipeline, TEOS-10 thermodynamic
               normalization, 4D spatio-temporal colocation, statistical validation metrics, and
               WebGL2 volumetric rendering architecture powering this platform.
@@ -280,19 +288,15 @@ export const MethodologyPage = () => {
 
           <button
             onClick={() => setActivePage('home')}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium shrink-0 transition-all duration-200 hover:scale-[1.02]"
-            style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: 'rgba(255,255,255,0.65)',
-            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-semibold tracking-wider uppercase shrink-0 transition-all duration-200 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 hover:border-sky-400 text-sky-300 shadow-[0_0_15px_rgba(6,182,212,0.15)] hover:scale-[1.02]"
           >
-            ← Back to 3D Globe
+            <span>←</span>
+            <span>Return to 3D Globe</span>
           </button>
         </div>
 
         {/* ── Quick-Nav Index ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
           {[
             { label: 'Data Ingestion',       color: '#38bdf8', n: '01' },
             { label: 'TEOS-10 Normalization',color: '#818cf8', n: '02' },
@@ -300,10 +304,10 @@ export const MethodologyPage = () => {
             { label: 'Validation Metrics',   color: '#fb923c', n: '04' },
             { label: 'GPU Raymarching',      color: '#00f2fe', n: '05' },
           ].map(item => (
-            <div key={item.n} className="rounded-xl p-3 flex flex-col gap-1 border cursor-default hover:border-opacity-60 transition-all duration-200"
-                 style={{ background: `${item.color}07`, borderColor: `${item.color}25` }}>
-              <span className="font-mono text-[9px] tracking-widest" style={{ color: item.color, opacity: 0.65 }}>§{item.n}</span>
-              <span className="text-[11px] font-medium text-slate-300 leading-tight">{item.label}</span>
+            <div key={item.n} className="rounded-xl p-3 flex flex-col gap-1 border cursor-default transition-all duration-200 bg-[rgba(4,10,24,0.7)] hover:bg-[rgba(6,182,212,0.06)] hover:border-cyan-500/40 backdrop-blur-md"
+                 style={{ borderColor: `${item.color}25` }}>
+              <span className="font-mono text-[10px] font-bold tracking-widest" style={{ color: item.color }}>§{item.n}</span>
+              <span className="text-[11px] font-medium text-slate-200 leading-tight">{item.label}</span>
             </div>
           ))}
         </div>
@@ -941,16 +945,14 @@ if (accumulatedColor.a >= 0.98) break;  // Early-ray termination`}
         {/* ══════════════════════════════════════════════════════════
              DATA INTEGRITY GUARANTEE
         ══════════════════════════════════════════════════════════ */}
-        <div className="rounded-2xl p-6 border flex flex-col gap-4"
-             style={{ background: 'rgba(239,68,68,0.05)', borderColor: 'rgba(239,68,68,0.2)' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                 style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)' }}>
-              <IconShield className="w-4.5 h-4.5" style={{ color: '#f87171' }} />
+        <div className="rounded-2xl p-6 border flex flex-col gap-4 shadow-xl bg-[rgba(4,10,24,0.9)] backdrop-blur-2xl border-rose-500/25 shadow-[0_0_30px_rgba(244,63,94,0.06)]">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-rose-500/10 border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]">
+              <IconShield className="w-5 h-5 text-rose-400" />
             </div>
             <div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: '#f87171' }}>§07 — Scientific Data Integrity Policy</span>
-              <p className="text-sm font-semibold text-white">Zero Synthetic Data Guarantee</p>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-rose-400">§07 — Scientific Data Integrity Policy</span>
+              <p className="text-base font-semibold text-white tracking-tight">Zero Synthetic Data Guarantee</p>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -959,11 +961,13 @@ if (accumulatedColor.a >= 0.98) break;  // Early-ray termination`}
               { title: 'No Depth Fabrication', desc: '2D surface variables (T × Y × X) are never extended into artificial vertical layers.' },
               { title: 'Authoritative NaN Masks', desc: 'Land cells and missing values are preserved as NaN / −1.0 sentinel. Never interpolated over.' },
             ].map(item => (
-              <div key={item.title} className="rounded-xl p-3 border flex gap-2.5" style={{ background: 'rgba(239,68,68,0.04)', borderColor: 'rgba(239,68,68,0.15)' }}>
-                <IconCheck className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#4ade80' }} />
+              <div key={item.title} className="rounded-xl p-3.5 border flex gap-3 bg-slate-950/70 border-slate-800/90 hover:border-slate-700/80 transition-all duration-200">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center bg-emerald-500/10 border border-emerald-500/30 shrink-0 mt-0.5">
+                  <IconCheck className="w-3 h-3 text-emerald-400" />
+                </div>
                 <div>
-                  <p className="text-[11.5px] font-semibold text-slate-200">{item.title}</p>
-                  <p className="text-[10.5px] text-slate-500 leading-relaxed mt-0.5">{item.desc}</p>
+                  <p className="text-[11.5px] font-semibold text-slate-100">{item.title}</p>
+                  <p className="text-[10.5px] text-slate-400 leading-relaxed mt-0.5">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -971,9 +975,12 @@ if (accumulatedColor.a >= 0.98) break;  // Early-ray termination`}
         </div>
 
         {/* ── References footer ── */}
-        <div className="rounded-2xl p-5 border" style={{ background: 'rgba(6,14,32,0.5)', borderColor: 'rgba(255,255,255,0.06)' }}>
-          <p className="text-[10px] font-mono uppercase tracking-widest text-slate-600 mb-3">References &amp; Standards</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-[10.5px] text-slate-500">
+        <div className="rounded-2xl p-6 border bg-[rgba(4,10,24,0.7)] backdrop-blur-xl border-slate-800/80 shadow-lg">
+          <div className="flex items-center justify-between mb-3 border-b border-slate-800/60 pb-2.5">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">References &amp; Scientific Standards</p>
+            <span className="text-[10px] font-mono text-slate-500">PEER-REVIEWED SPECIFICATIONS</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-[11px]">
             {[
               ['TEOS-10', 'IOC, SCOR & IAPSO 2010', 'Thermodynamic Equation of Seawater'],
               ['gsw ≥ 3.6', 'Gibbs SeaWater Toolbox', 'Python TEOS-10 implementation'],
@@ -985,15 +992,16 @@ if (accumulatedColor.a >= 0.98) break;  // Early-ray termination`}
               ['xarray ≥ 2024', 'Lazy NetCDF loading', 'Coordinate-aware slicing'],
               ['netCDF4 ≥ 1.6', 'HDF5 / NetCDF4', 'Low-level file reading'],
             ].map(([lib, org, desc]) => (
-              <div key={lib} className="flex flex-col leading-relaxed">
-                <span className="font-mono text-slate-300">{lib}</span>
-                <span className="text-slate-600">{org} — {desc}</span>
+              <div key={lib} className="flex flex-col leading-relaxed p-2 rounded-lg bg-slate-950/50 border border-slate-800/60">
+                <span className="font-mono text-cyan-300 font-semibold text-[11px]">{lib}</span>
+                <span className="text-slate-400 text-[10px]">{org}</span>
+                <span className="text-slate-500 text-[9.5px] italic">{desc}</span>
               </div>
             ))}
           </div>
-          <p className="text-[9px] text-slate-700 mt-4 font-mono">
-            All formulas derived from and consistent with the production implementation.
-            Source-of-truth: METHODOLOGY.md · SCIENTIFIC_METHODS.md
+          <p className="text-[10px] text-slate-500 mt-4 font-mono flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+            All formulas derived from and consistent with the production implementation. Source-of-truth: <code className="text-slate-300">METHODOLOGY.md</code> · <code className="text-slate-300">SCIENTIFIC_METHODS.md</code>
           </p>
         </div>
       </div>

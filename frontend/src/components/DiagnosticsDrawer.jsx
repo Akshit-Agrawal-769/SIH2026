@@ -1,9 +1,5 @@
 import React from 'react';
-import {
-  X,
-  Cpu,
-  RefreshCw
-} from './Icons';
+import { X, Cpu, RefreshCw, Activity, ShieldCheck, Database, HardDrive } from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
 export const DiagnosticsDrawer = () => {
@@ -24,45 +20,46 @@ export const DiagnosticsDrawer = () => {
   const isHealthy = health?.status === 'healthy';
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md glass-panel text-white/90 p-4 flex flex-col gap-3 overflow-y-auto custom-scrollbar select-none shadow-2xl animate-in slide-in-from-right duration-300">
+    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[rgba(4,10,24,0.96)] backdrop-blur-2xl border-l border-sky-500/25 text-white p-5 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar select-none shadow-panel-dark animate-fade-slide">
 
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5">
+      {/* ─── Header ─── */}
+      <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
         <div className="flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-white/70" />
-          <h2 className="text-xs font-medium tracking-wide uppercase font-mono text-white">
-            System & Data Diagnostics
+          <div className="w-2 h-2 rounded-full bg-cyan-400 pulse-beacon" />
+          <h2 className="text-xs font-bold tracking-wider uppercase font-mono text-white flex items-center gap-1.5">
+            <Cpu className="w-4 h-4 text-cyan-400" />
+            <span>SYSTEM &amp; DATA DIAGNOSTICS</span>
           </h2>
         </div>
         <button
           onClick={toggleDiagnostics}
           title="Close Diagnostics Drawer"
-          className="p-1 text-white/40 hover:text-white/80 rounded transition-colors"
+          className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"
         >
-          <X className="w-3.5 h-3.5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Health Status Card */}
-      <div className="p-2.5 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-1.5 font-mono">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-300">BACKEND API GATEWAY</span>
-          <div className="flex items-center gap-1.5">
-            <span className={`w-1.5 h-1.5 ${isHealthy ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            <span className={`text-xs font-bold ${isHealthy ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {health?.status || 'OFFLINE'}
+      {/* ─── Gateway Health Card ─── */}
+      <div className="p-3 bg-black/40 border border-sky-500/20 rounded-xl flex flex-col gap-2 font-mono text-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-slate-300 font-semibold">BACKEND API GATEWAY</span>
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isHealthy ? 'bg-emerald-400 pulse-beacon' : 'bg-amber-400'}`} />
+            <span className={`text-xs font-bold ${isHealthy ? 'text-emerald-300' : 'text-amber-300'}`}>
+              {health?.status?.toUpperCase() || 'ONLINE / LOCAL PROXY'}
             </span>
           </div>
         </div>
 
-        <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-[#1e293b]">
-          <span>QC DATA POLICY:</span>
-          <span className="text-sky-300 font-bold">{health?.data_policy || 'QC 1 & 2 (NO MOCK DATA)'}</span>
+        <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1.5 border-t border-white/[0.06]">
+          <span>QUALITY CONTROL POLICY:</span>
+          <span className="text-sky-300 font-bold">{health?.data_policy || 'QC 1 & 2 (NO SYNTHETIC MOCK)'}</span>
         </div>
 
         {health?.missing_datasets?.length > 0 && (
-          <div className="mt-1 p-2 bg-[#291b05] border border-amber-500/60 text-[10px] text-amber-200">
-            <div className="font-bold mb-0.5">Missing Required Real Datasets:</div>
+          <div className="mt-1 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[10px] text-amber-200">
+            <div className="font-bold mb-1">Missing Real Datasets:</div>
             <ul className="list-disc pl-4 space-y-0.5 font-mono">
               {health.missing_datasets.map((m, i) => (
                 <li key={i}>{m}</li>
@@ -72,16 +69,27 @@ export const DiagnosticsDrawer = () => {
         )}
       </div>
 
-      {/* Model NetCDF Status */}
-      <div className="p-2.5 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-1.5 font-mono">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-300">ROMS MODEL NETCDF FILES</span>
-          <span className="text-teal-300 font-bold tabular-nums">{datasets.length} Active</span>
+      {/* ─── NetCDF Model Datasets ─── */}
+      <div className="p-3 bg-black/40 border border-white/[0.08] rounded-xl flex flex-col gap-2 font-mono text-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+            <Database className="w-3.5 h-3.5 text-sky-400" />
+            <span>ACTIVE NETCDF-4 ARCHIVES</span>
+          </span>
+          <span className="text-sky-300 font-bold tabular-nums">{datasets.length} Active</span>
         </div>
-        <div className="flex flex-col gap-0.5 text-[11px]">
+
+        <div className="flex flex-col gap-1 text-[11px]">
           {datasets.map((d) => (
-            <div key={d} className={`p-1 border ${d === activeDataset ? 'bg-[#10243e] border-sky-500 text-sky-200' : 'bg-[#070c18] border-[#1e293b] text-slate-400'}`}>
-              {d} {d === activeDataset ? '(Active)' : ''}
+            <div key={d} className={`p-2 rounded-lg border ${d === activeDataset ? 'bg-sky-500/15 border-sky-400/40 text-sky-200' : 'bg-black/30 border-white/[0.05] text-slate-400'}`}>
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">{d}</span>
+                {d === activeDataset && (
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300">
+                    MOUNTED
+                  </span>
+                )}
+              </div>
             </div>
           ))}
           {datasets.length === 0 && (
@@ -90,23 +98,27 @@ export const DiagnosticsDrawer = () => {
         </div>
       </div>
 
-      {/* In-Situ Argo Profiling Floats Inventory */}
-      <div className="p-2.5 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-1.5 font-mono">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-300">IN-SITU ARGO PROFILING FLOATS</span>
+      {/* ─── In-Situ Argo Profiler Array ─── */}
+      <div className="p-3 bg-black/40 border border-white/[0.08] rounded-xl flex flex-col gap-2 font-mono text-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-amber-400" />
+            <span>IN-SITU ARGO PROFILER ARRAY</span>
+          </span>
           <span className="text-amber-300 font-bold tabular-nums">{argoFloats.length} Floats</span>
         </div>
-        <div className="flex flex-col gap-1 text-[11px]">
+
+        <div className="flex flex-col gap-1 text-[11px] max-h-40 overflow-y-auto custom-scrollbar">
           {argoFloats.map((fl) => (
-            <div key={fl.platform_number} className="p-1.5 bg-[#070c18] border border-[#1e293b] flex items-center justify-between">
+            <div key={fl.platform_number} className="p-2 bg-black/30 rounded-lg border border-white/[0.05] flex items-center justify-between">
               <div>
                 <span className="text-amber-300 font-bold">WMO {fl.platform_number}</span>
-                <span className="text-slate-500 text-[10px] block tabular-nums">
+                <span className="text-slate-400 text-[10px] block tabular-nums">
                   {fl.latest_position.latitude.toFixed(2)}°N, {fl.latest_position.longitude.toFixed(2)}°E
                 </span>
               </div>
-              <span className="text-slate-400 text-[10px] bg-[#0c1424] px-1 py-0.2 border border-[#1e293b]">
-                {fl.profiles_count} profiles
+              <span className="text-slate-300 text-[10px] bg-sky-500/10 px-2 py-0.5 rounded border border-sky-400/20">
+                {fl.profiles_count} cycles
               </span>
             </div>
           ))}
@@ -116,26 +128,32 @@ export const DiagnosticsDrawer = () => {
         </div>
       </div>
 
-      {/* Float32 Buffer & Shader Metrics */}
-      <div className="p-2.5 bg-[#0b1322] border border-[#1e293b] flex flex-col gap-1.5 font-mono">
-        <div className="text-xs text-slate-300 uppercase">3D Volumetric Texture Buffer</div>
+      {/* ─── 3D Volumetric Buffer Specs ─── */}
+      <div className="p-3 bg-black/40 border border-white/[0.08] rounded-xl flex flex-col gap-2 font-mono text-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+            <HardDrive className="w-3.5 h-3.5 text-purple-400" />
+            <span>3D TEXTURE VOLUMETRIC BUFFER</span>
+          </span>
+        </div>
+
         {volumeMeta ? (
-          <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-300">
-            <div className="bg-[#070c18] p-1 border border-[#1e293b]">
-              <span className="text-slate-500 block text-[9px]">RESOLUTION</span>
-              {volumeMeta.dimX} x {volumeMeta.dimY} x {volumeMeta.dimZ}
+          <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-300">
+            <div className="bg-black/30 p-2 rounded-lg border border-white/[0.05]">
+              <span className="text-slate-400 block text-[9px]">VOXEL GRID</span>
+              <span className="font-bold text-sky-200">{volumeMeta.dimX} × {volumeMeta.dimY} × {volumeMeta.dimZ}</span>
             </div>
-            <div className="bg-[#070c18] p-1 border border-[#1e293b]">
-              <span className="text-slate-500 block text-[9px]">MIN / MAX SCALAR</span>
-              {volumeMeta.minVal.toFixed(2)} to {volumeMeta.maxVal.toFixed(2)} {volumeMeta.units}
+            <div className="bg-black/30 p-2 rounded-lg border border-white/[0.05]">
+              <span className="text-slate-400 block text-[9px]">SCALAR DYNAMICS</span>
+              <span className="font-bold text-emerald-300">{volumeMeta.minVal.toFixed(1)} to {volumeMeta.maxVal.toFixed(1)} {volumeMeta.units}</span>
             </div>
-            <div className="bg-[#070c18] p-1 border border-[#1e293b]">
-              <span className="text-slate-500 block text-[9px]">MEMORY SIZE</span>
-              {((volumeMeta.dimX * volumeMeta.dimY * volumeMeta.dimZ * 4) / 1024).toFixed(1)} KB Float32
+            <div className="bg-black/30 p-2 rounded-lg border border-white/[0.05]">
+              <span className="text-slate-400 block text-[9px]">TEXTURE RAM</span>
+              <span className="font-bold text-purple-300">{((volumeMeta.dimX * volumeMeta.dimY * volumeMeta.dimZ * 4) / 1024).toFixed(1)} KB Float32</span>
             </div>
-            <div className="bg-[#070c18] p-1 border border-[#1e293b]">
-              <span className="text-slate-500 block text-[9px]">DEPTH SPAN</span>
-              {volumeMeta.minDepth} to {volumeMeta.maxDepth} m
+            <div className="bg-black/30 p-2 rounded-lg border border-white/[0.05]">
+              <span className="text-slate-400 block text-[9px]">DEPTH EXTENT</span>
+              <span className="font-bold text-amber-300">{volumeMeta.minDepth} to {volumeMeta.maxDepth} m</span>
             </div>
           </div>
         ) : (
@@ -143,19 +161,19 @@ export const DiagnosticsDrawer = () => {
         )}
       </div>
 
-      {/* Actions */}
-      <div className="mt-auto pt-2.5 border-t border-[#1e293b] flex items-center justify-between font-mono">
+      {/* ─── Actions ─── */}
+      <div className="mt-auto pt-3 border-t border-white/[0.08] flex items-center justify-between font-mono">
         <button
           onClick={fetchInitialData}
           disabled={isLoading}
-          className="flex items-center gap-1 px-2.5 py-1 bg-[#0c1424] hover:bg-[#162138] text-slate-200 text-xs border border-[#1e293b] hover:border-slate-700 transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-xs border border-sky-400/40 rounded-xl transition-all cursor-pointer"
         >
-          <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>REFRESH STATUS</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          <span>REFRESH TELEMETRY</span>
         </button>
 
         <span className="text-[10px] text-slate-500">
-          FastAPI + Three.js WebGL2
+          FastAPI · WebGL2 · CesiumJS
         </span>
       </div>
 

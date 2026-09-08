@@ -321,33 +321,45 @@ export const DataCatalogPage = () => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#040814] text-slate-100 font-mono p-4 sm:p-6 select-none">
+    <div className="flex-1 overflow-y-auto bg-[#030712] text-slate-100 font-sans p-4 sm:p-6 select-none custom-scrollbar">
       <div className="max-w-7xl mx-auto flex flex-col gap-5">
         {/* Top Navigation & Workspace Strip */}
-        <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
-          <div className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-cyan-400" />
-            <span className="text-sm font-sans font-medium text-white">INCOIS Integrated Ocean Data Catalog</span>
-            <span className="text-[10px] px-2 py-0.5 bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-mono rounded">
-              CF-1.6 & TEOS-10 Real Data
-            </span>
+        <div className="flex items-center justify-between pb-3 border-b border-sky-500/20">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-400/30 flex items-center justify-center text-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.25)]">
+              <Database className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold tracking-wider text-white font-mono uppercase">
+                  INCOIS Integrated Oceanographic Data Catalog
+                </span>
+                <span className="text-[10px] px-2 py-0.5 bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-mono rounded">
+                  CF-1.6 & TEOS-10 CALIBRATED
+                </span>
+              </div>
+              <p className="text-[11px] text-sky-200/50 font-mono mt-0.5">
+                Authentic NetCDF-4 model archives, global in-situ profiling arrays & CF variable schemas
+              </p>
+            </div>
           </div>
           <button
             onClick={() => setActivePage('home')}
-            className="flex items-center gap-1.5 px-3 py-1 bg-[#0c1424] hover:bg-[#141e33] border border-[#1e293b] text-xs font-sans text-cyan-300 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-400/30 text-cyan-300 text-xs font-semibold font-mono tracking-wider transition-all shadow-[0_0_10px_rgba(6,182,212,0.15)] hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]"
           >
-            <span>← Back to 3D Globe</span>
+            <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+            <span>RETURN TO 3D GLOBE</span>
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-[#1e293b] pb-2">
+        <div className="flex items-center gap-2 border-b border-sky-500/15 pb-2">
           <button
             onClick={() => setActiveTab('models')}
-            className={`px-4 py-2 text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 text-xs font-mono font-semibold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
               activeTab === 'models'
-                ? 'bg-cyan-500/20 text-cyan-300 border-b-2 border-cyan-400 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-gradient-to-r from-sky-500 to-cyan-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(56,189,248,0.4)]'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
@@ -356,10 +368,10 @@ export const DataCatalogPage = () => {
 
           <button
             onClick={() => setActiveTab('argo')}
-            className={`px-4 py-2 text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 text-xs font-mono font-semibold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
               activeTab === 'argo'
-                ? 'bg-cyan-500/20 text-cyan-300 border-b-2 border-cyan-400 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-gradient-to-r from-sky-500 to-cyan-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(56,189,248,0.4)]'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
             }`}
           >
             <Radio className="w-3.5 h-3.5" />
@@ -368,10 +380,10 @@ export const DataCatalogPage = () => {
 
           <button
             onClick={() => setActiveTab('variables')}
-            className={`px-4 py-2 text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 text-xs font-mono font-semibold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
               activeTab === 'variables'
-                ? 'bg-cyan-500/20 text-cyan-300 border-b-2 border-cyan-400 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-gradient-to-r from-sky-500 to-cyan-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(56,189,248,0.4)]'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
@@ -382,13 +394,13 @@ export const DataCatalogPage = () => {
         {/* TAB 1: NUMERICAL MODELS */}
         {activeTab === 'models' && (
           <div className="flex flex-col gap-4">
-            <div className="p-3 bg-[#080e1a] border border-[#1e293b] text-xs text-slate-300 flex items-center justify-between">
+            <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-sky-500/20 rounded-xl text-xs text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xl">
               <div>
-                <span className="text-cyan-300 font-bold">ACTIVE WORKSPACE MODEL: </span>
+                <span className="text-cyan-300 font-bold font-mono">ACTIVE REANALYSIS MODEL: </span>
                 <span className="font-mono text-white font-bold">{activeDataset || 'INCOIS-BIO-ROMS.nc'}</span>
               </div>
-              <div className="text-[11px] text-slate-400">
-                Native NetCDF-4 binary format with 3D Float32 volumetric raymarching support
+              <div className="text-[11px] text-sky-200/60 font-mono">
+                CF-1.6 compliant NetCDF-4 binary format with 3D Float32 volumetric raymarching
               </div>
             </div>
 
@@ -398,31 +410,34 @@ export const DataCatalogPage = () => {
                 return (
                   <div
                     key={prod.id}
-                    className={`p-4 bg-[#080e1a] border flex flex-col justify-between gap-4 transition-all ${
-                      isActive ? 'border-cyan-500 shadow-lg shadow-cyan-950/40' : 'border-[#1e293b] hover:border-slate-600'
+                    className={`p-4 bg-[rgba(4,10,24,0.85)] border rounded-xl flex flex-col justify-between gap-4 transition-all relative overflow-hidden shadow-xl ${
+                      isActive
+                        ? 'border-sky-400 shadow-[0_0_20px_rgba(56,189,248,0.25)]'
+                        : 'border-sky-500/20 hover:border-sky-400/50'
                     }`}
                   >
+                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-sky-400 to-transparent" />
                     <div className="flex flex-col gap-3">
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <span className="text-[10px] text-cyan-400 font-mono uppercase tracking-wider">{prod.institution}</span>
-                          <h3 className="text-sm font-bold text-white mt-0.5">{prod.name}</h3>
+                          <h3 className="text-sm font-bold text-white font-mono mt-0.5">{prod.name}</h3>
                         </div>
                         {isActive && (
-                          <span className="px-2 py-0.5 bg-cyan-950 border border-cyan-400 text-cyan-300 text-[10px] font-bold">
+                          <span className="px-2 py-0.5 bg-sky-500/20 border border-sky-400 text-cyan-300 text-[10px] font-mono font-bold rounded">
                             ACTIVE
                           </span>
                         )}
                       </div>
 
-                      <p className="text-slate-300 text-[11px] leading-relaxed">
+                      <p className="text-slate-300 text-[11px] leading-relaxed font-sans">
                         {prod.description}
                       </p>
 
-                      <div className="flex flex-col gap-1.5 text-[10px] text-slate-400 bg-[#040814] p-2.5 border border-[#141e33]">
+                      <div className="flex flex-col gap-1.5 text-[10px] text-slate-400 bg-slate-950/80 p-2.5 rounded-lg border border-sky-500/15 font-mono">
                         <div className="flex justify-between">
                           <span>File:</span>
-                          <span className="font-mono text-cyan-300 font-bold">{prod.filename}</span>
+                          <span className="text-cyan-300 font-bold">{prod.filename}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Size:</span>
@@ -440,23 +455,23 @@ export const DataCatalogPage = () => {
                           <span>Resolution:</span>
                           <span className="text-emerald-400 font-bold">{prod.resolution}</span>
                         </div>
-                        <div className="flex justify-between pt-1 border-t border-[#1e293b]">
+                        <div className="flex justify-between pt-1 border-t border-sky-500/15">
                           <span>Variables:</span>
-                          <span className="text-cyan-300 font-mono">{prod.variables.join(', ')}</span>
+                          <span className="text-cyan-300">{prod.variables.join(', ')}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-2">
+                    <div className="flex items-center gap-2 pt-2 font-mono">
                       {!isActive ? (
                         <button
                           onClick={() => selectDataset(prod.filename)}
-                          className="flex-1 py-1.5 bg-[#0c1424] hover:bg-slate-800 border border-slate-600 text-slate-200 text-xs font-bold transition-colors"
+                          className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 border border-sky-500/30 rounded-lg text-slate-200 text-xs font-bold transition-all"
                         >
                           Select Model
                         </button>
                       ) : (
-                        <div className="flex-1 py-1.5 text-center text-cyan-400 text-xs font-bold border border-cyan-500/40 bg-cyan-950/40">
+                        <div className="flex-1 py-2 text-center text-cyan-400 text-xs font-bold border border-sky-500/40 bg-sky-950/40 rounded-lg">
                           Loaded in Memory
                         </div>
                       )}
@@ -465,9 +480,9 @@ export const DataCatalogPage = () => {
                           selectDataset(prod.filename);
                           setActivePage('explorer');
                         }}
-                        className="flex-1 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-colors"
+                        className="flex-1 py-2 bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 text-xs font-bold rounded-lg transition-all shadow-[0_0_12px_rgba(56,189,248,0.3)]"
                       >
-                        3D View →
+                        Engage 3D View →
                       </button>
                     </div>
                   </div>
@@ -482,37 +497,41 @@ export const DataCatalogPage = () => {
           <div className="flex flex-col gap-4">
             {/* Aggregate Scorecard */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 bg-[#080e1a] border border-[#1e293b]">
-                <span className="text-[10px] text-slate-400">TOTAL PROFILING PLATFORMS</span>
-                <div className="text-xl font-bold text-cyan-300 mt-1">1,318 Floats</div>
-                <span className="text-[10px] text-slate-500">Autonomous robotic profilers</span>
+              <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-sky-500/20 rounded-xl relative overflow-hidden shadow-xl">
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-400 to-transparent" />
+                <span className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">PROFILING PLATFORMS</span>
+                <div className="text-xl font-bold text-cyan-300 font-mono mt-1">1,318 Floats</div>
+                <span className="text-[10px] text-sky-200/50 font-mono">Autonomous robotic array</span>
               </div>
-              <div className="p-3 bg-[#080e1a] border border-[#1e293b]">
-                <span className="text-[10px] text-slate-400">AUTHENTIC CTD PROFILES</span>
-                <div className="text-xl font-bold text-amber-300 mt-1">175,646 Cycles</div>
-                <span className="text-[10px] text-slate-500">Indexed from NetCDF storage</span>
+              <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-amber-500/20 rounded-xl relative overflow-hidden shadow-xl">
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-400 to-transparent" />
+                <span className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">AUTHENTIC CTD PROFILES</span>
+                <div className="text-xl font-bold text-amber-300 font-mono mt-1">175,646 Cycles</div>
+                <span className="text-[10px] text-amber-200/50 font-mono">Indexed NetCDF-4 records</span>
               </div>
-              <div className="p-3 bg-[#080e1a] border border-[#1e293b]">
-                <span className="text-[10px] text-slate-400">DATA ASSEMBLY CENTRES</span>
-                <div className="text-xl font-bold text-emerald-400 mt-1">9 Global DACs</div>
-                <span className="text-[10px] text-slate-500">INCOIS, Coriolis, AOML, CSIRO...</span>
+              <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-emerald-500/20 rounded-xl relative overflow-hidden shadow-xl">
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-400 to-transparent" />
+                <span className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">DATA ASSEMBLY CENTRES</span>
+                <div className="text-xl font-bold text-emerald-400 font-mono mt-1">9 Global DACs</div>
+                <span className="text-[10px] text-emerald-200/50 font-mono">INCOIS, Coriolis, AOML...</span>
               </div>
-              <div className="p-3 bg-[#080e1a] border border-[#1e293b]">
-                <span className="text-[10px] text-slate-400">DEPTH CALIBRATION</span>
-                <div className="text-xl font-bold text-white mt-1">TEOS-10 GSW</div>
-                <span className="text-[10px] text-slate-500">gsw.z_from_p(pressure, lat)</span>
+              <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-purple-500/20 rounded-xl relative overflow-hidden shadow-xl">
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-400 to-transparent" />
+                <span className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">DEPTH CALIBRATION</span>
+                <div className="text-xl font-bold text-white font-mono mt-1">TEOS-10 GSW</div>
+                <span className="text-[10px] text-purple-200/50 font-mono">gsw.z_from_p(pressure, lat)</span>
               </div>
             </div>
 
             {/* Provider Filter Strip */}
-            <div className="flex items-center gap-2 overflow-x-auto p-2.5 bg-[#080e1a] border border-[#1e293b] text-xs">
-              <span className="text-slate-400 text-[11px] whitespace-nowrap">Filter Globe Display:</span>
+            <div className="flex items-center gap-2 overflow-x-auto p-3 bg-[rgba(4,10,24,0.85)] border border-sky-500/20 rounded-xl text-xs backdrop-blur-2xl shadow-xl">
+              <span className="text-slate-400 text-[11px] font-mono whitespace-nowrap">Filter Globe Display:</span>
               <button
                 onClick={() => setActiveArgoSource('all')}
-                className={`px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap ${
+                className={`px-3 py-1 text-[11px] font-mono font-bold rounded-lg transition-all whitespace-nowrap ${
                   activeArgoSource === 'all'
-                    ? 'bg-cyan-600 text-white'
-                    : 'bg-[#040814] text-slate-300 border border-[#1e293b] hover:border-slate-500'
+                    ? 'bg-gradient-to-r from-sky-500 to-cyan-500 text-slate-950 shadow-[0_0_10px_rgba(56,189,248,0.4)]'
+                    : 'bg-slate-950 text-slate-300 border border-sky-500/20 hover:border-sky-500/50'
                 }`}
               >
                 All DACs (1,318)
@@ -521,10 +540,10 @@ export const DataCatalogPage = () => {
                 <button
                   key={dac.source}
                   onClick={() => setActiveArgoSource(dac.source)}
-                  className={`px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap ${
+                  className={`px-3 py-1 text-[11px] font-mono font-bold rounded-lg transition-all whitespace-nowrap ${
                     activeArgoSource === dac.source
-                      ? 'bg-cyan-600 text-white'
-                      : 'bg-[#040814] text-slate-300 border border-[#1e293b] hover:border-slate-500'
+                      ? 'bg-gradient-to-r from-sky-500 to-cyan-500 text-slate-950 shadow-[0_0_10px_rgba(56,189,248,0.4)]'
+                      : 'bg-slate-950 text-slate-300 border border-sky-500/20 hover:border-sky-500/50'
                   }`}
                 >
                   {dac.source.toUpperCase()} ({dac.platforms})
@@ -537,33 +556,36 @@ export const DataCatalogPage = () => {
               {DAC_DETAILS.map((dac) => (
                 <div
                   key={dac.source}
-                  className={`p-4 bg-[#080e1a] border flex flex-col justify-between gap-3 transition-all ${
-                    activeArgoSource === dac.source ? 'border-cyan-400 shadow-md shadow-cyan-950/30' : 'border-[#1e293b]'
+                  className={`p-4 bg-[rgba(4,10,24,0.85)] border rounded-xl flex flex-col justify-between gap-3 transition-all relative overflow-hidden shadow-xl ${
+                    activeArgoSource === dac.source
+                      ? 'border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.25)]'
+                      : 'border-sky-500/20 hover:border-sky-400/40'
                   }`}
                 >
+                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-sky-400 to-transparent" />
                   <div className="flex flex-col gap-2">
                     <div className="flex items-start justify-between">
                       <div>
                         <span className="text-[10px] text-cyan-400 font-mono uppercase">{dac.country}</span>
-                        <h4 className="text-sm font-bold text-white mt-0.5">{dac.name}</h4>
+                        <h4 className="text-sm font-bold text-white font-mono mt-0.5">{dac.name}</h4>
                       </div>
-                      <span className="px-2 py-0.5 bg-[#040814] border border-[#1e293b] text-amber-300 text-[10px] font-mono font-bold">
+                      <span className="px-2 py-0.5 bg-slate-950 border border-sky-500/20 text-amber-300 text-[10px] font-mono font-bold rounded">
                         {dac.source.toUpperCase()}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-4 text-xs font-bold py-1 border-y border-[#141e33]">
+                    <div className="flex items-center gap-4 text-xs font-mono font-bold py-1.5 border-y border-sky-500/15">
                       <div>
-                        <span className="text-[10px] text-slate-500">PLATFORMS: </span>
+                        <span className="text-[10px] text-slate-400">PLATFORMS: </span>
                         <span className="text-cyan-300">{dac.platforms.toLocaleString()}</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-500">PROFILES: </span>
+                        <span className="text-[10px] text-slate-400">PROFILES: </span>
                         <span className="text-emerald-400">{dac.profiles.toLocaleString()}</span>
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-1 text-[10px] text-slate-400">
+                    <div className="flex flex-col gap-1 text-[10px] text-slate-400 font-mono">
                       <div>
                         <span className="text-slate-500">Region: </span>
                         <span className="text-slate-300">{dac.domain}</span>
@@ -584,7 +606,7 @@ export const DataCatalogPage = () => {
                       setActiveArgoSource(dac.source);
                       setActivePage('home');
                     }}
-                    className="w-full py-1.5 bg-[#0c1424] hover:bg-cyan-950 hover:border-cyan-500 border border-[#1e293b] text-cyan-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                    className="w-full py-2 bg-slate-950 hover:bg-sky-950/60 hover:border-cyan-400 border border-sky-500/25 text-cyan-300 text-xs font-mono font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-sm"
                   >
                     <span>Inspect Floats on 3D Globe</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -599,23 +621,23 @@ export const DataCatalogPage = () => {
         {activeTab === 'variables' && (
           <div className="flex flex-col gap-4">
             {/* Search and Filters Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-[#080e1a] border border-[#1e293b] text-xs">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 bg-[rgba(4,10,24,0.85)] border border-sky-500/20 rounded-xl text-xs backdrop-blur-2xl shadow-xl">
               <div className="flex items-center gap-3 flex-1">
                 <div className="relative flex-1 max-w-sm">
-                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search variables (e.g., temp, salt, chl)..."
-                    className="w-full pl-9 pr-3 py-1.5 bg-[#040814] border border-[#1e293b] text-slate-200 text-xs font-bold focus:outline-none focus:border-cyan-500"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-sky-500/25 rounded-lg text-slate-200 text-xs font-mono font-semibold focus:outline-none focus:border-cyan-400 transition-colors"
                   />
                 </div>
 
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-3 py-1.5 bg-[#040814] border border-[#1e293b] text-slate-300 text-xs font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
+                  className="px-3 py-2 bg-slate-950 border border-sky-500/25 rounded-lg text-slate-300 text-xs font-mono font-semibold focus:outline-none focus:border-cyan-400 cursor-pointer"
                 >
                   <option value="all">All Categories</option>
                   <option value="physical">Physical Oceanography</option>
@@ -624,7 +646,7 @@ export const DataCatalogPage = () => {
                 </select>
               </div>
 
-              <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+              <div className="flex items-center gap-2 text-slate-400 text-[11px] font-mono">
                 <span>Active Dataset:</span>
                 <span className="text-cyan-300 font-bold">{activeDataset || 'INCOIS-BIO-ROMS.nc'}</span>
               </div>
@@ -634,17 +656,17 @@ export const DataCatalogPage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               {/* Main Variables Table (8 Cols) */}
               <div className="lg:col-span-8 flex flex-col gap-3">
-                <div className="overflow-x-auto bg-[#080e1a] border border-[#1e293b] shadow-xl">
+                <div className="overflow-x-auto bg-[rgba(4,10,24,0.85)] border border-sky-500/20 rounded-xl shadow-2xl">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="bg-[#0c1424] border-b border-[#1e293b] text-slate-400 text-[10px] uppercase">
-                        <th className="py-2.5 px-3">VARIABLE</th>
-                        <th className="py-2.5 px-3">LONG NAME</th>
-                        <th className="py-2.5 px-3">UNITS</th>
-                        <th className="py-2.5 px-3">DIMENSIONS</th>
+                      <tr className="bg-slate-950 border-b border-sky-500/15 text-slate-400 text-[10px] font-mono uppercase tracking-wider">
+                        <th className="py-3 px-3.5">VARIABLE</th>
+                        <th className="py-3 px-3.5">LONG NAME</th>
+                        <th className="py-3 px-3.5">UNITS</th>
+                        <th className="py-3 px-3.5">DIMENSIONS</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#141e33] text-[11px]">
+                    <tbody className="divide-y divide-sky-500/10 text-[11px] font-mono">
                       {filtered.map((v, i) => {
                         const isSelected = activeVar.symbol === v.symbol;
                         return (
@@ -652,13 +674,13 @@ export const DataCatalogPage = () => {
                             key={v.symbol}
                             onClick={() => setSelectedVarIndex(i)}
                             className={`cursor-pointer transition-colors ${
-                              isSelected ? 'bg-[#121c2e] text-white font-bold' : 'hover:bg-[#0c1424] text-slate-300'
+                              isSelected ? 'bg-sky-950/40 text-white font-bold' : 'hover:bg-slate-900/50 text-slate-300'
                             }`}
                           >
-                            <td className="py-2.5 px-3 font-bold text-cyan-300">{v.symbol}</td>
-                            <td className="py-2.5 px-3">{v.varName}</td>
-                            <td className="py-2.5 px-3 text-amber-300 font-bold">{v.units}</td>
-                            <td className="py-2.5 px-3 text-slate-400 font-mono text-[10px]">{v.dims}</td>
+                            <td className="py-3 px-3.5 font-bold text-cyan-300">{v.symbol}</td>
+                            <td className="py-3 px-3.5 font-sans">{v.varName}</td>
+                            <td className="py-3 px-3.5 text-amber-300 font-bold">{v.units}</td>
+                            <td className="py-3 px-3.5 text-slate-400 text-[10px]">{v.dims}</td>
                           </tr>
                         );
                       })}
@@ -666,18 +688,19 @@ export const DataCatalogPage = () => {
                   </table>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-                  <span>Showing {filtered.length} of {variablesList.length} CF variables</span>
+                <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono px-1">
+                  <span>Showing {filtered.length} of {variablesList.length} CF standard variables</span>
                 </div>
               </div>
 
               {/* Right Variable Details Card (4 Cols) */}
-              <div className="lg:col-span-4 p-4 bg-[#080e1a] border border-[#1e293b] flex flex-col justify-between gap-4 text-xs">
+              <div className="lg:col-span-4 p-5 bg-[rgba(4,10,24,0.85)] border border-sky-500/20 rounded-xl flex flex-col justify-between gap-4 text-xs shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-500" />
                 {activeVar ? (
                   <div className="flex flex-col gap-4">
-                    <div className="border-b border-[#1e293b] pb-2">
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider">VARIABLE SPECIFICATION</span>
-                      <h3 className="text-base font-bold text-cyan-300 mt-1">
+                    <div className="border-b border-sky-500/15 pb-3">
+                      <span className="text-[10px] text-cyan-300 uppercase tracking-wider font-mono">VARIABLE SPECIFICATION</span>
+                      <h3 className="text-base font-bold text-white font-mono mt-1">
                         {activeVar.varName}
                       </h3>
                       <span className="text-[10px] text-slate-400 font-mono">
@@ -685,39 +708,39 @@ export const DataCatalogPage = () => {
                       </span>
                     </div>
 
-                    <div className="flex flex-col gap-2 text-[11px]">
-                      <div className="flex items-center justify-between border-b border-[#141e33] pb-1.5">
+                    <div className="flex flex-col gap-2.5 text-[11px] font-mono">
+                      <div className="flex items-center justify-between border-b border-sky-500/10 pb-1.5">
                         <span className="text-slate-400">VALID RANGE:</span>
                         <span className="text-amber-300 font-bold">{activeVar.range}</span>
                       </div>
 
-                      <div className="flex items-center justify-between border-b border-[#141e33] pb-1.5">
+                      <div className="flex items-center justify-between border-b border-sky-500/10 pb-1.5">
                         <span className="text-slate-400">MISSING VALUE:</span>
-                        <span className="text-slate-300 font-mono">{activeVar.missingValue}</span>
+                        <span className="text-slate-300">{activeVar.missingValue}</span>
                       </div>
 
-                      <div className="flex items-center justify-between border-b border-[#141e33] pb-1.5">
+                      <div className="flex items-center justify-between border-b border-sky-500/10 pb-1.5">
                         <span className="text-slate-400">FREQUENCY:</span>
                         <span className="text-emerald-400 font-bold">{activeVar.freq}</span>
                       </div>
 
-                      <div className="flex items-center justify-between border-b border-[#141e33] pb-1.5">
-                        <span className="text-slate-400">ADDED ON:</span>
+                      <div className="flex items-center justify-between border-b border-sky-500/10 pb-1.5">
+                        <span className="text-slate-400">TIMESTAMP:</span>
                         <span className="text-slate-300">{activeVar.addedOn}</span>
                       </div>
 
-                      <div className="flex flex-col gap-1 pt-1">
-                        <span className="text-slate-400 text-[10px]">DESCRIPTION:</span>
-                        <p className="text-slate-300 text-[10px] leading-relaxed">
+                      <div className="flex flex-col gap-1 pt-1 font-sans">
+                        <span className="text-slate-400 text-[10px] font-mono">DESCRIPTION:</span>
+                        <p className="text-slate-300 text-[11px] leading-relaxed">
                           {activeVar.desc}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-2 pt-3">
+                    <div className="flex flex-col gap-2 pt-3 font-mono">
                       <button
                         onClick={handleDownloadMetadata}
-                        className="w-full py-2 bg-[#0c1424] hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition-colors"
+                        className="w-full py-2 bg-slate-950 hover:bg-slate-900 border border-sky-500/30 rounded-lg text-slate-200 text-xs font-bold transition-all shadow-sm"
                       >
                         Download Metadata JSON
                       </button>
@@ -726,9 +749,9 @@ export const DataCatalogPage = () => {
                           setVariable(activeVar.symbol);
                           setActivePage('explorer');
                         }}
-                        className="w-full py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-colors shadow-md"
+                        className="w-full py-2.5 bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 text-xs font-bold rounded-lg transition-all shadow-[0_0_15px_rgba(56,189,248,0.3)]"
                       >
-                        Explore in 3D View
+                        Engage in 3D Volumetric View
                       </button>
                     </div>
                   </div>
@@ -740,4 +763,4 @@ export const DataCatalogPage = () => {
       </div>
     </div>
   );
-};
+};

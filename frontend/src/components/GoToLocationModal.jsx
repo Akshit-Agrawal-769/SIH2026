@@ -5,7 +5,7 @@ import {
   isInsideModelDomain,
   haversineDistanceKm,
   INDIAN_OCEAN_PRESETS,
-  DEFAULT_INDIAN_OCEAN_BOUNDS
+  DEFAULT_INDIAN_OCEAN_BOUNDS,
 } from '../utils/geography';
 
 export const GoToLocationModal = () => {
@@ -69,46 +69,46 @@ export const GoToLocationModal = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm select-none p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md select-none p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) toggleGoToLocationModal();
       }}
       onKeyDown={handleKeyDown}
     >
-      <div className="w-full max-w-lg glass-panel rounded-2xl shadow-2xl text-white/90 font-mono flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-black/20 border-b border-white/[0.08]">
-          <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-white/70" />
-            <span className="font-medium tracking-wide text-xs text-white">
-              Search Geographic Coordinates
-            </span>
+      <div className="w-full max-w-lg bg-[rgba(4,10,24,0.92)] backdrop-blur-2xl rounded-2xl border border-sky-500/25 shadow-panel-dark text-white font-mono flex flex-col overflow-hidden animate-fade-slide">
+        {/* ─── Header ─── */}
+        <div className="flex items-center justify-between px-5 py-3.5 bg-black/40 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2 h-2 rounded-full bg-sky-400 pulse-beacon" />
+            <h2 className="text-xs font-bold tracking-wider uppercase text-white">
+              GEOSPATIAL COORDINATE TARGETING
+            </h2>
           </div>
           <button
             onClick={toggleGoToLocationModal}
-            className="text-white/40 hover:text-white/80 transition-colors p-1"
+            className="text-slate-400 hover:text-white hover:bg-white/10 p-1 rounded-md transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-4 flex flex-col gap-4 text-xs">
+        {/* ─── Body ─── */}
+        <div className="p-5 flex flex-col gap-4 text-xs">
           {/* Domain Coverage Status Banner */}
-          <div className="flex items-center justify-between px-3 py-2 bg-[#040814] border border-[#1e293b] text-[11px]">
-            <span className="text-slate-400">INCOIS MODEL BOUNDS:</span>
+          <div className="flex items-center justify-between px-3.5 py-2.5 bg-black/40 border border-sky-500/20 rounded-xl text-[11px]">
+            <span className="text-slate-400">NUMERICAL DOMAIN BOUNDS:</span>
             <span className="text-amber-300 font-bold">
-              30°E—120°E, 30°S—30°N
+              30°E — 120°E, 30°S — 30°N
             </span>
           </div>
 
           {/* Coordinate Inputs */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-slate-400 flex items-center justify-between">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] text-slate-400 flex items-center justify-between font-semibold">
                 <span>LATITUDE (-90° to +90°)</span>
                 {!isLatValid && !isNaN(parsedLat) && (
-                  <span className="text-red-400">INVALID LAT</span>
+                  <span className="text-rose-400">OUT OF BOUNDS</span>
                 )}
               </label>
               <div className="relative">
@@ -120,21 +120,21 @@ export const GoToLocationModal = () => {
                   value={latInput}
                   onChange={(e) => setLatInput(e.target.value)}
                   placeholder="e.g. 12.83"
-                  className={`w-full px-3 py-2 bg-[#0c1424] border text-slate-100 font-bold focus:outline-none focus:ring-1 ${
+                  className={`w-full px-3 py-2 bg-black/40 border rounded-xl text-white font-bold focus:outline-none transition-all ${
                     isLatValid || isNaN(parsedLat)
-                      ? 'border-[#1e293b] focus:border-cyan-500 focus:ring-cyan-500'
-                      : 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                      ? 'border-sky-500/30 focus:border-sky-400 focus:ring-1 focus:ring-sky-400'
+                      : 'border-rose-500 focus:border-rose-500'
                   }`}
                   autoFocus
                 />
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-slate-400 flex items-center justify-between">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] text-slate-400 flex items-center justify-between font-semibold">
                 <span>LONGITUDE (-180° to +180°)</span>
                 {!isLonValid && !isNaN(parsedLon) && (
-                  <span className="text-red-400">INVALID LON</span>
+                  <span className="text-rose-400">OUT OF BOUNDS</span>
                 )}
               </label>
               <div className="relative">
@@ -146,10 +146,10 @@ export const GoToLocationModal = () => {
                   value={lonInput}
                   onChange={(e) => setLonInput(e.target.value)}
                   placeholder="e.g. 69.00"
-                  className={`w-full px-3 py-2 bg-[#0c1424] border text-slate-100 font-bold focus:outline-none focus:ring-1 ${
+                  className={`w-full px-3 py-2 bg-black/40 border rounded-xl text-white font-bold focus:outline-none transition-all ${
                     isLonValid || isNaN(parsedLon)
-                      ? 'border-[#1e293b] focus:border-cyan-500 focus:ring-cyan-500'
-                      : 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                      ? 'border-sky-500/30 focus:border-sky-400 focus:ring-1 focus:ring-sky-400'
+                      : 'border-rose-500 focus:border-rose-500'
                   }`}
                 />
               </div>
@@ -158,28 +158,28 @@ export const GoToLocationModal = () => {
 
           {/* Model Coverage Indicator */}
           {isValid && (
-            <div className="flex items-center justify-between px-3 py-1.5 bg-[#0c1424] border border-[#1e293b] text-[11px]">
-              <span className="text-slate-400">REGIONAL SIMULATION STATUS:</span>
+            <div className="flex items-center justify-between px-3.5 py-2 bg-black/40 border border-white/[0.08] rounded-xl text-[11px]">
+              <span className="text-slate-400">SIMULATION COVERAGE:</span>
               {isInsideModel ? (
-                <span className="text-emerald-400 font-bold flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  INSIDE INCOIS NUMERICAL MODEL COVERAGE
+                <span className="text-emerald-300 font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 pulse-beacon" />
+                  WITHIN INCOIS ROMS MODEL DOMAIN
                 </span>
               ) : (
-                <span className="text-slate-400 font-bold flex items-center gap-1">
+                <span className="text-slate-400 font-bold flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-slate-500" />
-                  GLOBAL EARTH POINT (OUTSIDE INCOIS ROMS)
+                  GLOBAL EARTH POINT (EXTERIOR)
                 </span>
               )}
             </div>
           )}
 
           {/* Preset Shortcuts */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">
-              Standard Indian Ocean Presets
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+              Standard Indian Ocean Basin Presets
             </span>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {INDIAN_OCEAN_PRESETS.map((p) => (
                 <button
                   key={p.id}
@@ -187,10 +187,10 @@ export const GoToLocationModal = () => {
                     setLatInput(p.lat.toFixed(2));
                     setLonInput(p.lon.toFixed(2));
                   }}
-                  className="px-2.5 py-1.5 bg-[#0c1424] border border-[#1e293b] hover:border-cyan-500 hover:text-cyan-300 text-left text-[11px] text-slate-300 flex items-center justify-between transition-colors"
+                  className="px-3 py-2 bg-black/30 border border-white/[0.08] hover:border-sky-400/50 hover:bg-sky-500/10 rounded-xl text-left text-[11px] text-slate-300 hover:text-white flex items-center justify-between transition-all group"
                 >
-                  <span className="truncate">{p.label}</span>
-                  <span className="text-[10px] text-slate-500 shrink-0 ml-1">
+                  <span className="truncate font-sans font-medium">{p.label}</span>
+                  <span className="text-[10px] text-sky-400 font-mono shrink-0 ml-1">
                     {p.lat.toFixed(1)}°, {p.lon.toFixed(1)}°
                   </span>
                 </button>
@@ -200,44 +200,44 @@ export const GoToLocationModal = () => {
 
           {/* Nearest Argo Float Feedback */}
           {nearestFloat && isValid && (
-            <div className="p-2.5 bg-[#040814] border border-amber-500/40 text-[11px] flex flex-col gap-1">
-              <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+            <div className="p-3 bg-black/40 border border-amber-500/30 rounded-xl text-[11px] flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5 text-amber-300 font-bold">
                 <Radio className="w-3.5 h-3.5" />
                 <span>NEAREST IN-SITU ARGO PROFILER</span>
               </div>
-              <div className="flex items-center justify-between text-slate-300">
+              <div className="flex items-center justify-between text-slate-200">
                 <span>WMO {nearestFloat.platform_number} ({nearestFloat.dac || 'CORIOLIS'})</span>
                 <span className="font-bold text-amber-300">
                   {nearestDistKm < 1 ? '< 1 km' : `${Math.round(nearestDistKm)} km away`}
                 </span>
               </div>
-              <div className="text-[10px] text-slate-500">
+              <div className="text-[10px] text-slate-400">
                 Position: {nearestFloat.latest_position.latitude.toFixed(2)}°N, {nearestFloat.latest_position.longitude.toFixed(2)}°E · Cycles: {nearestFloat.cycle_count || nearestFloat.cycles?.length || 1}
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#0c1424] border-t border-[#1e293b]">
-          <span className="text-[10px] text-slate-500">Press ENTER to jump, ESC to cancel</span>
+        {/* ─── Footer Actions ─── */}
+        <div className="flex items-center justify-between px-5 py-3.5 bg-black/50 border-t border-white/[0.08]">
+          <span className="text-[10px] text-slate-400 font-sans">Press ENTER to jump, ESC to cancel</span>
           <div className="flex items-center gap-2">
             <button
               onClick={toggleGoToLocationModal}
-              className="px-3 py-1.5 border border-[#1e293b] hover:bg-[#1e293b] text-slate-400 text-xs transition-colors"
+              className="px-3.5 py-1.5 border border-white/[0.08] hover:bg-white/10 rounded-xl text-slate-300 text-xs transition-colors"
             >
               CANCEL
             </button>
             <button
               onClick={handleLocate}
               disabled={!isValid}
-              className={`px-4 py-1.5 border text-xs font-bold flex items-center gap-1.5 transition-all ${
+              className={`px-4 py-1.5 border rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                 isValid
-                  ? 'bg-cyan-600 border-cyan-400 text-white hover:bg-cyan-500 shadow-md shadow-cyan-900/50 cursor-pointer'
-                  : 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
+                  ? 'bg-sky-500/30 border-sky-400/60 text-sky-200 hover:bg-sky-500/40 hover:text-white shadow-glow-cyan-sm cursor-pointer'
+                  : 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed'
               }`}
             >
-              <span>ROTATE GLOBE TO COORDINATES</span>
+              <span>NAVIGATE GLOBE</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

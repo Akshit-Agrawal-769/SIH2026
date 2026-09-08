@@ -9,7 +9,6 @@ export const WorkspacesPanel = () => {
     activePage,
     setActivePage,
     toggleDiagnostics,
-    toggleShortcutsModal,
   } = useOceanStore();
 
   if (activeOverlay !== 'workspaces') return null;
@@ -18,8 +17,8 @@ export const WorkspacesPanel = () => {
     {
       id: 'home',
       name: 'Eyes on the Ocean 3D',
-      subtitle: 'Primary full-screen scientific globe',
-      icon: <Layers className="w-4 h-4 text-white/70" />,
+      subtitle: 'Planetary Cesium & 3D Volumetric Viewport',
+      icon: <Layers className="w-4 h-4 text-sky-400" />,
       action: () => {
         setActivePage('home');
         toggleOverlay('workspaces');
@@ -29,7 +28,7 @@ export const WorkspacesPanel = () => {
       id: 'comparison',
       name: '4D Profile Comparison',
       subtitle: 'Model vs In-Situ Argo residual analysis',
-      icon: <Activity className="w-4 h-4 text-white/70" />,
+      icon: <Activity className="w-4 h-4 text-emerald-400" />,
       action: () => {
         setActivePage('comparison');
         toggleOverlay('workspaces');
@@ -38,8 +37,8 @@ export const WorkspacesPanel = () => {
     {
       id: 'data',
       name: 'INCOIS Data Catalog',
-      subtitle: 'NetCDF archives & ERDDAP datasets',
-      icon: <Database className="w-4 h-4 text-white/70" />,
+      subtitle: 'NetCDF archives & ERDDAP observational data',
+      icon: <Database className="w-4 h-4 text-amber-400" />,
       action: () => {
         setActivePage('data');
         toggleOverlay('workspaces');
@@ -49,7 +48,7 @@ export const WorkspacesPanel = () => {
       id: 'methodology',
       name: 'Scientific Methodology',
       subtitle: 'ROMS formulation & validation benchmarks',
-      icon: <FileText className="w-4 h-4 text-white/70" />,
+      icon: <FileText className="w-4 h-4 text-violet-400" />,
       action: () => {
         setActivePage('methodology');
         toggleOverlay('workspaces');
@@ -59,7 +58,7 @@ export const WorkspacesPanel = () => {
       id: 'diagnostics',
       name: 'System Diagnostics',
       subtitle: 'WebGL2 frame rate & memory buffers',
-      icon: <Cpu className="w-4 h-4 text-white/70" />,
+      icon: <Cpu className="w-4 h-4 text-cyan-400" />,
       action: () => {
         toggleDiagnostics();
         toggleOverlay('workspaces');
@@ -68,46 +67,53 @@ export const WorkspacesPanel = () => {
   ];
 
   return (
-    <aside className="absolute right-3 md:right-4 top-32 md:top-36 z-30 w-72 md:w-80 glass-panel rounded-xl text-white/90 select-none overflow-hidden flex flex-col shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/[0.06] bg-black/20">
+    <aside className="absolute right-6 top-20 z-30 w-80 bg-[rgba(4,10,24,0.88)] backdrop-blur-2xl rounded-2xl border border-sky-500/25 shadow-panel-dark text-white select-none overflow-hidden flex flex-col animate-fade-slide">
+      {/* ─── Header ─── */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-black/30">
         <div className="flex items-center gap-2">
-          <Menu className="w-3.5 h-3.5 text-white/70" />
-          <span className="text-xs font-medium text-white/90">Workspaces & Tools</span>
+          <Menu className="w-4 h-4 text-sky-400" />
+          <div>
+            <h2 className="text-xs font-bold font-mono tracking-wider text-white uppercase">
+              SCIENTIFIC WORKSPACES
+            </h2>
+            <span className="text-[9px] text-slate-400 block -mt-0.5">
+              ANALYTICAL SUITES &amp; TOOLS
+            </span>
+          </div>
         </div>
         <button
           onClick={() => toggleOverlay('workspaces')}
-          className="p-1 text-white/40 hover:text-white/80 rounded transition-colors"
+          className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"
           title="Close Menu"
         >
-          <X className="w-3.5 h-3.5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Tools List */}
-      <div className="p-2 flex flex-col gap-1">
+      {/* ─── Tools List ─── */}
+      <div className="p-3 flex flex-col gap-1.5">
         {tools.map((t) => {
           const isActive = activePage === t.id;
           return (
             <button
               key={t.id}
               onClick={t.action}
-              className={`w-full flex items-center justify-between p-2.5 rounded-lg text-left transition-all ${
+              className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all ${
                 isActive
-                  ? 'bg-white/15 border border-white/20 text-white'
-                  : 'bg-black/20 hover:bg-white/5 border border-transparent text-white/70 hover:text-white/95'
+                  ? 'bg-sky-500/20 border border-sky-400/50 text-white shadow-glow-cyan-sm'
+                  : 'bg-black/30 hover:bg-sky-500/10 border border-white/[0.05] hover:border-sky-500/30 text-slate-300 hover:text-white'
               }`}
             >
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-md bg-white/5 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-black/40 border border-white/[0.08] shrink-0">
                   {t.icon}
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs font-normal text-white/90">{t.name}</span>
-                  <span className="text-[10px] text-white/40 font-light">{t.subtitle}</span>
+                  <span className="text-xs font-semibold text-white">{t.name}</span>
+                  <span className="text-[10px] text-slate-400 font-sans">{t.subtitle}</span>
                 </div>
               </div>
-              <ChevronRight className="w-3.5 h-3.5 text-white/30 shrink-0" />
+              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white shrink-0" />
             </button>
           );
         })}
