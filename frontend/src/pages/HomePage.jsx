@@ -8,14 +8,11 @@ import { ActiveLayerPanel } from '../components/ActiveLayerPanel';
 import { SelectedFeaturePanel } from '../components/SelectedFeaturePanel';
 import { SynopticMinimapPanel } from '../components/SynopticMinimapPanel';
 import { GlobeControls } from '../components/GlobeControls';
-import { OceanTimeline } from '../components/OceanTimeline';
 import { BottomStatusBar } from '../components/BottomStatusBar';
 import { ColorbarLegend } from '../components/ColorbarLegend';
 import { DepthSliceBar } from '../components/DepthSliceBar';
 
-// Contextual Overlays (opened via Header navigation / layers)
-import { MissionsPanel } from '../components/MissionsPanel';
-import { EventsPanel } from '../components/EventsPanel';
+// Contextual Overlays (opened via Header utility tools / layers)
 import { ControlPanel } from '../components/ControlPanel';
 import { WorkspacesPanel } from '../components/WorkspacesPanel';
 
@@ -54,20 +51,15 @@ export const HomePage = () => {
 
       {/* 4.2 Three.js Depth Slice Bar */}
       {engineMode === 'three' && (
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-[640px] rounded-xl overflow-hidden border border-cyan-500/30 shadow-2xl backdrop-blur-md">
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-[640px] rounded-xl overflow-hidden border border-cyan-500/30 shadow-2xl backdrop-blur-md">
           <DepthSliceBar />
         </div>
       )}
 
-      {/* 5. Centered Bottom Timeline Scrubber */}
-      <OceanTimeline />
-
-      {/* 6. Bottom Scientific Attribution & Telemetry Status Bar */}
+      {/* 5. Bottom Scientific Attribution & Telemetry Status Bar */}
       <BottomStatusBar />
 
-      {/* 7. Contextual Flyout Overlays (Missions, Events, Layers, Workspaces) */}
-      <MissionsPanel />
-      <EventsPanel />
+      {/* 6. Contextual Flyout Overlays (Layers, Workspaces) */}
       <ControlPanel />
       <WorkspacesPanel />
     </div>

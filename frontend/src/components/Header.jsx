@@ -1,24 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
+  Menu,
   Compass,
   Crosshair,
   Split,
   BarChart2,
   Folder,
-  Radio,
-  Zap,
+  FlaskConical,
   Search,
   Layers,
   Settings,
   HelpCircle,
-  FlaskConical,
-  Activity,
   Globe2,
   Box,
-  Clock,
-  Waves,
-  ChevronDown,
-  Check,
 } from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
@@ -33,39 +27,20 @@ export const Header = () => {
     toggleShortcutsModal,
     engineMode,
     setEngineMode,
-    variable,
-    setVariable,
-    depthLevelMeters,
-    timeIndex,
-    metadata,
   } = useOceanStore();
 
-  const [utcTime, setUtcTime] = useState('');
-  const [isFieldDropdownOpen, setIsFieldDropdownOpen] = useState(false);
-  const fieldDropdownRef = useRef(null);
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
+  const navMenuRef = useRef(null);
 
+  // Close nav dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (fieldDropdownRef.current && !fieldDropdownRef.current.contains(event.target)) {
-        setIsFieldDropdownOpen(false);
+      if (navMenuRef.current && !navMenuRef.current.contains(event.target)) {
+        setIsNavMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Live Mission UTC Clock
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const hours = String(now.getUTCHours()).padStart(2, '0');
-      const minutes = String(now.getUTCMinutes()).padStart(2, '0');
-      const seconds = String(now.getUTCSeconds()).padStart(2, '0');
-      setUtcTime(`${hours}:${minutes}:${seconds} UTC`);
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
   }, []);
 
   const handleNavClick = (pageId, overlayName = null) => {
@@ -77,53 +52,19 @@ export const Header = () => {
     }
   };
 
-  const OCEAN_FIELDS = [
-    {
-      id: 'temp',
-      label: 'Temperature (SST)',
-      fullName: 'Potential Sea Surface Temperature',
-      units: 'degC',
-      code: 'TEMP',
-      badgeColor: 'text-amber-300 bg-amber-500/15 border-amber-400/30',
-      description: 'Thermal energy distribution and thermocline stratification',
-    },
-    {
-      id: 'salt',
-      label: 'Salinity (SSS)',
-      fullName: 'Practical Sea Surface Salinity',
-      units: 'PSU',
-      code: 'SALT',
-      badgeColor: 'text-cyan-300 bg-cyan-500/15 border-cyan-400/30',
-      description: 'Haline gradients, river discharge, and evaporation fronts',
-    },
-    {
-      id: 'currents',
-      label: 'Current Velocity (CURR)',
-      fullName: 'Ocean Current Velocity Field',
-      units: 'm/s',
-      code: 'CURR',
-      badgeColor: 'text-emerald-300 bg-emerald-500/15 border-emerald-400/30',
-      description: 'Zonal and meridional surface and subsurface transport',
-    },
-    {
-      id: 'chl',
-      label: 'Chlorophyll-a (CHLA)',
-      fullName: 'Chlorophyll-a Biomass Concentration',
-      units: 'mg/m³',
-      code: 'CHLA',
-      badgeColor: 'text-lime-300 bg-lime-500/15 border-lime-400/30',
-      description: 'Phytoplankton blooms, upwelling zones, and biological productivity',
-    },
+  const NAV_ITEMS = [
+    { id: 'home', label: 'Explore', icon: Compass },
+    { id: 'argo', label: 'Argo Network', icon: Crosshair },
+    { id: 'comparison', label: 'Model vs Obs', icon: Split },
+    { id: 'analytics', label: 'Analytics', icon: BarChart2 },
+    { id: 'data', label: 'Data Catalog', icon: Folder },
+    { id: 'methodology', label: 'Methodology', icon: FlaskConical },
   ];
-  const currentField = OCEAN_FIELDS.find(f => f.id === variable || (f.id === 'currents' && (variable === 'u' || variable === 'v' || variable === 'currents'))) || OCEAN_FIELDS[0];
-
-  const timeRange = metadata?.time_range || [];
-  const currentDateStr = timeRange[timeIndex] ? timeRange[timeIndex].split('T')[0] : '2023-08-15';
 
   return (
     <header className="relative z-40 h-14 px-4 sm:px-6 flex items-center justify-between bg-[rgba(3,7,18,0.6)] backdrop-blur-xl border-b border-sky-500/20 text-white select-none transition-all shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
-      {/* ─── Left Section: Brand Emblem & 3D Engine Switcher ─── */}
-      <div className="flex items-center gap-4 shrink-0">
+      {/* ─── Left Section: Brand Emblem, Navigation Menu Button, & 3D Engine Switcher ─── */}
+      <div className="flex items-center gap-3 sm:gap-4 shrink-0">
         <button
           onClick={() => {
             setActivePage('home');
@@ -155,6 +96,53 @@ export const Header = () => {
           </div>
         </button>
 
+        {/* Navigation Dropdown Menu Button */}
+        <div className="relative" ref={navMenuRef}>
+          <button
+            onClick={() => setIsNavMenuOpen(!isNavMenuOpen)}
+            className={`p-2 rounded-xl transition-all border flex items-center justify-center cursor-pointer ${
+              isNavMenuOpen
+                ? 'bg-sky-500/25 text-sky-200 border-sky-400/50 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+                : 'bg-black/40 text-slate-300 hover:text-white hover:bg-white/10 border-white/[0.08] hover:border-cyan-500/40'
+            }`}
+            title="Navigation Menu"
+            aria-label="Navigation Menu"
+          >
+            <Menu className="w-4 h-4 text-cyan-400" />
+          </button>
+
+          {isNavMenuOpen && (
+            <div className="absolute top-full left-0 mt-2 w-56 bg-slate-950/95 backdrop-blur-xl border border-sky-500/30 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] p-1.5 z-50 animate-fade-slide">
+              <div className="px-3 py-1.5 border-b border-white/10 text-[9px] font-mono uppercase tracking-wider text-slate-400">
+                Navigation Deck
+              </div>
+              <div className="flex flex-col gap-1 mt-1">
+                {NAV_ITEMS.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activePage === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        handleNavClick(item.id);
+                        setIsNavMenuOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all text-left w-full cursor-pointer ${
+                        isActive
+                          ? 'bg-sky-500/20 text-sky-200 border border-sky-400/40 shadow-glow-cyan-sm font-semibold'
+                          : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
+                      }`}
+                    >
+                      <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-sky-300' : 'text-sky-400'}`} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* High-Precision 3D Engine Mode Switcher */}
         <div className="hidden lg:flex items-center bg-black/50 backdrop-blur-md p-0.5 rounded-lg border border-sky-500/20 text-[10px] font-mono shadow-inner">
           <button
@@ -183,197 +171,6 @@ export const Header = () => {
           </button>
         </div>
       </div>
-
-      {/* ─── Center Section: Active Ocean Field & Telemetry Hub (Hierarchies #2 & #3) ─── */}
-      {activePage === 'home' && (
-        <div className="hidden xl:flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-black/45 backdrop-blur-md border border-cyan-500/35 shadow-[0_0_20px_rgba(6,182,212,0.15)] data-shimmer">
-          <div className="flex items-center gap-2" ref={fieldDropdownRef}>
-            <div className="relative">
-              <button
-                onClick={() => setIsFieldDropdownOpen(!isFieldDropdownOpen)}
-                className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/35 hover:border-cyan-400/60 transition-all cursor-pointer shadow-sm group"
-                title="Select Active Ocean Data Field"
-              >
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#00f2fe]" />
-                <span className="text-[10px] font-mono tracking-widest text-cyan-400 font-bold uppercase">FIELD:</span>
-                <span className="text-xs font-semibold text-white tracking-wide glow-text-cyan flex items-center gap-1.5">
-                  {currentField.label}
-                  <ChevronDown className={`w-3.5 h-3.5 text-cyan-400 transition-transform ${isFieldDropdownOpen ? 'rotate-180' : ''}`} />
-                </span>
-              </button>
-
-              {isFieldDropdownOpen && (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-slate-950/95 backdrop-blur-xl border border-cyan-500/40 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] p-1.5 z-50 animate-fade-slide">
-                  <div className="px-2.5 py-1.5 border-b border-white/10 text-[9px] font-mono uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                    <span>Select Ocean Parameter</span>
-                    <span className="text-cyan-400">ROMS 1/12°</span>
-                  </div>
-                  <div className="flex flex-col gap-1 mt-1">
-                    {OCEAN_FIELDS.map((f) => {
-                      const isSelected = variable === f.id || (f.id === 'currents' && (variable === 'u' || variable === 'v' || variable === 'currents'));
-                      return (
-                        <button
-                          key={f.id}
-                          onClick={() => {
-                            setVariable(f.id);
-                            setIsFieldDropdownOpen(false);
-                          }}
-                          className={`flex items-start gap-2.5 p-2 rounded-lg text-left transition-all cursor-pointer ${
-                            isSelected
-                              ? 'bg-cyan-500/20 border border-cyan-400/50 text-white shadow-[0_0_12px_rgba(6,182,212,0.2)]'
-                              : 'hover:bg-white/5 text-slate-300 hover:text-white border border-transparent'
-                          }`}
-                        >
-                          <div className="mt-0.5">
-                            {isSelected ? (
-                              <Check className="w-3.5 h-3.5 text-cyan-400" />
-                            ) : (
-                              <div className="w-3.5 h-3.5 rounded-full border border-slate-600" />
-                            )}
-                          </div>
-                          <div className="flex flex-col flex-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold">{f.label}</span>
-                              <span className={`text-[9px] font-mono px-1 py-0.2 rounded border ${f.badgeColor}`}>
-                                {f.units}
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-slate-400 leading-tight mt-0.5 font-light">
-                              {f.description}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <span className="text-[10px] font-mono text-cyan-300 px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/40">
-              σ: {depthLevelMeters}m
-            </span>
-            <span className="text-[9px] font-mono text-emerald-300 bg-emerald-950/50 border border-emerald-500/40 px-1.5 py-0.5 rounded flex items-center gap-1 font-semibold">
-              <span className="w-1 h-1 rounded-full bg-emerald-400" />
-              <span>QC 1-2 · 99.4% CONF</span>
-            </span>
-          </div>
-          <div className="w-[1px] h-3.5 bg-white/15" />
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <Clock className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="text-sky-200 font-semibold tabular-nums">{currentDateStr}</span>
-            <span className="text-slate-500">·</span>
-            <span className="text-cyan-300 font-mono text-[11px] tabular-nums">{utcTime}</span>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Center Section: Navigation Command Deck ─── */}
-      <nav className="hidden md:flex items-center gap-1 bg-black/40 backdrop-blur-md p-1 rounded-xl border border-sky-500/20 shadow-inner">
-        {/* Explore */}
-        <button
-          onClick={() => handleNavClick('home')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activePage === 'home' && !activeOverlay
-              ? 'bg-sky-500/20 text-sky-200 border border-sky-400/40 shadow-glow-cyan-sm font-semibold'
-              : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <Compass className="w-3.5 h-3.5 text-sky-400" />
-          <span>Explore</span>
-        </button>
-
-        {/* Argo */}
-        <button
-          onClick={() => handleNavClick('argo')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activePage === 'argo'
-              ? 'bg-sky-500/20 text-sky-200 border border-sky-400/40 shadow-glow-cyan-sm font-semibold'
-              : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <Crosshair className="w-3.5 h-3.5 text-sky-400" />
-          <span>Argo Network</span>
-        </button>
-
-        {/* Model vs Obs */}
-        <button
-          onClick={() => handleNavClick('comparison')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activePage === 'comparison'
-              ? 'bg-sky-500/20 text-sky-200 border border-sky-400/40 shadow-glow-cyan-sm font-semibold'
-              : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <Split className="w-3.5 h-3.5 text-sky-400" />
-          <span>Model vs Obs</span>
-        </button>
-
-        {/* Analytics */}
-        <button
-          onClick={() => handleNavClick('analytics')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activePage === 'analytics'
-              ? 'bg-sky-500/20 text-sky-200 border border-sky-400/40 shadow-glow-cyan-sm font-semibold'
-              : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <BarChart2 className="w-3.5 h-3.5 text-sky-400" />
-          <span>Analytics</span>
-        </button>
-
-        {/* Data Catalog */}
-        <button
-          onClick={() => handleNavClick('data')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activePage === 'data'
-              ? 'bg-sky-500/20 text-sky-200 border border-sky-400/40 shadow-glow-cyan-sm font-semibold'
-              : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <Folder className="w-3.5 h-3.5 text-sky-400" />
-          <span>Data Catalog</span>
-        </button>
-
-        {/* Methodology */}
-        <button
-          onClick={() => handleNavClick('methodology')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activePage === 'methodology'
-              ? 'bg-violet-600/25 text-violet-200 border border-violet-400/40 shadow-sm font-semibold'
-              : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <FlaskConical className="w-3.5 h-3.5 text-violet-400" />
-          <span>Methodology</span>
-        </button>
-
-        {/* Missions Overlay Toggle */}
-        <button
-          onClick={() => handleNavClick('home', 'missions')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activeOverlay === 'missions'
-              ? 'bg-sky-500/20 text-sky-200 border border-sky-400/40 shadow-glow-cyan-sm font-semibold'
-              : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <Radio className="w-3.5 h-3.5 text-sky-400" />
-          <span>Missions</span>
-        </button>
-
-        {/* Events Overlay Toggle */}
-        <button
-          onClick={() => handleNavClick('home', 'events')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activeOverlay === 'events'
-              ? 'bg-amber-500/20 text-amber-200 border border-amber-400/40 shadow-sm font-semibold'
-              : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <Zap className="w-3.5 h-3.5 text-amber-400" />
-          <span>Events</span>
-        </button>
-      </nav>
 
       {/* ─── Right Section: Live Telemetry Status & Utility Tools ─── */}
       <div className="flex items-center gap-3 shrink-0">

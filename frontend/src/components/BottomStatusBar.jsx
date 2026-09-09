@@ -67,7 +67,7 @@ export const BottomStatusBar = () => {
   }, []);
 
   return (
-    <div className="absolute bottom-2 left-6 right-6 z-20 flex items-end justify-between pointer-events-none select-none text-[10px] font-mono text-slate-400">
+    <div className="absolute bottom-3 left-6 right-6 z-20 flex items-end justify-between pointer-events-none select-none text-[10px] font-mono text-slate-400">
       {/* ─── Bottom Left: Scientific Data Provenance ─── */}
       <div className="flex items-center gap-3 pointer-events-auto mission-panel px-3.5 py-1.5 rounded-xl text-[9.5px]">
         {/* Engine mode provenance badge */}
