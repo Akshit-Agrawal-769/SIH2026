@@ -58,3 +58,7 @@ htmlcov/
 logs/
 *.zip
 graphify-out/
+gateway/node_modules/
+gateway/dist/
+data-service/venv/
+data-service/__pycache__/

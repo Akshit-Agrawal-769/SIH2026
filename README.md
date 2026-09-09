@@ -40,14 +40,27 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed technical specifications and
 
 ## Local Development (Without Docker)
 
-### 1. API Gateway
+You can launch the entire local development stack simultaneously using the provided startup script:
+
+```bash
+chmod +x start_dev.sh
+./start_dev.sh
+```
+
+This will automatically start the **Data Service** (Port 8000), **API Gateway** (Port 4000), and **Frontend** (Port 3000).
+
+### Manual Startup Alternative
+
+If you prefer to run the services individually in separate terminals:
+
+**1. API Gateway**
 ```bash
 cd gateway
 npm install
 npm run dev
 ```
 
-### 2. Python Data Service
+**2. Python Data Service**
 ```bash
 cd data-service
 python3 -m venv venv
@@ -56,7 +69,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 3. Frontend
+**3. Frontend**
 ```bash
 cd frontend
 npm install
