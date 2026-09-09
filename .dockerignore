@@ -1,0 +1,42 @@
+# Git and IDE
+.git
+.gitignore
+.claude
+.agents
+.vscode
+.idea
+
+# Python virtual environments & bytecode
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Frontend build artifacts
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Large Datasets & NetCDF Binaries (mount via docker volume at runtime)
+datasets/
+datasets/argo/
+datasets/model/
+*.nc
+*.nc4
+*.h5
+*.hdf5
+*.tiff
+*.tif
+*.zip
+*.tar.gz
+
+# Logs & temporary files
+*.log
+.DS_Store
+Thumbs.db

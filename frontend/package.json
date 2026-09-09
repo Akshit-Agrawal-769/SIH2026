@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node test/geography.test.js"
+    "test": "node test/geography.test.js && node test/components_and_store.test.js"
   },
   "dependencies": {
     "@mapbox/vector-tile": "^3.0.0",

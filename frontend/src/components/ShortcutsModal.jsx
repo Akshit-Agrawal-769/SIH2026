@@ -47,7 +47,12 @@ export const ShortcutsModal = () => {
         if (e.target === e.currentTarget) toggleShortcutsModal();
       }}
     >
-      <div className="relative w-full max-w-2xl bg-[rgba(4,10,24,0.92)] backdrop-blur-2xl border border-sky-500/25 rounded-2xl p-6 text-white flex flex-col gap-4 shadow-2xl shadow-cyan-950/40 animate-in zoom-in-95 duration-200">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Hotkey and Control Matrix"
+        className="relative w-full max-w-2xl bg-[rgba(4,10,24,0.92)] backdrop-blur-2xl border border-sky-500/25 rounded-2xl p-6 text-white flex flex-col gap-4 shadow-2xl shadow-cyan-950/40 animate-in zoom-in-95 duration-200"
+      >
         {/* Glow Accent */}
         <div className="absolute top-0 left-12 right-12 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_12px_rgba(6,182,212,0.8)]" />
 
@@ -73,6 +78,7 @@ export const ShortcutsModal = () => {
           </div>
           <button
             onClick={toggleShortcutsModal}
+            aria-label="Dismiss hotkey overlay (Esc)"
             className="w-8 h-8 rounded-lg bg-white/5 hover:bg-rose-500/20 border border-white/10 hover:border-rose-500/40 text-slate-400 hover:text-rose-300 flex items-center justify-center transition-all"
             title="Dismiss overlay (Esc)"
           >

@@ -1,4 +1,4 @@
-﻿# Technical & Scientific Methodology
+# Technical & Scientific Methodology
 **INCOIS 3D Ocean Data Visualization Platform — SIH 2026 PS 26067**
 
 > This document describes the exact scientific formulations and engineering methods implemented in this
@@ -122,7 +122,7 @@ depth. The conversion is non-trivial because:
 - **Gravitational acceleration varies with latitude** — g(φ) changes from
   9.832 m s⁻² at the poles to 9.780 m s⁻² at the equator.
 
-### 2.2 TEOS-10 Formulation
+### 2.2 TEOS-10 Formulation & Positive Depth Sign Convention
 
 The system applies the **Thermodynamic Equation of Seawater 2010 (TEOS-10)** standard via
 the `gsw` Python library (IOC, SCOR and IAPSO, 2010):
@@ -140,7 +140,35 @@ Where:
 | ρ(SA, Θ, P') | In-situ seawater density from Absolute Salinity and Conservative Temperature |
 | g(φ) | Gravity: 9.780327·(1 + 0.0053024·sin²φ − 0.0000058·sin²2φ) m s⁻² |
 
-### 2.3 Code Implementation
+#### Depth Sign Convention ($z = -\text{depth}$)
+In classical ocean dynamics and geopotential coordinate frameworks (including TEOS-10 `gsw.z_from_p`),
+height $z$ is defined with the sea surface as the origin ($z = 0$) and values increasing upwards into the
+atmosphere ($z \le 0$ within the water column).
+Conversely, observational oceanography (Argo CTD profiles, mooring thermistor chains) and the INCOIS
+visualization platform define vertical coordinates using **positive depth downwards**:
+```
+depth = -z  (meters below sea surface, depth ≥ 0)
+```
+Consequently, when converting hydrostatic pressure $P$ to vertical levels, the platform explicitly
+negates `gsw.z_from_p(P, φ)` so that $d \in [0, D_{\max}]$ monotonically increases with distance below the ocean surface.
+
+### 2.3 Absolute Salinity Formulation & Composition Anomaly ($\delta S_A$)
+
+In standard observational datasets, conductivity sensors measure Practical Salinity ($S_P$, PSS-78, dimensionless).
+Under TEOS-10 standards, thermodynamic calculations require **Absolute Salinity** ($S_A$, $\text{g}\cdot\text{kg}^{-1}$),
+defined as:
+
+```
+S_A = S_R + δS_A(P, lon, lat) = (35.16504 / 35) · S_P + δS_A(P, lon, lat)
+```
+
+Where:
+- $S_R = (35.16504 / 35) \cdot S_P \approx 1.004715 \cdot S_P$ is the **Reference Salinity**, accounting for the mass fraction of dissolved inorganic ions in Standard Seawater.
+- $\delta S_A(P, \text{lon}, \text{lat})$ is the **Absolute Salinity Anomaly**, representing geographical variations in seawater composition (primarily dissolved silica, nitrate, and total alkalinity / carbonate system anomalies relative to standard Atlantic composition).
+- In the Indian Ocean basin ($30^\circ\text{E} - 120^\circ\text{E}$, $30^\circ\text{S} - 30^\circ\text{N}$), deep water accumulation of biogenic silicate and nitrate causes positive salinity anomalies ($\delta S_A > 0$), which can reach $+0.025\,\text{g}\cdot\text{kg}^{-1}$ in deep northern basins (Arabian Sea and Bay of Bengal).
+- When converting $S_P$ to $S_A$, the system evaluates `gsw.SA_from_SP(SP, p, lon, lat)` using the official IOC/SCOR TEOS-10 global gridded hydrographic look-up atlas (McDougall et al., 2012).
+
+### 2.4 Code Implementation
 
 Implemented at `insitu_store.py` lines 236, 353 (both the netCDF4 and xarray paths):
 
@@ -150,7 +178,7 @@ z_valid = -gsw.z_from_p(p_valid, lat_val)
 depth_mask = (z_valid >= 0) & (z_valid < 12000)
 ```
 
-The negation (`-gsw.z_from_p(...)`) converts the TEOS-10 convention (negative depth below
+The negation (`-gsw.z_from_p(...)`) converts the TEOS-10 convention (negative height below
 surface) to the platform convention (positive meters downward).
 The guard `z_valid < 12000` rejects physically implausible values exceeding the maximum ocean
 depth.

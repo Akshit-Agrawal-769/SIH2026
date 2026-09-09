@@ -1,6 +1,6 @@
 import os
 import pytest
-from fastapi.testclient import TestClient
+from tests.client import TestClient
 from app.main import app
 
 client = TestClient(app)
@@ -106,3 +106,36 @@ def test_model_vs_obs_comparison():
     assert "pearson_r" in comp["metrics"]
     assert "residuals" in comp
     assert len(comp["residuals"]) == len(comp["depths"])
+
+def test_model_timeseries():
+    response = client.get("/api/v1/model/datasets")
+    assert response.status_code == 200
+    filename = response.json()["datasets"][0]
+
+    # Oceanic sample point (10N, 75E)
+    ts_res = client.get(f"/api/v1/model/timeseries?filename={filename}&variable=temp&lat=10.0&lon=75.0")
+    assert ts_res.status_code == 200
+    data = ts_res.json()
+    assert data["variable"] == "temp"
+    assert data["latitude"] == 10.0
+    assert data["longitude"] == 75.0
+    assert not data["is_land"]
+    assert len(data["timestamps"]) == 480
+    assert len(data["values"]) == 480
+    assert data["stats"] is not None
+    assert "mean" in data["stats"]
+    assert "min" in data["stats"]
+    assert "max" in data["stats"]
+    assert "trend_per_decade" in data["stats"]
+    assert data["stats"]["valid_points"] > 0
+
+def test_comparison_error_diagnostics():
+    # Non-existent float WMO
+    res_notfound = client.get("/api/v1/comparison/profile?platform_number=9999999999&variable=temp")
+    assert res_notfound.status_code == 404
+    assert "FLOAT_NOT_FOUND" in res_notfound.json()["detail"]
+
+    # Invalid variable
+    res_bad_var = client.get("/api/v1/comparison/profile?platform_number=1900816&variable=invalid_var")
+    assert res_bad_var.status_code == 400
+

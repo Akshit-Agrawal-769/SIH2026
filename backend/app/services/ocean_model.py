@@ -137,12 +137,20 @@ class OceanModel:
         self._kd_shape = None
         self._volume_cache: OrderedDict[Tuple, Tuple[bytes, Dict[str, Any]]] = OrderedDict()
         self._max_cache_size = 32
+        self._max_cache_bytes = 256 * 1024 * 1024  # 256 MB memory limit
+        self._current_cache_bytes = 0
         self._init_coordinates()
 
     def close(self):
         """Releases the underlying xarray dataset file handlers."""
         if self._owns_dataset and self._ds is not None:
             self._ds.close()
+        self._volume_cache.clear()
+        self._current_cache_bytes = 0
+        try:
+            model_cache_size.set(0)
+        except Exception:
+            pass
 
     def _init_coordinates(self):
         ds = self._ds
@@ -462,6 +470,111 @@ class OceanModel:
 
         return depth_levels.tolist(), [float(round(v, 3)) if not np.isnan(v) else None for v in model_values]
 
+    def extract_timeseries(
+        self,
+        variable: str,
+        lat: float,
+        lon: float,
+        depth: Optional[float] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Extracts multi-temporal time series and climatological statistics for a variable at (lat, lon).
+        """
+        var_key = self.resolve_variable_name(variable)
+        if not var_key or var_key not in self._ds:
+            return None
+
+        ds = self._ds
+        da = ds[var_key]
+        time_key = next((k for k in ["time", "ocean_time", "time_counter", "TIME", "Time"] if k in da.coords or k in da.dims), None)
+        if not time_key or time_key not in ds:
+            return None
+
+        # Handle depth dimension if present
+        if self.depth_key and self.depth_key in da.dims and depth is not None:
+            depth_vals = np.abs(ds[self.depth_key].values.flatten())
+            closest_d_idx = int(np.argmin(np.abs(depth_vals - depth)))
+            da = da.isel({self.depth_key: closest_d_idx})
+        elif "s_rho" in da.dims:
+            da = da.isel({"s_rho": -1})
+
+        # Spatial interpolation across all time steps
+        if self.is_curvilinear:
+            tree, shape = self._get_or_build_kdtree()
+            cart_pt = geo_to_cartesian(np.array([lon]), np.array([lat]))
+            dists, idxs = tree.query(cart_pt, k=4)
+            weights = 1.0 / np.maximum(dists[0], 1e-6)
+            weights /= np.sum(weights)
+            ny, nx = shape
+            unraveled_ij = [np.unravel_index(idx, (ny, nx)) for idx in idxs[0]]
+
+            ts_values = np.zeros(da.sizes[time_key], dtype=np.float64)
+            for w, (j, i) in zip(weights, unraveled_ij):
+                ts_values += w * da.values[:, j, i]
+        else:
+            interp_dict = {}
+            if self.lat_key: interp_dict[self.lat_key] = lat
+            if self.lon_key: interp_dict[self.lon_key] = lon
+            point_da = da.interp(interp_dict, method="linear")
+            ts_values = point_da.values.astype(np.float64)
+
+        raw_times = ds[time_key].values
+        time_strings = [pd.to_datetime(t).strftime("%Y-%m") for t in raw_times]
+
+        valid_mask = ~np.isnan(ts_values)
+        if not np.any(valid_mask):
+            return {
+                "variable": variable,
+                "raw_variable": var_key,
+                "latitude": lat,
+                "longitude": lon,
+                "is_land": True,
+                "message": "Selected coordinates are masked (Land / No Data)",
+                "timestamps": time_strings,
+                "values": [None] * len(time_strings),
+                "stats": None
+            }
+
+        valid_vals = ts_values[valid_mask]
+        mean_val = float(np.mean(valid_vals))
+        min_val = float(np.min(valid_vals))
+        max_val = float(np.max(valid_vals))
+        std_val = float(np.std(valid_vals))
+
+        x_indices = np.arange(len(ts_values))[valid_mask]
+        if len(x_indices) > 1:
+            slope, _ = np.polyfit(x_indices, valid_vals, 1)
+            trend_per_decade = float(slope * 120.0)
+        else:
+            trend_per_decade = 0.0
+
+        amp_val = float((max_val - min_val) / 2.0)
+
+        units = da.attrs.get("units", "units")
+        if units in ["deg C", "Celsius", "degC"]:
+            units = "°C"
+
+        return {
+            "variable": variable,
+            "raw_variable": var_key,
+            "units": units,
+            "latitude": lat,
+            "longitude": lon,
+            "is_land": False,
+            "timestamps": time_strings,
+            "values": [float(round(v, 3)) if not np.isnan(v) else None for v in ts_values],
+            "stats": {
+                "mean": round(mean_val, 3),
+                "min": round(min_val, 3),
+                "max": round(max_val, 3),
+                "std": round(std_val, 3),
+                "trend_per_decade": round(trend_per_decade, 4),
+                "seasonal_amplitude": round(amp_val, 3),
+                "total_points": len(ts_values),
+                "valid_points": int(np.sum(valid_mask)),
+            }
+        }
+
     def extract_volume_buffer(
         self,
         variable: str = "temp",
@@ -479,7 +592,16 @@ class OceanModel:
             cache_key = (variable, time_idx, target_shape, tuple(sorted(spatial_bounds.items())) if spatial_bounds else None)
             if cache_key in self._volume_cache:
                 self._volume_cache.move_to_end(cache_key)
+                try:
+                    model_cache_hits.inc()
+                except Exception:
+                    pass
                 return self._volume_cache[cache_key]
+
+            try:
+                model_cache_misses.inc()
+            except Exception:
+                pass
 
             ds = self._ds
             var_key = self.resolve_variable_name(variable)
@@ -660,10 +782,23 @@ class OceanModel:
 
             result = (buffer, metadata)
 
-            # Update bounded LRU cache
-            if len(self._volume_cache) >= self._max_cache_size:
-                self._volume_cache.popitem(last=False)
-            self._volume_cache[cache_key] = result
+            # Update bounded LRU cache enforcing entry count AND memory byte bounds
+            buf_bytes = len(buffer)
+            while self._volume_cache and (
+                len(self._volume_cache) >= self._max_cache_size or
+                (self._current_cache_bytes + buf_bytes > self._max_cache_bytes)
+            ):
+                old_key, (old_buf, _) = self._volume_cache.popitem(last=False)
+                self._current_cache_bytes -= len(old_buf)
+
+            if buf_bytes <= self._max_cache_bytes:
+                self._volume_cache[cache_key] = result
+                self._current_cache_bytes += buf_bytes
+
+            try:
+                model_cache_size.set(len(self._volume_cache))
+            except Exception:
+                pass
 
             return result
 
@@ -725,7 +860,7 @@ class OceanModelRegistry:
             root_files = glob.glob(os.path.join(self.datasets_dir, "*.nc")) + glob.glob(os.path.join(self.datasets_dir, "*.nc4"))
             for f in root_files:
                 base = os.path.basename(f)
-                # Exclude in-situ observation files like indian_agro.nc
+                # Exclude in-situ observation files like indian_argo.nc
                 if not ("agro" in base.lower() or "argo" in base.lower()):
                     models.add(base)
 

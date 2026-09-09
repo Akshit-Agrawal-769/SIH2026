@@ -8,7 +8,6 @@ import { ShortcutsModal } from './components/ShortcutsModal';
 
 // Dedicated Scientific Workspaces
 import { HomePage } from './pages/HomePage';
-import { ExplorerPage } from './pages/ExplorerPage';
 import { CoordinatesPage } from './pages/CoordinatesPage';
 import { ArgoPage } from './pages/ArgoPage';
 import { ComparisonPage } from './pages/ComparisonPage';
@@ -36,7 +35,7 @@ export default function App() {
           break;
         case 'e':
         case 'E':
-          store.setActivePage('explorer');
+          store.setActivePage('home');
           break;
         case 'a':
         case 'A':
@@ -98,15 +97,29 @@ export default function App() {
           store.toggleGoToLocationModal();
           break;
         case '?':
+          e.preventDefault();
           store.toggleShortcutsModal();
           break;
 
-        // Modal dismissal
+        // Modal dismissal (hierarchical single-modal dismissal)
         case 'Escape':
-          if (store.isModalOpen) store.closeModal();
-          if (store.isShortcutsModalOpen) store.toggleShortcutsModal();
-          if (store.isDiagnosticsOpen) store.toggleDiagnostics();
-          if (store.isGoToLocationOpen) store.toggleGoToLocationModal();
+          e.preventDefault();
+          if (store.isShortcutsModalOpen) {
+            store.toggleShortcutsModal();
+            break;
+          }
+          if (store.isModalOpen) {
+            store.closeModal();
+            break;
+          }
+          if (store.isDiagnosticsOpen) {
+            store.toggleDiagnostics();
+            break;
+          }
+          if (store.isGoToLocationOpen) {
+            store.toggleGoToLocationModal();
+            break;
+          }
           break;
         default:
           break;
@@ -118,14 +131,13 @@ export default function App() {
   }, [fetchInitialData]);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#040711] text-slate-100 flex flex-col font-sans select-none">
+    <div className="relative w-screen h-screen overflow-hidden bg-ocean-925 text-slate-100 flex flex-col font-sans select-none">
       {/* 1. TOP SYSTEM COMMAND HEADER & NAVIGATION BAR */}
       <Header />
 
       {/* 2. DYNAMIC WORKSPACE PAGE ROUTER */}
       <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden">
-        {activePage === 'home' && <HomePage />}
-        {activePage === 'explorer' && <ExplorerPage />}
+        {(activePage === 'home' || activePage === 'explorer') && <HomePage />}
         {activePage === 'coordinates' && <CoordinatesPage />}
         {activePage === 'argo' && <ArgoPage />}
         {activePage === 'comparison' && <ComparisonPage />}

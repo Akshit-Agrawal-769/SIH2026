@@ -1,6 +1,8 @@
-import * as THREE from 'three';
-
 /**
+ * INCOIS 3D Ocean Data Visualization Platform
+ * Copyright (c) 2026 INCOIS / Ministry of Earth Sciences, Govt. of India
+ * SPDX-License-Identifier: MIT
+ *
  * AUTHORITATIVE GEOGRAPHIC COORDINATE TRANSFORMATION SYSTEM
  * 
  * Canonical transformation between Geographic Coordinates (Latitude, Longitude, Altitude)
@@ -14,6 +16,7 @@ import * as THREE from 'three';
  * - East Longitudes (+Lon) proceed counter-clockwise around +Y toward the +X axis (Lon = +90°).
  * - West Longitudes (-Lon) proceed clockwise around +Y toward the -X axis (Lon = -90°).
  */
+import * as THREE from 'three';
 
 export const EARTH_RADIUS = 5.0;
 

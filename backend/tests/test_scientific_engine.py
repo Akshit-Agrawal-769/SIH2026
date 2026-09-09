@@ -9,7 +9,7 @@ from app.services.ocean_model import (
 )
 from app.services.insitu_store import decode_argo_qc_flags, decode_argo_timestamp, insitu_store
 from app.services.validation_engine import validation_engine
-from fastapi.testclient import TestClient
+from tests.client import TestClient
 from app.main import app
 
 client = TestClient(app)

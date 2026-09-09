@@ -1,6 +1,12 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
-from app.services.validation_engine import validation_engine
+from app.services.validation_engine import (
+    validation_engine,
+    FloatNotFoundError,
+    CycleNotFoundError,
+    ModelNotFoundError,
+    ColocationError
+)
 from app.schemas.ocean import ModelVsObsComparisonResponse
 
 router = APIRouter()
@@ -15,15 +21,24 @@ def compare_model_vs_obs(
     if variable not in ["temp", "salt"]:
         raise HTTPException(status_code=400, detail=f"Invalid comparison variable '{variable}'. Supported: 'temp', 'salt'.")
 
-    comparison = validation_engine.validate_float(
-        platform_number=platform_number,
-        cycle_number=cycle_number,
-        variable=variable,
-        model_name=model_filename
-    )
-    if not comparison:
-        raise HTTPException(
-            status_code=404,
-            detail=f"REAL DATASET REQUIRED: Unable to compute 4D comparison for float {platform_number}."
+    try:
+        comparison = validation_engine.validate_float(
+            platform_number=platform_number,
+            cycle_number=cycle_number,
+            variable=variable,
+            model_name=model_filename
         )
-    return comparison
+        return comparison
+    except FloatNotFoundError as e:
+        raise HTTPException(status_code=404, detail=f"FLOAT_NOT_FOUND: {str(e)}")
+    except CycleNotFoundError as e:
+        raise HTTPException(status_code=404, detail=f"CYCLE_NOT_FOUND: {str(e)}")
+    except ModelNotFoundError as e:
+        raise HTTPException(status_code=404, detail=f"MODEL_NOT_FOUND: {str(e)}")
+    except ColocationError as e:
+        raise HTTPException(status_code=422, detail=f"COLOCATION_UNAVAILABLE: {str(e)}")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"COMPARISON_PIPELINE_ERROR: Failed to calculate 4D colocation: {str(e)}"
+        )

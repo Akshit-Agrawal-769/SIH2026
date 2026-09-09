@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, TrendingUp, Activity, ShieldCheck } from './Icons';
 import { useOceanStore } from '../store/oceanStore';
+import { prepareObservationProfileData } from '../utils/observationProfile';
 
 export const ObservationModal = () => {
   const {
@@ -15,47 +16,40 @@ export const ObservationModal = () => {
 
   if (!isModalOpen || !comparisonData) return null;
 
-  const { metrics, depths, obs_values, model_interpolated_values, residuals } = comparisonData;
+  const profileGeom = prepareObservationProfileData(comparisonData);
+  if (!profileGeom) return null;
 
+  const {
+    cleanDepths,
+    cleanObs,
+    cleanModel,
+    cleanRes,
+    maxDepth,
+    minVal,
+    maxVal,
+    scaleX,
+    scaleY,
+    resScaleX,
+    obsPoints,
+    modelPoints,
+    resPoints,
+    margin,
+    svgWidth,
+    svgHeight,
+  } = profileGeom;
+
+  const { metrics } = comparisonData;
   const compVar = comparisonData.variable || variable;
   const varUnit = compVar === 'temp' ? '°C' : (compVar === 'salt' ? 'PSU' : '');
   const varName = compVar === 'temp' ? 'Potential Temperature' : 'Practical Salinity';
 
-  // SVG Chart Geometry
-  const svgWidth = 460;
-  const svgHeight = 280;
-  const margin = { top: 20, right: 20, bottom: 35, left: 50 };
-  const plotWidth = svgWidth - margin.left - margin.right;
-  const plotHeight = svgHeight - margin.top - margin.bottom;
-
-  // Filter valid data points
-  const validIndices = depths.map((d, i) => i).filter(i =>
-    obs_values[i] !== null && obs_values[i] !== undefined &&
-    model_interpolated_values[i] !== null && model_interpolated_values[i] !== undefined
-  );
-
-  const cleanDepths = validIndices.map(i => depths[i]);
-  const cleanObs = validIndices.map(i => obs_values[i]);
-  const cleanModel = validIndices.map(i => model_interpolated_values[i]);
-  const cleanRes = validIndices.map(i => residuals[i]);
-
-  const maxDepth = cleanDepths.length > 0 ? Math.max(...cleanDepths, 100) : 2000;
-  const minVal = Math.min(...cleanObs, ...cleanModel, 0);
-  const maxVal = Math.max(...cleanObs, ...cleanModel, 1);
-  const valRange = maxVal - minVal > 0.1 ? maxVal - minVal : 1.0;
-
-  const scaleX = (v) => margin.left + ((v - minVal) / valRange) * plotWidth;
-  const scaleY = (d) => margin.top + (d / maxDepth) * plotHeight;
-
-  const obsPoints = cleanObs.map((v, idx) => `${scaleX(v)},${scaleY(cleanDepths[idx])}`).join(' ');
-  const modelPoints = cleanModel.map((v, idx) => `${scaleX(v)},${scaleY(cleanDepths[idx])}`).join(' ');
-
-  const maxAbsRes = cleanRes.length > 0 ? Math.max(...cleanRes.map(r => Math.abs(r)), 0.2) : 1.0;
-  const resScaleX = (r) => margin.left + ((r + maxAbsRes) / (2 * maxAbsRes)) * plotWidth;
-  const resPoints = cleanRes.map((r, idx) => `${resScaleX(r)},${scaleY(cleanDepths[idx])}`).join(' ');
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md select-none">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="4D Spatio-Temporal Colocation & Statistical Residual Scorecard"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md select-none"
+    >
       <div className="relative w-full max-w-5xl bg-[rgba(4,10,24,0.95)] backdrop-blur-2xl border border-sky-500/25 rounded-2xl p-5 text-slate-100 flex flex-col gap-4 max-h-[92vh] overflow-y-auto custom-scrollbar shadow-panel-dark animate-fade-slide">
 
         {/* ─── Modal Header ─── */}
@@ -86,6 +80,7 @@ export const ObservationModal = () => {
           <button
             onClick={closeModal}
             title="Close Comparison Modal"
+            aria-label="Close Comparison Modal"
             className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
           >
             <X className="w-4 h-4" />

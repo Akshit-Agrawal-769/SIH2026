@@ -25,7 +25,7 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="w-screen h-screen flex flex-col items-center justify-center bg-[#040711] text-white p-6 font-mono">
+        <div className="w-screen h-screen flex flex-col items-center justify-center bg-ocean-925 text-white p-6 font-mono">
           <div className="max-w-lg p-6 rounded-2xl bg-black/60 border border-rose-500/40 shadow-2xl backdrop-blur-md">
             <h1 className="text-base font-bold text-rose-400 mb-2">INCOIS 3D System Diagnostic Fault</h1>
             <p className="text-xs text-slate-300 mb-4 font-sans">

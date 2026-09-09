@@ -19,27 +19,44 @@ export const SettingsPage = () => {
     metadata,
     activeDataset,
     setActivePage,
+    settings,
+    updateSettings,
+    resetSettings,
   } = useOceanStore();
 
-  const [highDpi, setHighDpi] = useState(true);
-  const [antialiasing, setAntialiasing] = useState(true);
-  const [bathymetricContours, setBathymetricContours] = useState(true);
-  const [raymarchingSteps, setRaymarchingSteps] = useState('256');
-  const [fpsCap, setFpsCap] = useState('60');
-  const [volumetricShadows, setVolumetricShadows] = useState(true);
-  const [qcPolicy, setQcPolicy] = useState('strict');
-  const [tempScale, setTempScale] = useState('C');
-  const [interpMode, setInterpMode] = useState('trilinear');
+  const [highDpi, setHighDpi] = useState(settings?.highDpi ?? true);
+  const [antialiasing, setAntialiasing] = useState(settings?.antialiasing ?? true);
+  const [bathymetricContours, setBathymetricContours] = useState(settings?.bathymetricContours ?? true);
+  const [raymarchingSteps, setRaymarchingSteps] = useState(settings?.raymarchingSteps ?? '256');
+  const [fpsCap, setFpsCap] = useState(settings?.fpsCap ?? '60');
+  const [volumetricShadows, setVolumetricShadows] = useState(settings?.volumetricShadows ?? true);
+  const [qcPolicy, setQcPolicy] = useState(settings?.qcPolicy ?? 'strict');
+  const [tempScale, setTempScale] = useState(settings?.tempScale ?? 'C');
+  const [interpMode, setInterpMode] = useState(settings?.interpMode ?? 'trilinear');
+  const [graticule, setGraticule] = useState(showGrid ?? true);
 
   const [isSaved, setIsSaved] = useState(false);
 
   const handleSave = () => {
+    updateSettings({
+      highDpi,
+      antialiasing,
+      bathymetricContours,
+      raymarchingSteps,
+      fpsCap,
+      volumetricShadows,
+      qcPolicy,
+      tempScale,
+      interpMode,
+    });
+    setShowGrid(graticule);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
   };
 
   const handleReset = () => {
-    setShowGrid(true);
+    resetSettings();
+    setGraticule(true);
     setHighDpi(true);
     setAntialiasing(true);
     setBathymetricContours(true);
@@ -49,6 +66,8 @@ export const SettingsPage = () => {
     setQcPolicy('strict');
     setTempScale('C');
     setInterpMode('trilinear');
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2500);
   };
 
   return (
@@ -111,8 +130,8 @@ export const SettingsPage = () => {
                 <span className="text-slate-300 group-hover:text-white transition-colors">Show Graticule (Lat/Lon Grid)</span>
                 <input
                   type="checkbox"
-                  checked={showGrid}
-                  onChange={(e) => setShowGrid(e.target.checked)}
+                  checked={graticule}
+                  onChange={(e) => setGraticule(e.target.checked)}
                   className="w-4 h-4 accent-cyan-400 bg-slate-950 border border-sky-500/30 rounded cursor-pointer"
                 />
               </label>

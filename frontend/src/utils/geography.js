@@ -333,3 +333,88 @@ export const INDIAN_OCEAN_PRESETS = [
     desc: 'Internal solitary wave hotspot, shallow sill mixing, and Southeast Asian marginal basin.',
   },
 ];
+
+/**
+ * Canonical parser for geographic coordinates in user input.
+ * Supports:
+ * - Clean numbers: "15.4", "-12.83", 15.4
+ * - Numbers with cardinal directions: "15.4 N", "15.4n", " 12.83 s ", "W 75.5", "75.5°E"
+ * - DMS formats: "15° 24' 30\" N", "15°24'30\"S", "15 24 30 N"
+ *
+ * @param {string|number} input - Raw coordinate input
+ * @param {boolean} [isLat=true] - True for latitude (-90..90), False for longitude (-180..180)
+ * @returns {number} Parsed coordinate as float degrees, or NaN if invalid
+ */
+export function parseGeographicCoordinate(input, isLat = true) {
+  if (input === undefined || input === null) return null;
+  if (typeof input === 'number') {
+    if (isNaN(input)) return null;
+    const max = isLat ? 90.0 : 180.0;
+    return input >= -max && input <= max ? input : null;
+  }
+
+  let str = String(input ?? '').trim();
+  if (!str) return null;
+
+  // Determine sign from cardinal direction
+  let signMultiplier = 1;
+  const upper = str.toUpperCase();
+
+  if (isLat) {
+    if (upper.includes('S')) {
+      signMultiplier = -1;
+      str = str.replace(/S/gi, '');
+    } else if (upper.includes('N')) {
+      signMultiplier = 1;
+      str = str.replace(/N/gi, '');
+    }
+  } else {
+    if (upper.includes('W')) {
+      signMultiplier = -1;
+      str = str.replace(/W/gi, '');
+    } else if (upper.includes('E')) {
+      signMultiplier = 1;
+      str = str.replace(/E/gi, '');
+    }
+  }
+
+  // Remove common symbols: degree symbol, single/double quotes
+  str = str.replace(/[°º'"″′]/g, ' ').trim();
+
+  // Check if it's DMS (e.g. "15 24 30.5") or simple decimal ("15.4")
+  const parts = str.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return null;
+
+  let val = 0;
+  if (parts.length === 1) {
+    val = parseFloat(parts[0]);
+  } else if (parts.length === 2) {
+    const d = parseFloat(parts[0]);
+    const m = parseFloat(parts[1]);
+    if (isNaN(d) || isNaN(m)) return null;
+    val = Math.abs(d) + m / 60.0;
+    if (d < 0) val = -val;
+  } else if (parts.length >= 3) {
+    const d = parseFloat(parts[0]);
+    const m = parseFloat(parts[1]);
+    const s = parseFloat(parts[2]);
+    if (isNaN(d) || isNaN(m) || isNaN(s)) return null;
+    val = Math.abs(d) + m / 60.0 + s / 3600.0;
+    if (d < 0) val = -val;
+  }
+
+  if (isNaN(val)) return null;
+
+  // Apply cardinal direction sign (if not already negative)
+  if (signMultiplier === -1 && val > 0) {
+    val = -val;
+  } else if (signMultiplier === 1 && val < 0 && (upper.includes('N') || upper.includes('E'))) {
+    val = -val; // corrected if user typed "-15 N"
+  }
+
+  const maxVal = isLat ? 90.0 : 180.0;
+  if (val < -maxVal || val > maxVal) return null;
+
+  return val;
+}
+

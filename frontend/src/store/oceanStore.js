@@ -1,6 +1,30 @@
 import { create } from 'zustand';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const API_BASE = (import.meta.env?.VITE_API_URL || '').replace(/\/$/, '');
+
+export const DEFAULT_SETTINGS = {
+  highDpi: true,
+  antialiasing: true,
+  bathymetricContours: true,
+  raymarchingSteps: '256',
+  fpsCap: '60',
+  volumetricShadows: true,
+  qcPolicy: 'strict',
+  tempScale: 'C',
+  interpMode: 'trilinear',
+};
+
+const loadSavedSettings = () => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = window.localStorage.getItem('ocean_settings');
+      if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+    }
+  } catch (e) {
+    console.warn('Could not load saved settings from localStorage:', e);
+  }
+  return DEFAULT_SETTINGS;
+};
 
 export const VITAL_SIGNS_CATALOG = {
   surface: [
@@ -513,14 +537,33 @@ export const useOceanStore = create((set, get) => ({
   depthIndex: 0,
   opacity: 1.2,
   threshold: 0.05,
-  isoValue: 0.65,
+  depthLevelMeters: 0,
   sliceDepthMeters: 0,
   enableSlice: false,
+  setSliceDepthMeters: (sliceDepthMeters) => set({
+    sliceDepthMeters: Number(sliceDepthMeters),
+    depthLevelMeters: Number(sliceDepthMeters),
+  }),
+  setDepthLevelMeters: (depthLevelMeters) => set({
+    depthLevelMeters: Number(depthLevelMeters),
+    sliceDepthMeters: Number(depthLevelMeters),
+  }),
+  setEnableSlice: (enableSlice) => set((state) => ({
+    enableSlice: Boolean(enableSlice),
+    layers: { ...state.layers, depthSlice: Boolean(enableSlice) },
+  })),
   verticalExaggeration: 1.0,
 
   // Engine Mode: 'three' (3D Volumetric Raymarching) | 'cesium' (Planetary Globe)
   engineMode: 'cesium',
-  setEngineMode: (engineMode) => set({ engineMode }),
+  setEngineMode: (engineMode) => set((state) => {
+    const depth = state.sliceDepthMeters || state.depthLevelMeters || 0;
+    return {
+      engineMode,
+      sliceDepthMeters: depth,
+      depthLevelMeters: depth,
+    };
+  }),
 
   // Logarithmic / Linear Color Transfer Scale
   isLogScale: false,
@@ -614,9 +657,44 @@ export const useOceanStore = create((set, get) => ({
   cameraOrbit: { azimuth: 45, elevation: 35, zoom: 2.4 },
   setCameraOrbit: (cameraOrbit) => set({ cameraOrbit }),
   showGrid: true,
+  setShowGrid: (showGrid) => set((state) => ({
+    showGrid: Boolean(showGrid),
+    layers: { ...state.layers, graticule: Boolean(showGrid) }
+  })),
   showBoundingBox: true,
   cursorCoords: null, // { lon, lat, depth }
   sampleProbe: null,
+
+  // Hardware & Algorithms Platform Settings
+  settings: loadSavedSettings(),
+  updateSettings: (newSettings) => {
+    const current = get().settings || DEFAULT_SETTINGS;
+    const merged = { ...current, ...newSettings };
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('ocean_settings', JSON.stringify(merged));
+      }
+    } catch (e) {
+      console.warn('Could not persist settings to localStorage:', e);
+    }
+    set({
+      settings: merged,
+      argoFilterQC: merged.qcPolicy === 'strict',
+    });
+  },
+  resetSettings: () => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('ocean_settings');
+      }
+    } catch (e) {}
+    set({
+      settings: DEFAULT_SETTINGS,
+      showGrid: true,
+      argoFilterQC: true,
+      layers: { ...get().layers, graticule: true },
+    });
+  },
 
   // Panels, Drawers & Shortcuts
   isDiagnosticsOpen: false,
@@ -990,4 +1068,38 @@ export const useOceanStore = create((set, get) => ({
   toggleDiagnostics: () => set((state) => ({ isDiagnosticsOpen: !state.isDiagnosticsOpen })),
   toggleControlPanel: () => set((state) => ({ isControlPanelOpen: !state.isControlPanelOpen })),
   toggleInspector: () => set((state) => ({ isInspectorOpen: !state.isInspectorOpen })),
+
+
+  // Multi-Decadal Reanalysis Timeseries
+  modelTimeseries: null,
+  isTimeseriesLoading: false,
+  fetchModelTimeseries: async (variable = 'temp', lat = 10.0, lon = 75.0, depth = null) => {
+    const { activeDataset } = get();
+    try {
+      set({ isTimeseriesLoading: true });
+      let url = `${API_BASE}/api/v1/model/timeseries?variable=${encodeURIComponent(variable)}&lat=${lat}&lon=${lon}`;
+      if (activeDataset) {
+        url += `&filename=${encodeURIComponent(activeDataset)}`;
+      }
+      if (depth !== null && depth !== undefined) {
+        url += `&depth=${depth}`;
+      }
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        set({ modelTimeseries: data, isTimeseriesLoading: false });
+        return data;
+      } else {
+        set({ modelTimeseries: null, isTimeseriesLoading: false });
+      }
+    } catch (e) {
+      console.warn('Failed to fetch model timeseries:', e);
+      set({ modelTimeseries: null, isTimeseriesLoading: false });
+    }
+    return null;
+  },
 }));
+
+if (typeof window !== 'undefined') {
+  window.__oceanStore = useOceanStore;
+}

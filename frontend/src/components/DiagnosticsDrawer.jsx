@@ -20,7 +20,11 @@ export const DiagnosticsDrawer = () => {
   const isHealthy = health?.status === 'healthy';
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[rgba(4,10,24,0.96)] backdrop-blur-2xl border-l border-sky-500/25 text-white p-5 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar select-none shadow-panel-dark animate-fade-slide">
+    <div
+      role="region"
+      aria-label="System and Data Diagnostics"
+      className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[rgba(4,10,24,0.96)] backdrop-blur-2xl border-l border-sky-500/25 text-white p-5 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar select-none shadow-panel-dark animate-fade-slide"
+    >
 
       {/* ─── Header ─── */}
       <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
@@ -34,6 +38,7 @@ export const DiagnosticsDrawer = () => {
         <button
           onClick={toggleDiagnostics}
           title="Close Diagnostics Drawer"
+          aria-label="Close Diagnostics Drawer"
           className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"
         >
           <X className="w-4 h-4" />
@@ -166,6 +171,7 @@ export const DiagnosticsDrawer = () => {
         <button
           onClick={fetchInitialData}
           disabled={isLoading}
+          aria-label="Refresh system telemetry"
           className="flex items-center gap-2 px-3 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-xs border border-sky-400/40 rounded-xl transition-all cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />

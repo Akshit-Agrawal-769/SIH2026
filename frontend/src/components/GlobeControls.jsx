@@ -9,28 +9,45 @@ export const GlobeControls = () => {
   useEffect(() => {
     let removeListener = null;
     const checkViewer = setInterval(() => {
-      const viewer = window.__godsEyeView?.viewer;
-      if (viewer && viewer.camera) {
-        clearInterval(checkViewer);
-        const updateHeading = () => {
-          const deg = (viewer.camera.heading * 180) / Math.PI;
-          setHeadingDegrees(deg);
-        };
-        viewer.camera.changed.addEventListener(updateHeading);
-        removeListener = () => viewer.camera.changed.removeEventListener(updateHeading);
-      }
+      try {
+        const viewer = window.__cesiumViewer;
+        if (viewer && !viewer.isDestroyed() && viewer.camera) {
+          clearInterval(checkViewer);
+          const updateHeading = () => {
+            try {
+              if (viewer && !viewer.isDestroyed() && viewer.camera) {
+                const deg = (viewer.camera.heading * 180) / Math.PI;
+                setHeadingDegrees(deg);
+              }
+            } catch (e) {}
+          };
+          viewer.camera.changed.addEventListener(updateHeading);
+          removeListener = () => {
+            try {
+              if (viewer && !viewer.isDestroyed() && viewer.camera?.changed) {
+                viewer.camera.changed.removeEventListener(updateHeading);
+              }
+            } catch (e) {}
+          };
+        }
+      } catch (e) {}
     }, 500);
 
     return () => {
       clearInterval(checkViewer);
-      if (removeListener) removeListener();
+      if (removeListener) {
+        try {
+          removeListener();
+        } catch (e) {}
+      }
     };
   }, []);
 
   const handleResetNorth = () => {
-    const viewer = window.__godsEyeView?.viewer;
-    if (!viewer) return;
+    const viewer = window.__cesiumViewer;
+    if (!viewer || viewer.isDestroyed()) return;
     import('cesium').then((Cesium) => {
+      if (viewer.isDestroyed()) return;
       viewer.camera.flyTo({
         destination: viewer.camera.position,
         orientation: {
@@ -44,8 +61,8 @@ export const GlobeControls = () => {
   };
 
   const handleHome = () => {
-    const viewer = window.__godsEyeView?.viewer;
-    if (viewer) {
+    const viewer = window.__cesiumViewer;
+    if (viewer && !viewer.isDestroyed()) {
       viewer.camera.flyHome(1.5);
     } else {
       triggerCameraAction('fit_earth');
@@ -53,15 +70,15 @@ export const GlobeControls = () => {
   };
 
   const handleZoomIn = () => {
-    const viewer = window.__godsEyeView?.viewer;
-    if (!viewer) return;
+    const viewer = window.__cesiumViewer;
+    if (!viewer || viewer.isDestroyed()) return;
     const height = viewer.camera.positionCartographic?.height || 5000000;
     viewer.camera.zoomIn(height * 0.35);
   };
 
   const handleZoomOut = () => {
-    const viewer = window.__godsEyeView?.viewer;
-    if (!viewer) return;
+    const viewer = window.__cesiumViewer;
+    if (!viewer || viewer.isDestroyed()) return;
     const height = viewer.camera.positionCartographic?.height || 5000000;
     viewer.camera.zoomOut(height * 0.35);
   };
@@ -71,10 +88,11 @@ export const GlobeControls = () => {
   };
 
   return (
-    <div className="absolute right-[310px] top-20 z-30 flex flex-col items-center gap-2.5 select-none panel-transition animate-fade-slide">
+    <div className="absolute right-[336px] top-6 z-30 flex flex-col items-center gap-2.5 select-none panel-transition animate-fade-slide">
       {/* Precision Aerospace Compass */}
       <button
         onClick={handleResetNorth}
+        aria-label="Reset Camera Heading to North"
         className="relative w-10 h-10 rounded-full bg-[rgba(3,7,18,0.6)] hover:bg-[rgba(6,14,32,0.85)] backdrop-blur-xl border border-sky-500/30 hover:border-cyan-400 shadow-[0_4px_20px_rgba(0,0,0,0.5),0_0_15px_rgba(6,182,212,0.15)] flex items-center justify-center group transition-all"
         title={`Heading: ${Math.round(headingDegrees)}° — Click to Reset North (Hotkey: R)`}
       >
@@ -98,6 +116,7 @@ export const GlobeControls = () => {
         {/* Full Earth Home View */}
         <button
           onClick={handleHome}
+          aria-label="Planetary Overview (Fit Earth)"
           className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-cyan-500/20 transition-colors group"
           title="Planetary Overview (Fit Earth)"
         >
@@ -107,6 +126,7 @@ export const GlobeControls = () => {
         {/* Zoom In */}
         <button
           onClick={handleZoomIn}
+          aria-label="Zoom In Camera"
           className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-cyan-500/20 transition-colors group"
           title="Zoom In Camera"
         >
@@ -116,6 +136,7 @@ export const GlobeControls = () => {
         {/* Zoom Out */}
         <button
           onClick={handleZoomOut}
+          aria-label="Zoom Out Camera"
           className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-cyan-500/20 transition-colors group"
           title="Zoom Out Camera"
         >
@@ -125,6 +146,7 @@ export const GlobeControls = () => {
         {/* Focus Target (Indian Ocean) */}
         <button
           onClick={handleLocate}
+          aria-label="Target Indian Ocean Basin"
           className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-cyan-500/20 transition-colors group"
           title="Target Indian Ocean Basin"
         >

@@ -201,96 +201,167 @@ export const ComparisonPage = () => {
 
         {/* 4D Comparison Triad & Statistics Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Triad: 3 Side-by-Side Maps (9 Cols) */}
+          {/* Triad: 3 Side-by-Side Cards (9 Cols) */}
           <div className="lg:col-span-9 grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* Map 1: MODEL (ROMS) */}
-            <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-sky-500/20 rounded-xl flex flex-col gap-2 relative overflow-hidden shadow-xl">
+            {/* Card 1: MODEL (ROMS) */}
+            <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-sky-500/20 rounded-xl flex flex-col justify-between gap-2 relative overflow-hidden shadow-xl">
               <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-sky-400 to-transparent" />
               <div className="flex items-center justify-between border-b border-sky-500/15 pb-1.5">
                 <span className="font-bold text-xs text-sky-300 font-mono tracking-wide">MODEL (ROMS 4D)</span>
-                <span className="text-[10px] text-slate-400 font-mono">756×1081 Grid</span>
+                <span className="text-[10px] text-slate-400 font-mono">Colocated Water Column</span>
               </div>
-              <div className="h-44 bg-slate-950 rounded-lg border border-sky-500/15 flex items-center justify-center relative overflow-hidden shadow-inner">
-                <div
-                  className="w-full h-full opacity-70"
-                  style={{
-                    background: 'radial-gradient(circle at 60% 40%, #ea580c 0%, #0284c7 50%, #082f49 100%)',
-                  }}
-                />
-                <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-slate-900/80 rounded text-[9px] text-slate-300 font-mono">
-                  Indian Ocean Basin
-                </span>
-              </div>
-              {/* Color scale */}
-              <div className="flex items-center justify-between text-[8px] text-slate-400 font-mono px-1">
-                <span>10°C</span>
-                <span>15°C</span>
-                <span>20°C</span>
-                <span>25°C</span>
-                <span>30°C</span>
-              </div>
-              <div className="h-1.5 w-full rounded-full" style={{ background: 'linear-gradient(to right, #0284c7, #22c55e, #eab308, #ea580c)' }} />
-              <div className="text-[9px] text-center text-slate-400 font-mono">Temperature Colormap</div>
+
+              {comparisonData && cleanModel.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  <div className="h-44 bg-slate-950 rounded-lg border border-sky-500/15 flex flex-col p-2 relative overflow-hidden shadow-inner">
+                    <svg viewBox="0 0 200 130" className="w-full h-full">
+                      <line x1="25" y1="10" x2="25" y2="120" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="1" />
+                      <line x1="25" y1="120" x2="190" y2="120" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="1" />
+                      <polyline
+                        points={cleanModel.map((v, i) => {
+                          const x = 25 + ((v - minVal) / valRange) * 160;
+                          const y = 10 + (cleanDepths[i] / maxDepth) * 105;
+                          return `${x},${y}`;
+                        }).join(' ')}
+                        fill="none"
+                        stroke="#38bdf8"
+                        strokeWidth="2"
+                      />
+                    </svg>
+                    <span className="absolute bottom-1 right-2 text-[9px] text-sky-400 font-mono font-bold">
+                      {Math.min(...cleanModel).toFixed(1)} — {Math.max(...cleanModel).toFixed(1)} {varUnit}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1 text-[10px] font-mono text-slate-300">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Position:</span>
+                      <span>{comparisonData.latitude.toFixed(2)}°N, {comparisonData.longitude.toFixed(2)}°E</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Depth Span:</span>
+                      <span>0 — {Math.round(maxDepth)} m</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-44 bg-slate-950/60 rounded-lg border border-sky-500/15 flex flex-col items-center justify-center p-3 text-center">
+                  <Database className="w-6 h-6 text-sky-400/40 mb-2" />
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    Select an Argo float and click COMPUTE RESIDUALS to extract 4D model profile.
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* Map 2: OBSERVATION (ARGO) */}
-            <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-amber-500/20 rounded-xl flex flex-col gap-2 relative overflow-hidden shadow-xl">
+            {/* Card 2: OBSERVATION (ARGO) */}
+            <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-amber-500/20 rounded-xl flex flex-col justify-between gap-2 relative overflow-hidden shadow-xl">
               <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-400 to-transparent" />
               <div className="flex items-center justify-between border-b border-amber-500/15 pb-1.5">
                 <span className="font-bold text-xs text-amber-300 font-mono tracking-wide">OBSERVATION (ARGO)</span>
-                <span className="text-[10px] text-slate-400 font-mono">In-Situ Float</span>
+                <span className="text-[10px] text-slate-400 font-mono">In-Situ CTD</span>
               </div>
-              <div className="h-44 bg-slate-950 rounded-lg border border-amber-500/15 flex items-center justify-center relative overflow-hidden shadow-inner">
-                <div
-                  className="w-full h-full opacity-70"
-                  style={{
-                    background: 'radial-gradient(circle at 58% 38%, #d97706 0%, #0369a1 50%, #082f49 100%)',
-                  }}
-                />
-                <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-slate-900/80 rounded text-[9px] text-slate-300 font-mono">
-                  Coriolis / INCOIS
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[8px] text-slate-400 font-mono px-1">
-                <span>10°C</span>
-                <span>15°C</span>
-                <span>20°C</span>
-                <span>25°C</span>
-                <span>30°C</span>
-              </div>
-              <div className="h-1.5 w-full rounded-full" style={{ background: 'linear-gradient(to right, #0284c7, #22c55e, #eab308, #ea580c)' }} />
-              <div className="text-[9px] text-center text-slate-400 font-mono">Observed Profile Level</div>
+
+              {comparisonData && cleanObs.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  <div className="h-44 bg-slate-950 rounded-lg border border-amber-500/15 flex flex-col p-2 relative overflow-hidden shadow-inner">
+                    <svg viewBox="0 0 200 130" className="w-full h-full">
+                      <line x1="25" y1="10" x2="25" y2="120" stroke="rgba(251, 191, 36, 0.3)" strokeWidth="1" />
+                      <line x1="25" y1="120" x2="190" y2="120" stroke="rgba(251, 191, 36, 0.3)" strokeWidth="1" />
+                      <polyline
+                        points={cleanObs.map((v, i) => {
+                          const x = 25 + ((v - minVal) / valRange) * 160;
+                          const y = 10 + (cleanDepths[i] / maxDepth) * 105;
+                          return `${x},${y}`;
+                        }).join(' ')}
+                        fill="none"
+                        stroke="#fbbf24"
+                        strokeWidth="2"
+                      />
+                    </svg>
+                    <span className="absolute bottom-1 right-2 text-[9px] text-amber-400 font-mono font-bold">
+                      {Math.min(...cleanObs).toFixed(1)} — {Math.max(...cleanObs).toFixed(1)} {varUnit}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1 text-[10px] font-mono text-slate-300">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Platform / Cycle:</span>
+                      <span>WMO {comparisonData.platform_number} (Cyc {comparisonData.cycle_number})</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Data Centre:</span>
+                      <span>{activeFloatObj?.dac || 'Coriolis / INCOIS'}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-44 bg-slate-950/60 rounded-lg border border-amber-500/15 flex flex-col items-center justify-center p-3 text-center">
+                  <Activity className="w-6 h-6 text-amber-400/40 mb-2" />
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    In-situ CTD profile from Coriolis/INCOIS GDAC will load upon computation.
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* Map 3: DIFFERENCE (MODEL - OBS) */}
-            <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-rose-500/20 rounded-xl flex flex-col gap-2 relative overflow-hidden shadow-xl">
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-rose-400 to-transparent" />
-              <div className="flex items-center justify-between border-b border-rose-500/15 pb-1.5">
-                <span className="font-bold text-xs text-rose-300 font-mono tracking-wide">RESIDUAL (MODEL - OBS)</span>
-                <span className="text-[10px] text-slate-400 font-mono">Delta Field</span>
+            {/* Card 3: 1:1 SCATTER DIAGRAM */}
+            <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-cyan-500/20 rounded-xl flex flex-col justify-between gap-2 relative overflow-hidden shadow-xl">
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-400 to-transparent" />
+              <div className="flex items-center justify-between border-b border-cyan-500/15 pb-1.5">
+                <span className="font-bold text-xs text-cyan-300 font-mono tracking-wide">SCATTER (1:1 LINE)</span>
+                <span className="text-[10px] text-slate-400 font-mono">Model vs In-Situ</span>
               </div>
-              <div className="h-44 bg-slate-950 rounded-lg border border-rose-500/15 flex items-center justify-center relative overflow-hidden shadow-inner">
-                <div
-                  className="w-full h-full opacity-60"
-                  style={{
-                    background: 'radial-gradient(circle at 50% 50%, #e11d48 0%, #0f172a 60%, #0284c7 100%)',
-                  }}
-                />
-                <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-slate-900/80 rounded text-[9px] text-slate-300 font-mono">
-                  Residual Anomaly
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[8px] text-slate-400 font-mono px-1">
-                <span>-3°C</span>
-                <span>-2°C</span>
-                <span>-1°C</span>
-                <span>0°C</span>
-                <span>+1°C</span>
-                <span>+2°C</span>
-                <span>+3°C</span>
-              </div>
-              <div className="h-1.5 w-full rounded-full" style={{ background: 'linear-gradient(to right, #0284c7, #f1f5f9, #f43f5e)' }} />
-              <div className="text-[9px] text-center text-slate-400 font-mono">Residual Divergence</div>
+
+              {comparisonData && cleanObs.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  <div className="h-44 bg-slate-950 rounded-lg border border-cyan-500/15 flex flex-col p-2 relative overflow-hidden shadow-inner">
+                    <svg viewBox="0 0 200 130" className="w-full h-full">
+                      {/* Axes */}
+                      <line x1="25" y1="10" x2="25" y2="115" stroke="rgba(148, 163, 184, 0.3)" strokeWidth="1" />
+                      <line x1="25" y1="115" x2="190" y2="115" stroke="rgba(148, 163, 184, 0.3)" strokeWidth="1" />
+                      {/* 1:1 Diagonal line */}
+                      <line x1="25" y1="115" x2="190" y2="10" stroke="rgba(52, 211, 153, 0.4)" strokeWidth="1.5" strokeDasharray="3 3" />
+                      {/* Colocated scatter points */}
+                      {cleanObs.map((obs, i) => {
+                        const mod = cleanModel[i];
+                        const cx = 25 + ((obs - minVal) / valRange) * 165;
+                        const cy = 115 - ((mod - minVal) / valRange) * 105;
+                        return (
+                          <circle
+                            key={i}
+                            cx={cx}
+                            cy={cy}
+                            r="3"
+                            fill="#06b6d4"
+                            stroke="#040a18"
+                            strokeWidth="1"
+                            opacity="0.85"
+                          />
+                        );
+                      })}
+                    </svg>
+                    <span className="absolute top-2 right-2 text-[8px] text-emerald-400 font-mono">
+                      --- 1:1 Identity
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1 text-[10px] font-mono text-slate-300">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Mean Abs Error:</span>
+                      <span>{metrics?.mae !== null && metrics?.mae !== undefined ? `${metrics.mae.toFixed(2)} ${varUnit}` : 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Max Residual:</span>
+                      <span>{cleanRes.length > 0 ? `${maxAbsRes.toFixed(2)} ${varUnit}` : 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-44 bg-slate-950/60 rounded-lg border border-cyan-500/15 flex flex-col items-center justify-center p-3 text-center">
+                  <TrendingUp className="w-6 h-6 text-cyan-400/40 mb-2" />
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    1:1 Colocation scatter plot generated upon residual evaluation.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -307,24 +378,30 @@ export const ComparisonPage = () => {
                 <div className="flex flex-col gap-2.5">
                   <div className="flex items-center justify-between border-b border-sky-500/10 pb-2">
                     <span className="text-slate-400 font-mono">RMSE (ROOT MEAN SQ)</span>
-                    <span className="text-sm font-bold text-cyan-300 font-mono tabular-nums">{metrics.rmse.toFixed(2)} °C</span>
+                    <span className="text-sm font-bold text-cyan-300 font-mono tabular-nums">
+                      {metrics.rmse !== null && metrics.rmse !== undefined ? `${metrics.rmse.toFixed(2)} ${varUnit}` : 'N/A'}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-sky-500/10 pb-2">
                     <span className="text-slate-400 font-mono">MEAN BIAS</span>
                     <span className="text-sm font-bold text-teal-300 font-mono tabular-nums">
-                      {metrics.bias > 0 ? `+${metrics.bias.toFixed(2)}` : metrics.bias.toFixed(2)} °C
+                      {metrics.bias !== null && metrics.bias !== undefined
+                        ? (metrics.bias > 0 ? `+${metrics.bias.toFixed(2)}` : metrics.bias.toFixed(2)) + ` ${varUnit}`
+                        : 'N/A'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-sky-500/10 pb-2">
                     <span className="text-slate-400 font-mono">PEARSON CORRELATION (r)</span>
                     <span className="text-sm font-bold text-indigo-300 font-mono tabular-nums">
-                      {metrics.pearson_r !== null ? metrics.pearson_r.toFixed(2) : '0.91'}
+                      {metrics.pearson_r !== null && metrics.pearson_r !== undefined
+                        ? metrics.pearson_r.toFixed(3)
+                        : 'N/A (Zero Var)'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-sky-500/10 pb-2">
                     <span className="text-slate-400 font-mono">COLOCATED PAIRS</span>
                     <span className="text-sm font-bold text-purple-300 font-mono tabular-nums">
-                      {metrics.sample_count || 1842}
+                      {metrics.sample_count ?? 0}
                     </span>
                   </div>
                 </div>
@@ -337,9 +414,10 @@ export const ComparisonPage = () => {
 
             <button
               onClick={handleCompute}
-              className="w-full py-2.5 bg-slate-950 hover:bg-sky-950/60 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 text-xs font-bold font-mono rounded-lg transition-all shadow-[0_0_12px_rgba(6,182,212,0.15)]"
+              disabled={isLoading || !selectedWmo}
+              className="w-full py-2.5 bg-slate-950 hover:bg-sky-950/60 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 text-xs font-bold font-mono rounded-lg transition-all shadow-[0_0_12px_rgba(6,182,212,0.15)] disabled:opacity-50"
             >
-              RUN FULL MODEL AUDIT
+              {isLoading ? 'EVALUATING 4D RESIDUALS...' : 'RUN FULL MODEL AUDIT'}
             </button>
           </div>
         </div>

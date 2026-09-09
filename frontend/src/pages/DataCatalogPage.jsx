@@ -33,6 +33,32 @@ export const DataCatalogPage = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedVarIndex, setSelectedVarIndex] = useState(0);
 
+  const handleTabKeyDown = (e) => {
+    const tabIds = ['models', 'argo', 'variables'];
+    const currentIdx = tabIds.indexOf(activeTab);
+    let nextIdx = currentIdx;
+
+    if (e.key === 'ArrowRight') {
+      nextIdx = (currentIdx + 1) % tabIds.length;
+    } else if (e.key === 'ArrowLeft') {
+      nextIdx = (currentIdx - 1 + tabIds.length) % tabIds.length;
+    } else if (e.key === 'Home') {
+      nextIdx = 0;
+    } else if (e.key === 'End') {
+      nextIdx = tabIds.length - 1;
+    } else {
+      return;
+    }
+
+    e.preventDefault();
+    const targetId = tabIds[nextIdx];
+    setActiveTab(targetId);
+    setTimeout(() => {
+      const btn = document.getElementById(`tab-${targetId}`);
+      if (btn) btn.focus();
+    }, 0);
+  };
+
   useEffect(() => {
     fetchArgoSources();
   }, [fetchArgoSources]);
@@ -49,6 +75,8 @@ export const DataCatalogPage = () => {
       resolution: '1/12° (approx. 9 km horizontal)',
       variables: ['temp', 'salt', 'chl', 'mld', 'no3', 'dic', 'pco2'],
       description: 'Authoritative Indian Ocean numerical circulation model coupled with biogeochemistry simulating seasonal monsoon dynamics, thermocline evolution, upwelling nutrients, and carbon chemistry.',
+      portalUrl: 'https://erddap.incois.gov.in/erddap/griddap/index.html',
+      portalLabel: 'INCOIS ERDDAP Griddap Portal',
     },
     {
       id: 'cmems.nc',
@@ -61,6 +89,8 @@ export const DataCatalogPage = () => {
       resolution: '1/4° (approx. 25 km horizontal)',
       variables: ['temp', 'salt', 'u', 'v', 'mld', 'ssh'],
       description: 'ARMOR3D multi-observation global reprocessing integrating satellite altimetry (SSH/zo), satellite SST, and in-situ Argo CTD profiles via 3D multivariate optimal interpolation.',
+      portalUrl: 'https://marine.copernicus.eu/services-portfolio/access-to-products',
+      portalLabel: 'Copernicus Marine Data Store',
     },
     {
       id: 'incois_roms_indian_ocean.nc',
@@ -73,6 +103,8 @@ export const DataCatalogPage = () => {
       resolution: 'High-Resolution Geostrophic Grid',
       variables: ['temp', 'salt', 'u', 'v', 'mld', 'ssh'],
       description: 'Regional Indian Ocean hydrodynamic reanalysis providing boundary conditions and geostrophic current vector fields.',
+      portalUrl: 'https://erddap.incois.gov.in/erddap/info/index.html',
+      portalLabel: 'INCOIS Regional Reanalysis Catalog',
     },
   ];
 
@@ -353,8 +385,18 @@ export const DataCatalogPage = () => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-sky-500/15 pb-2">
+        <div
+          role="tablist"
+          aria-label="Oceanographic Data Catalog Categories"
+          onKeyDown={handleTabKeyDown}
+          className="flex items-center gap-2 border-b border-sky-500/15 pb-2"
+        >
           <button
+            role="tab"
+            id="tab-models"
+            aria-selected={activeTab === 'models'}
+            aria-controls="tabpanel-models"
+            tabIndex={activeTab === 'models' ? 0 : -1}
             onClick={() => setActiveTab('models')}
             className={`px-4 py-2 text-xs font-mono font-semibold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
               activeTab === 'models'
@@ -367,6 +409,11 @@ export const DataCatalogPage = () => {
           </button>
 
           <button
+            role="tab"
+            id="tab-argo"
+            aria-selected={activeTab === 'argo'}
+            aria-controls="tabpanel-argo"
+            tabIndex={activeTab === 'argo' ? 0 : -1}
             onClick={() => setActiveTab('argo')}
             className={`px-4 py-2 text-xs font-mono font-semibold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
               activeTab === 'argo'
@@ -379,6 +426,11 @@ export const DataCatalogPage = () => {
           </button>
 
           <button
+            role="tab"
+            id="tab-variables"
+            aria-selected={activeTab === 'variables'}
+            aria-controls="tabpanel-variables"
+            tabIndex={activeTab === 'variables' ? 0 : -1}
             onClick={() => setActiveTab('variables')}
             className={`px-4 py-2 text-xs font-mono font-semibold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
               activeTab === 'variables'
@@ -393,7 +445,13 @@ export const DataCatalogPage = () => {
 
         {/* TAB 1: NUMERICAL MODELS */}
         {activeTab === 'models' && (
-          <div className="flex flex-col gap-4">
+          <div
+            role="tabpanel"
+            id="tabpanel-models"
+            aria-labelledby="tab-models"
+            tabIndex={0}
+            className="flex flex-col gap-4 focus:outline-none"
+          >
             <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-sky-500/20 rounded-xl text-xs text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xl">
               <div>
                 <span className="text-cyan-300 font-bold font-mono">ACTIVE REANALYSIS MODEL: </span>
@@ -459,6 +517,18 @@ export const DataCatalogPage = () => {
                           <span>Variables:</span>
                           <span className="text-cyan-300">{prod.variables.join(', ')}</span>
                         </div>
+                        <div className="flex items-center justify-between pt-1 border-t border-sky-500/15">
+                          <span>Data Provenance:</span>
+                          <a
+                            href={prod.portalUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-cyan-400 hover:text-cyan-300 underline font-mono text-[10px]"
+                            title={`Open ${prod.portalLabel}`}
+                          >
+                            {prod.portalLabel} ↗
+                          </a>
+                        </div>
                       </div>
                     </div>
 
@@ -478,7 +548,7 @@ export const DataCatalogPage = () => {
                       <button
                         onClick={() => {
                           selectDataset(prod.filename);
-                          setActivePage('explorer');
+                          setActivePage('home');
                         }}
                         className="flex-1 py-2 bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 text-xs font-bold rounded-lg transition-all shadow-[0_0_12px_rgba(56,189,248,0.3)]"
                       >
@@ -494,7 +564,13 @@ export const DataCatalogPage = () => {
 
         {/* TAB 2: IN-SITU ARGO PROFILING ARRAY */}
         {activeTab === 'argo' && (
-          <div className="flex flex-col gap-4">
+          <div
+            role="tabpanel"
+            id="tabpanel-argo"
+            aria-labelledby="tab-argo"
+            tabIndex={0}
+            className="flex flex-col gap-4 focus:outline-none"
+          >
             {/* Aggregate Scorecard */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3.5 bg-[rgba(4,10,24,0.85)] border border-sky-500/20 rounded-xl relative overflow-hidden shadow-xl">
@@ -619,7 +695,13 @@ export const DataCatalogPage = () => {
 
         {/* TAB 3: VARIABLES SPECIFICATION */}
         {activeTab === 'variables' && (
-          <div className="flex flex-col gap-4">
+          <div
+            role="tabpanel"
+            id="tabpanel-variables"
+            aria-labelledby="tab-variables"
+            tabIndex={0}
+            className="flex flex-col gap-4 focus:outline-none"
+          >
             {/* Search and Filters Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 bg-[rgba(4,10,24,0.85)] border border-sky-500/20 rounded-xl text-xs backdrop-blur-2xl shadow-xl">
               <div className="flex items-center gap-3 flex-1">
@@ -747,7 +829,7 @@ export const DataCatalogPage = () => {
                       <button
                         onClick={() => {
                           setVariable(activeVar.symbol);
-                          setActivePage('explorer');
+                          setActivePage('home');
                         }}
                         className="w-full py-2.5 bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 text-xs font-bold rounded-lg transition-all shadow-[0_0_15px_rgba(56,189,248,0.3)]"
                       >

@@ -1,3 +1,10 @@
+/**
+ * INCOIS 3D Ocean Data Visualization Platform
+ * Copyright (c) 2026 INCOIS / Ministry of Earth Sciences, Govt. of India
+ * SPDX-License-Identifier: MIT
+ *
+ * OCEAN VIEWER (THREE.JS WEBGL2 VOLUMETRIC VIEWPORT)
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import { useOceanStore } from '../store/oceanStore';
 import { OceanSceneController } from './OceanSceneController';
@@ -39,6 +46,7 @@ export const OceanViewer = () => {
     clearCameraAction,
     targetCoordinate,
     visualPreset,
+    settings,
   } = useOceanStore();
 
   // Initialize OceanSceneController on mount
@@ -48,6 +56,7 @@ export const OceanViewer = () => {
 
     const controller = new OceanSceneController(container, {
       viewMode: useOceanStore.getState().viewMode || 'globe',
+      settings: useOceanStore.getState().settings || {},
       onHoverFloat: (f) => setHoveredFloat(f),
       onSelectFloat: (f) => selectFloat(f),
       onSelectMission: (id) => selectMission(id),
@@ -58,9 +67,21 @@ export const OceanViewer = () => {
         useOceanStore.getState().focusCoordinateInExplorer(coord.lat, coord.lon, `Point (${coord.lat.toFixed(2)}°, ${coord.lon.toFixed(2)}°)`);
       },
     });
+    const initialDepth = useOceanStore.getState().sliceDepthMeters || useOceanStore.getState().depthLevelMeters || 0;
+    const initialEnableSlice = useOceanStore.getState().enableSlice || false;
+    controller.updateRenderParams({
+      sliceDepthMeters: initialDepth,
+      enableSlice: initialEnableSlice,
+    });
     controllerRef.current = controller;
+    if (typeof window !== 'undefined') {
+      window.__oceanSceneController = controller;
+    }
 
     return () => {
+      if (typeof window !== 'undefined') {
+        window.__oceanSceneController = null;
+      }
       controller.dispose();
       controllerRef.current = null;
     };
@@ -125,6 +146,12 @@ export const OceanViewer = () => {
     controllerRef.current.applyVisualPreset(visualPreset);
   }, [visualPreset]);
 
+  // Sync Platform & Rendering Settings
+  useEffect(() => {
+    if (!controllerRef.current || !settings) return;
+    controllerRef.current.applySettings(settings);
+  }, [settings]);
+
   return (
     <div className="relative w-full h-full select-none overflow-hidden bg-[#030712]">
       {/* 3D WebGL Canvas Viewport */}
@@ -144,10 +171,11 @@ export const OceanViewer = () => {
         </div>
       )}
 
-      {/* Camera Regional Presets Floating Toolbar (Bottom-Right) */}
-      <div className="absolute bottom-16 right-3 md:right-4 z-10 flex items-center gap-1 p-1 glass-pill shadow-lg">
+      {/* Camera Regional Presets Floating Toolbar (Top-Right, safe from timeline) */}
+      <div className="absolute top-14 right-3 md:right-4 z-20 flex items-center gap-1 p-1 glass-pill shadow-lg">
         <button
           onClick={() => useOceanStore.getState().triggerCameraAction('fit_indian_ocean')}
+          aria-label="Center on Indian Ocean Basin (10°N, 75°E)"
           className="px-2.5 py-1 text-[10px] font-mono text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-colors"
           title="Center on Indian Ocean Basin (10°N, 75°E)"
         >
@@ -155,6 +183,7 @@ export const OceanViewer = () => {
         </button>
         <button
           onClick={() => useOceanStore.getState().triggerCameraAction('arabian_sea')}
+          aria-label="Zoom to Arabian Sea"
           className="px-2 py-1 text-[10px] font-mono text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-colors hidden sm:block"
           title="Zoom to Arabian Sea"
         >
@@ -162,6 +191,7 @@ export const OceanViewer = () => {
         </button>
         <button
           onClick={() => useOceanStore.getState().triggerCameraAction('bay_of_bengal')}
+          aria-label="Zoom to Bay of Bengal"
           className="px-2 py-1 text-[10px] font-mono text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-colors hidden sm:block"
           title="Zoom to Bay of Bengal"
         >
@@ -169,6 +199,7 @@ export const OceanViewer = () => {
         </button>
         <button
           onClick={() => useOceanStore.getState().triggerCameraAction('fit_earth')}
+          aria-label="Fit Global Earth Sphere"
           className="px-2 py-1 text-[10px] font-mono text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-colors"
           title="Fit Global Earth Sphere"
         >
@@ -176,6 +207,7 @@ export const OceanViewer = () => {
         </button>
         <button
           onClick={() => useOceanStore.getState().triggerCameraAction('reset')}
+          aria-label="Reset Camera Orientation"
           className="p-1 text-white/50 hover:text-white rounded-full hover:bg-white/10 transition-colors"
           title="Reset Camera Orientation"
         >

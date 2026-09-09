@@ -60,7 +60,7 @@ export const LocationDataPanel = () => {
 
   if (isMinimized) {
     return (
-      <div className="absolute top-18 left-6 z-30 flex items-center gap-2 p-1.5 bg-[rgba(3,7,18,0.6)] backdrop-blur-2xl rounded-xl border border-sky-500/30 shadow-[0_4px_25px_rgba(0,0,0,0.5),0_0_15px_rgba(6,182,212,0.15)] text-white select-none panel-transition animate-fade-slide hover:border-cyan-400/50">
+      <div className="absolute top-6 left-6 z-30 flex items-center gap-2 p-1.5 bg-[rgba(3,7,18,0.6)] backdrop-blur-2xl rounded-xl border border-sky-500/30 shadow-[0_4px_25px_rgba(0,0,0,0.5),0_0_15px_rgba(6,182,212,0.15)] text-white select-none panel-transition animate-fade-slide hover:border-cyan-400/50">
         <div className="flex items-center gap-2 px-2.5 py-1 bg-cyan-950/40 rounded-lg border border-cyan-500/30">
           <Crosshair className="w-3.5 h-3.5 text-cyan-400 pulse-beacon" />
           <span className="font-mono text-xs text-cyan-200 glow-text-cyan tabular-nums">{latStr} · {lonStr}</span>
@@ -77,7 +77,7 @@ export const LocationDataPanel = () => {
   }
 
   return (
-    <div className="absolute top-18 left-6 z-30 w-80 mission-panel rounded-2xl p-4 text-white select-none panel-transition animate-fade-slide overflow-hidden relative">
+    <div className="absolute top-6 left-6 z-30 w-80 max-h-[calc(100vh-140px)] overflow-y-auto mission-panel rounded-2xl p-4 text-white select-none panel-transition animate-fade-slide">
       {/* Subtle Restrained Scanning Line */}
       <div className="absolute inset-0 scan-line pointer-events-none bg-gradient-to-b from-transparent via-cyan-400/[0.07] to-transparent h-10" />
 

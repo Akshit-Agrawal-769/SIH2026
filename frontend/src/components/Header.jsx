@@ -290,6 +290,7 @@ export const Header = () => {
             onClick={toggleGoToLocationModal}
             className="p-1.5 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/15 transition-all"
             title="Search Coordinates & Target Basin (Hotkey: L)"
+            aria-label="Search Coordinates & Target Basin (Hotkey: L)"
           >
             <Search className="w-4 h-4" />
           </button>
@@ -303,6 +304,7 @@ export const Header = () => {
                 : 'text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/15 border border-transparent'
             }`}
             title="Toggle Visualization Layers (Hotkey: C)"
+            aria-label="Toggle Visualization Layers (Hotkey: C)"
           >
             <Layers className="w-4 h-4" />
           </button>
@@ -316,6 +318,7 @@ export const Header = () => {
                 : 'text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/15 border border-transparent'
             }`}
             title="System Settings & Raymarching Tuning"
+            aria-label="System Settings & Raymarching Tuning"
           >
             <Settings className="w-4 h-4" />
           </button>
@@ -325,6 +328,7 @@ export const Header = () => {
             onClick={toggleShortcutsModal}
             className="p-1.5 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/15 transition-all"
             title="Keyboard Shortcuts & Diagnostics (Hotkey: ?)"
+            aria-label="Keyboard Shortcuts & Diagnostics (Hotkey: ?)"
           >
             <HelpCircle className="w-4 h-4" />
           </button>

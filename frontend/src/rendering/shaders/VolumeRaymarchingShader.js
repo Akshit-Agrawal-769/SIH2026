@@ -27,6 +27,7 @@ export const VolumeFragmentShader = `
   uniform float u_sliceZ;
   uniform int u_enableSlice;
   uniform int u_isLogScale; // 0 = Linear, 1 = Logarithmic scaling
+  uniform int u_raymarchingSteps; // 128, 256, 512 iteration count
 
   varying vec3 vOrigin;
   varying vec3 vDirection;
@@ -116,14 +117,15 @@ export const VolumeFragmentShader = `
     vec3 p_exit = vOrigin + rayDir * hit.y;
 
     float rayLength = length(p_exit - p_enter);
-    int numSteps = 120;
+    int numSteps = u_raymarchingSteps > 0 ? u_raymarchingSteps : 128;
     float dt = rayLength / float(numSteps);
     vec3 stepVec = rayDir * dt;
     vec3 currentPos = p_enter;
 
     vec4 accumulatedColor = vec4(0.0);
 
-    for (int i = 0; i < 120; i++) {
+    for (int i = 0; i < 512; i++) {
+      if (i >= numSteps) break;
       // Physical normalized texture coordinates:
       // s (x) = Longitude [0..1]
       // t (y) = Latitude [0..1]

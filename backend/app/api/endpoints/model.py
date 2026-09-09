@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Response
 from app.services.ocean_model import ocean_model_registry
 from app.schemas.ocean import DatasetMetadataResponse
@@ -101,3 +102,37 @@ def get_model_slice_2d(
         "X-Variable": meta["variable"],
     }
     return Response(content=buffer, media_type="application/octet-stream", headers=headers)
+
+@router.get("/timeseries")
+def get_model_timeseries(
+    filename: Optional[str] = Query(None, pattern="^[a-zA-Z0-9_.-]+$", description="Name of NetCDF file in datasets/model/"),
+    variable: str = Query("temp", description="Variable name"),
+    lat: float = Query(..., ge=-90.0, le=90.0, description="Latitude (-90 to 90)"),
+    lon: float = Query(..., ge=-180.0, le=360.0, description="Longitude (-180 to 360)"),
+    depth: Optional[float] = Query(None, ge=0.0, description="Optional depth in meters")
+):
+    if not filename:
+        avail = ocean_model_registry.list_available_models()
+        if avail:
+            filename = avail[0] if isinstance(avail[0], str) else avail[0].get("filename")
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="REAL DATASET REQUIRED: No ocean model datasets available."
+            )
+
+    model = ocean_model_registry.get_model(filename)
+    if not model:
+        raise HTTPException(
+            status_code=404,
+            detail=f"REAL DATASET REQUIRED: Dataset '{filename}' not found or invalid format."
+        )
+
+    ts_data = model.extract_timeseries(variable=variable, lat=lat, lon=lon, depth=depth)
+    if not ts_data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"REAL DATASET REQUIRED: Unable to extract timeseries for '{variable}' at ({lat}, {lon})."
+        )
+    return ts_data
+

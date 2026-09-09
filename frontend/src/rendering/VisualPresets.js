@@ -1,6 +1,9 @@
 /**
+ * INCOIS 3D Ocean Data Visualization Platform
+ * Copyright (c) 2026 INCOIS / Ministry of Earth Sciences, Govt. of India
+ * SPDX-License-Identifier: MIT
+ *
  * SCIENTIFIC VISUAL PRESETS
- * 
  * Presets designed for scientific oceanography and mission control operations.
  * These presets adjust lighting, globe base materials, and vector contrast without
  * altering scientific colormaps or data values.

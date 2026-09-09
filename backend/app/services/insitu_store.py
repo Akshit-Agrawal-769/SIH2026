@@ -625,28 +625,56 @@ class InSituStore:
 
         return results[skip : skip + limit]
 
-    def _resolve_platform_file_path(self, wmo_str: str, target_cycle: int, plat: Optional[Dict[str, Any]]) -> Optional[str]:
+    def _resolve_platform_file_path(self, wmo_str: str, target_cycle: Optional[int], plat: Optional[Dict[str, Any]]) -> Optional[str]:
         """
-        Resolves the file path for a platform and cycle using a deterministic strategy.
-        Priority: 1) Indexed cycle_files, 2) Indexed trajectory, 3) Indexed files_dir, 4) Recursive glob search.
+        Resolves the file path for a platform and cycle using a deterministic, bounded strategy.
+        Priority: 1) Indexed cycle_files, 2) Indexed trajectory, 3) Indexed files_dir, 4) Bounded search.
+        Handles target_cycle=None safely without TypeError.
         """
+        if not plat:
+            plat = self._platforms_index.get(str(wmo_str).strip().split()[0])
+
         # Strategy 1: Use indexed cycle_files mapping
         if plat:
             cycle_files = plat.get("cycle_files", {})
-            rel_path = cycle_files.get(str(target_cycle)) or cycle_files.get(target_cycle)
-            if rel_path:
-                full_p = os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
-                if os.path.exists(full_p):
-                    return full_p
-
-        # Strategy 2: Use indexed trajectory information
-        if plat:
-            for t in plat.get("trajectory", []):
-                if t.get("cycle_number") == target_cycle and t.get("file_rel_path"):
-                    rel_path = t["file_rel_path"]
+            if target_cycle is not None:
+                rel_path = cycle_files.get(str(target_cycle)) or cycle_files.get(target_cycle)
+                if rel_path:
                     full_p = os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
                     if os.path.exists(full_p):
                         return full_p
+            else:
+                # If target_cycle is None, prefer latest_cycle if recorded, or any available cycle file
+                latest_cycle = plat.get("latest_cycle")
+                if latest_cycle is not None:
+                    rel_path = cycle_files.get(str(latest_cycle)) or cycle_files.get(latest_cycle)
+                    if rel_path:
+                        full_p = os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
+                        if os.path.exists(full_p):
+                            return full_p
+                for rel_path in cycle_files.values():
+                    if rel_path:
+                        full_p = os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
+                        if os.path.exists(full_p):
+                            return full_p
+
+        # Strategy 2: Use indexed trajectory information
+        if plat:
+            trajectory = plat.get("trajectory", [])
+            if target_cycle is not None:
+                for t in trajectory:
+                    if t.get("cycle_number") == target_cycle and t.get("file_rel_path"):
+                        rel_path = t["file_rel_path"]
+                        full_p = os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
+                        if os.path.exists(full_p):
+                            return full_p
+            else:
+                for t in trajectory:
+                    if t.get("file_rel_path"):
+                        rel_path = t["file_rel_path"]
+                        full_p = os.path.join(PROJECT_ROOT, rel_path) if not os.path.isabs(rel_path) else rel_path
+                        if os.path.exists(full_p):
+                            return full_p
 
         # Strategy 3: Use indexed files_dir (single file or directory)
         if plat:
@@ -656,18 +684,26 @@ class InSituStore:
                 if os.path.isfile(full_fdir):
                     return full_fdir
                 elif os.path.isdir(full_fdir):
-                    candidates = glob.glob(os.path.join(full_fdir, f"*{target_cycle:03d}*.nc")) or glob.glob(os.path.join(full_fdir, f"*{target_cycle}*.nc"))
+                    if target_cycle is not None:
+                        candidates = (
+                            glob.glob(os.path.join(full_fdir, f"*{target_cycle:03d}*.nc"))
+                            or glob.glob(os.path.join(full_fdir, f"*{target_cycle}*.nc"))
+                        )
+                    else:
+                        candidates = glob.glob(os.path.join(full_fdir, "*.nc"))
                     if candidates:
                         return candidates[0]
 
-        # Strategy 4: Fallback recursive glob search in datasets directory
-        candidates = glob.glob(os.path.join(self.datasets_dir, "**", f"*{wmo_str}*.nc"), recursive=True)
-        if candidates:
-            if target_cycle is not None:
-                matched = [c for c in candidates if f"_{target_cycle:03d}." in c or f"_{target_cycle}." in c]
-                if matched:
-                    return matched[0]
-            return candidates[0]
+        # Strategy 4: Bounded fallback search only if platform directory was not indexed
+        if not plat or not plat.get("files_dir"):
+            wmo_clean = str(wmo_str).strip().split()[0]
+            candidates = glob.glob(os.path.join(self.datasets_dir, "*", wmo_clean, "**", "*.nc"), recursive=True)
+            if candidates:
+                if target_cycle is not None:
+                    matched = [c for c in candidates if f"_{target_cycle:03d}." in c or f"_{target_cycle}." in c]
+                    if matched:
+                        return matched[0]
+                return candidates[0]
 
         return None
 

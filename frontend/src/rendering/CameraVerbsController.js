@@ -1,14 +1,15 @@
+/**
+ * INCOIS 3D Ocean Data Visualization Platform
+ * Copyright (c) 2026 INCOIS / Ministry of Earth Sciences, Govt. of India
+ * SPDX-License-Identifier: MIT
+ *
+ * CAMERA VERBS CONTROLLER
+ * High-precision orbital tracking, regional framing, and planetary transitions
+ * for the Three.js ocean volumetric visualization engine.
+ */
 import * as THREE from 'three';
 import { latLonToVector3, EARTH_RADIUS } from './geoTransform';
 
-/**
- * CAMERA VERBS CONTROLLER
- * 
- * Inspired by the camera choreography of God's Eye View, adapted for
- * the Three.js spherical ocean visualization engine.
- * 
- * Handles smooth eased transitions, orbital tracking, and planetary/regional framing.
- */
 export class CameraVerbsController {
   constructor(camera, controls) {
     this.camera = camera;

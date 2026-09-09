@@ -1,13 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Activity } from 'lucide-react';
 
-function toDms(val, posChar, negChar) {
+export function toDms(val, posChar, negChar) {
+  if (val === undefined || val === null || isNaN(val)) return `00°00'00.00" ${posChar}`;
   const char = val >= 0 ? posChar : negChar;
   const abs = Math.abs(val);
-  const d = Math.floor(abs);
-  const m = Math.floor((abs - d) * 60);
-  const s = (((abs - d) * 60 - m) * 60).toFixed(2);
-  return `${d}°${String(m).padStart(2, '0')}'${String(s).padStart(5, '0')}" ${char}`;
+  let d = Math.floor(abs);
+  let m = Math.floor((abs - d) * 60);
+  let s = parseFloat((((abs - d) * 60 - m) * 60).toFixed(2));
+  if (s >= 59.995) {
+    s = 0;
+    m += 1;
+    if (m >= 60) {
+      m = 0;
+      d += 1;
+    }
+  }
+  return `${d}°${String(m).padStart(2, '0')}'${s.toFixed(2).padStart(5, '0')}" ${char}`;
 }
 
 export const BottomStatusBar = () => {
@@ -22,31 +31,33 @@ export const BottomStatusBar = () => {
 
   useEffect(() => {
     const updateTelemetry = () => {
-      const viewer = window.__godsEyeView?.viewer;
-      if (!viewer || !viewer.camera || !viewer.camera.positionCartographic) return;
+      try {
+        const viewer = window.__cesiumViewer;
+        if (!viewer || viewer.isDestroyed() || !viewer.camera || !viewer.camera.positionCartographic) return;
 
-      const carto = viewer.camera.positionCartographic;
-      const lat = (carto.latitude * 180) / Math.PI;
-      const lon = (carto.longitude * 180) / Math.PI;
-      const altKm = (carto.height / 1000).toFixed(1);
+        const carto = viewer.camera.positionCartographic;
+        const lat = (carto.latitude * 180) / Math.PI;
+        const lon = (carto.longitude * 180) / Math.PI;
+        const altKm = (carto.height / 1000).toFixed(1);
 
-      let headingDeg = 0;
-      let pitchDeg = -90;
-      if (viewer.camera.heading !== undefined) {
-        headingDeg = Math.round((viewer.camera.heading * 180) / Math.PI) % 360;
-      }
-      if (viewer.camera.pitch !== undefined) {
-        pitchDeg = Math.round((viewer.camera.pitch * 180) / Math.PI);
-      }
+        let headingDeg = 0;
+        let pitchDeg = -90;
+        if (viewer.camera.heading !== undefined) {
+          headingDeg = Math.round((viewer.camera.heading * 180) / Math.PI) % 360;
+        }
+        if (viewer.camera.pitch !== undefined) {
+          pitchDeg = Math.round((viewer.camera.pitch * 180) / Math.PI);
+        }
 
-      setTelemetry({
-        latStr: toDms(lat, 'N', 'S'),
-        lonStr: toDms(lon, 'E', 'W'),
-        altStr: `${altKm} km`,
-        elevStr: '0 m',
-        headingStr: `${String(headingDeg).padStart(3, '0')}°`,
-        pitchStr: `${pitchDeg}°`,
-      });
+        setTelemetry({
+          latStr: toDms(lat, 'N', 'S'),
+          lonStr: toDms(lon, 'E', 'W'),
+          altStr: `${altKm} km`,
+          elevStr: '0 m',
+          headingStr: `${String(headingDeg).padStart(3, '0')}°`,
+          pitchStr: `${pitchDeg}°`,
+        });
+      } catch (e) {}
     };
 
     const interval = setInterval(updateTelemetry, 250);

@@ -17,6 +17,7 @@ import {
   calculateNearestGridCell,
   INDIAN_OCEAN_PRESETS,
   DEFAULT_INDIAN_OCEAN_BOUNDS,
+  parseGeographicCoordinate,
 } from '../utils/geography';
 
 export const CoordinatesPage = () => {
@@ -39,8 +40,8 @@ export const CoordinatesPage = () => {
   const [latInput, setLatInput] = useState('12.83');
   const [lonInput, setLonInput] = useState('69.00');
 
-  const parsedLat = parseFloat(latInput);
-  const parsedLon = parseFloat(lonInput);
+  const parsedLat = parseGeographicCoordinate(latInput, true);
+  const parsedLon = parseGeographicCoordinate(lonInput, false);
 
   const validation = validateCoordinates(parsedLat, parsedLon, bounds);
   const isValid = validation.isValid;
@@ -124,40 +125,38 @@ export const CoordinatesPage = () => {
                     )}
                   </label>
                   <input
-                    type="number"
-                    step="0.01"
+                    type="text"
                     value={latInput}
                     onChange={(e) => setLatInput(e.target.value)}
-                    placeholder="12.83"
+                    placeholder={'e.g. 12.83, 12.83°N, 12°49\'48" N'}
                     className={`w-full px-3 py-2 bg-slate-950 border rounded-lg text-white font-mono font-bold text-sm focus:outline-none transition-all ${
                       isValid || isNaN(parsedLat)
                         ? 'border-sky-500/30 focus:border-cyan-400 focus:shadow-[0_0_12px_rgba(6,182,212,0.3)]'
                         : 'border-rose-500/60 focus:border-rose-400 focus:shadow-[0_0_12px_rgba(244,63,94,0.3)]'
                     }`}
                   />
-                  <span className="text-[10px] text-slate-400 font-mono">Positive = North, Negative = South</span>
+                  <span className="text-[10px] text-slate-400 font-mono">Supports decimal, N/S direction, and DMS formats</span>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-mono text-slate-300 flex items-center justify-between">
-                    <span>LONGITUDE (°E)</span>
+                    <span>LONGITUDE (°E / °W)</span>
                     {!isValid && !isNaN(parsedLon) && (parsedLon < bounds.minLon || parsedLon > bounds.maxLon) && (
                       <span className="text-rose-400 text-[10px]">[{bounds.minLon}° to {bounds.maxLon}°]</span>
                     )}
                   </label>
                   <input
-                    type="number"
-                    step="0.01"
+                    type="text"
                     value={lonInput}
                     onChange={(e) => setLonInput(e.target.value)}
-                    placeholder="69.00"
+                    placeholder={'e.g. 69.00, 69.00°E, 69°00\'00" E'}
                     className={`w-full px-3 py-2 bg-slate-950 border rounded-lg text-white font-mono font-bold text-sm focus:outline-none transition-all ${
                       isValid || isNaN(parsedLon)
                         ? 'border-sky-500/30 focus:border-cyan-400 focus:shadow-[0_0_12px_rgba(6,182,212,0.3)]'
                         : 'border-rose-500/60 focus:border-rose-400 focus:shadow-[0_0_12px_rgba(244,63,94,0.3)]'
                     }`}
                   />
-                  <span className="text-[10px] text-slate-400 font-mono">Eastern Hemisphere degrees</span>
+                  <span className="text-[10px] text-slate-400 font-mono">Supports decimal, E/W direction, and DMS formats</span>
                 </div>
               </div>
 

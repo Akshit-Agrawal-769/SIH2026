@@ -116,9 +116,17 @@ def inspect_file(file_path: str) -> Dict[str, Any]:
 
         data_centre = "Coriolis/GDAC"
         if "DATA_CENTRE" in nc.variables:
-            raw_dc = nc.variables["DATA_CENTRE"][:]
-            if hasattr(raw_dc, "tobytes"):
-                data_centre = raw_dc.tobytes().decode("utf-8", errors="ignore").strip()
+            try:
+                raw_dc = nc.variables["DATA_CENTRE"][:]
+                if hasattr(raw_dc, "tobytes"):
+                    data_centre = raw_dc.tobytes().decode("utf-8", errors="ignore").strip()
+                elif isinstance(raw_dc, bytes):
+                    data_centre = raw_dc.decode("utf-8", errors="ignore").strip()
+                elif isinstance(raw_dc, np.ndarray):
+                    data_centre = "".join([c.decode("utf-8", errors="ignore") if isinstance(c, bytes) else str(c) for c in raw_dc.flatten()]).strip()
+            except Exception as ex:
+                logger.warning(f"Failed to read DATA_CENTRE in {file_path}: {ex}")
+                data_centre = "Coriolis/GDAC"
 
         lats = nc.variables["LATITUDE"][:] if "LATITUDE" in nc.variables else []
         lons = nc.variables["LONGITUDE"][:] if "LONGITUDE" in nc.variables else []
@@ -209,10 +217,14 @@ def _index_single_platform_dir(wmo_dir: str, provider_name: str) -> Optional[Dic
         latest_file = nc_files[-1]
 
         with netCDF4.Dataset(latest_file, "r") as nc:
-            ref_date = getattr(nc, "REFERENCE_DATE_TIME", "1950-01-01T00:00:00Z")
-            if isinstance(ref_date, bytes):
-                ref_date = ref_date.decode("utf-8", errors="ignore")
-            ref_date = str(ref_date).strip()
+            try:
+                ref_date = getattr(nc, "REFERENCE_DATE_TIME", "1950-01-01T00:00:00Z")
+                if isinstance(ref_date, bytes):
+                    ref_date = ref_date.decode("utf-8", errors="ignore")
+                ref_date = str(ref_date).strip() or "1950-01-01T00:00:00Z"
+            except Exception as ex:
+                logger.warning(f"Could not read REFERENCE_DATE_TIME in {latest_file}: {ex}")
+                ref_date = "1950-01-01T00:00:00Z"
 
             plat_wmo = extract_platform_number_from_nc(nc, wmo)
             has_psal = "PSAL" in nc.variables or "PSAL_ADJUSTED" in nc.variables
@@ -220,9 +232,17 @@ def _index_single_platform_dir(wmo_dir: str, provider_name: str) -> Optional[Dic
 
             dac = provider_name.upper()
             if "DATA_CENTRE" in nc.variables:
-                raw_dc = nc.variables["DATA_CENTRE"][:]
-                if hasattr(raw_dc, "tobytes"):
-                    dac = raw_dc.tobytes().decode("utf-8", errors="ignore").strip()
+                try:
+                    raw_dc = nc.variables["DATA_CENTRE"][:]
+                    if hasattr(raw_dc, "tobytes"):
+                        dac = raw_dc.tobytes().decode("utf-8", errors="ignore").strip()
+                    elif isinstance(raw_dc, bytes):
+                        dac = raw_dc.decode("utf-8", errors="ignore").strip()
+                    elif isinstance(raw_dc, np.ndarray):
+                        dac = "".join([c.decode("utf-8", errors="ignore") if isinstance(c, bytes) else str(c) for c in raw_dc.flatten()]).strip()
+                except Exception as ex:
+                    logger.warning(f"Could not parse DATA_CENTRE in {latest_file}: {ex}")
+                    dac = provider_name.upper()
 
             lats = nc.variables["LATITUDE"][:] if "LATITUDE" in nc.variables else []
             lons = nc.variables["LONGITUDE"][:] if "LONGITUDE" in nc.variables else []
@@ -314,10 +334,14 @@ def _index_multi_profile_file(file_path: str, provider_name: str) -> Optional[Di
         with netCDF4.Dataset(file_path, "r") as nc:
             wmo = extract_platform_number_from_nc(nc, fname.split("_")[0].replace("incois_", ""))
             n_prof = len(nc.dimensions["N_PROF"]) if "N_PROF" in nc.dimensions else 1
-            ref_date = getattr(nc, "REFERENCE_DATE_TIME", "1950-01-01T00:00:00Z")
-            if isinstance(ref_date, bytes):
-                ref_date = ref_date.decode("utf-8", errors="ignore")
-            ref_date = str(ref_date).strip()
+            try:
+                ref_date = getattr(nc, "REFERENCE_DATE_TIME", "1950-01-01T00:00:00Z")
+                if isinstance(ref_date, bytes):
+                    ref_date = ref_date.decode("utf-8", errors="ignore")
+                ref_date = str(ref_date).strip() or "1950-01-01T00:00:00Z"
+            except Exception as ex:
+                logger.warning(f"Could not read REFERENCE_DATE_TIME in {file_path}: {ex}")
+                ref_date = "1950-01-01T00:00:00Z"
 
             has_psal = "PSAL" in nc.variables or "PSAL_ADJUSTED" in nc.variables
             has_temp = "TEMP" in nc.variables or "TEMP_ADJUSTED" in nc.variables

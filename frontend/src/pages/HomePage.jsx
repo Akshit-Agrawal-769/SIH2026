@@ -10,6 +10,7 @@ import { GlobeControls } from '../components/GlobeControls';
 import { OceanTimeline } from '../components/OceanTimeline';
 import { BottomStatusBar } from '../components/BottomStatusBar';
 import { ColorbarLegend } from '../components/ColorbarLegend';
+import { DepthSliceBar } from '../components/DepthSliceBar';
 
 // Contextual Overlays (opened via Header navigation / layers)
 import { MissionsPanel } from '../components/MissionsPanel';
@@ -35,7 +36,7 @@ export const HomePage = () => {
       <GlobeControls />
 
       {/* 4. Right Panels Stack: View & Region, Active Layer, Selected Feature */}
-      <div className="absolute top-18 right-6 z-30 flex flex-col gap-3">
+      <div className="absolute top-6 right-6 z-30 flex flex-col gap-3 max-h-[calc(100vh-140px)] overflow-y-auto pointer-events-auto">
         <ViewRegionPanel />
         <ActiveLayerPanel />
         <SelectedFeaturePanel />
@@ -43,6 +44,13 @@ export const HomePage = () => {
 
       {/* 4.1 Three.js Scientific Colorbar Legend with Log/Linear scale */}
       {engineMode === 'three' && <ColorbarLegend />}
+
+      {/* 4.2 Three.js Depth Slice Bar */}
+      {engineMode === 'three' && (
+        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-[640px] rounded-xl overflow-hidden border border-cyan-500/30 shadow-2xl backdrop-blur-md">
+          <DepthSliceBar />
+        </div>
+      )}
 
       {/* 5. Centered Bottom Timeline Scrubber */}
       <OceanTimeline />

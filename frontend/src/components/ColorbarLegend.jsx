@@ -21,6 +21,23 @@ export const ColorbarLegend = () => {
   const maxVal = volumeMeta?.maxVal !== undefined ? volumeMeta.maxVal.toFixed(1) : sign.range[1].toString();
   const units = volumeMeta?.units || sign.units;
 
+  const [hoverInfo, setHoverInfo] = React.useState(null);
+
+  const numMin = parseFloat(minVal);
+  const numMax = parseFloat(maxVal);
+
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const t = rect.width > 0 ? x / rect.width : 0;
+    const interpolatedVal = numMin + t * (numMax - numMin);
+    setHoverInfo({ x, val: interpolatedVal.toFixed(2), t });
+  };
+
+  const handleMouseLeave = () => {
+    setHoverInfo(null);
+  };
+
   const getGradient = () => {
     switch (colormap) {
       case 'viridis':
@@ -47,17 +64,37 @@ export const ColorbarLegend = () => {
         </span>
       </div>
 
-      {/* Gradient Bar */}
+      {/* Gradient Bar with Interactive Hover Tooltip */}
       <div
-        className="w-full h-2 rounded-full border border-white/10 shadow-inner"
+        className="relative w-full h-3 rounded-full border border-white/10 shadow-inner cursor-crosshair group my-1"
         style={{ background: getGradient() }}
-      />
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
+        {hoverInfo && (
+          <>
+            {/* Needle indicator */}
+            <div
+              className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_4px_#ffffff] pointer-events-none -translate-x-1/2"
+              style={{ left: `${hoverInfo.t * 100}%` }}
+            />
+            {/* Value tooltip floating above */}
+            <div
+              className="absolute -top-7 px-1.5 py-0.5 bg-black/90 border border-cyan-400/60 rounded text-[9px] font-mono text-cyan-300 font-bold tabular-nums pointer-events-none shadow-lg -translate-x-1/2 whitespace-nowrap"
+              style={{ left: `${hoverInfo.t * 100}%` }}
+            >
+              {hoverInfo.val} {units}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Min - Max Scale & Log/Linear Mode */}
       <div className="flex justify-between items-center mt-1.5 font-mono text-[10px] text-slate-300 tabular-nums">
         <span>{minVal}</span>
         <button
           onClick={toggleLogScale}
+          aria-label="Toggle Logarithmic or Linear color scale"
           className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase font-mono transition-all cursor-pointer ${
             isLogScale
               ? 'bg-sky-500/30 text-sky-300 border border-sky-400/50 shadow-glow-cyan-sm'

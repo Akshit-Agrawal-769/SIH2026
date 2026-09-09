@@ -6,6 +6,7 @@ import {
   haversineDistanceKm,
   INDIAN_OCEAN_PRESETS,
   DEFAULT_INDIAN_OCEAN_BOUNDS,
+  parseGeographicCoordinate,
 } from '../utils/geography';
 
 export const GoToLocationModal = () => {
@@ -21,12 +22,12 @@ export const GoToLocationModal = () => {
 
   if (!isGoToLocationOpen) return null;
 
-  const parsedLat = parseFloat(latInput);
-  const parsedLon = parseFloat(lonInput);
+  const parsedLat = parseGeographicCoordinate(latInput, true);
+  const parsedLon = parseGeographicCoordinate(lonInput, false);
 
   // Global Earth Coordinate Validation: Lat [-90, +90], Lon [-180, +180]
-  const isLatValid = !isNaN(parsedLat) && parsedLat >= -90.0 && parsedLat <= 90.0;
-  const isLonValid = !isNaN(parsedLon) && parsedLon >= -180.0 && parsedLon <= 180.0;
+  const isLatValid = parsedLat !== null && parsedLat >= -90.0 && parsedLat <= 90.0;
+  const isLonValid = parsedLon !== null && parsedLon >= -180.0 && parsedLon <= 180.0;
   const isValid = isLatValid && isLonValid;
 
   const isInsideModel = isValid && isInsideModelDomain(parsedLat, parsedLon, DEFAULT_INDIAN_OCEAN_BOUNDS);
@@ -75,7 +76,12 @@ export const GoToLocationModal = () => {
       }}
       onKeyDown={handleKeyDown}
     >
-      <div className="w-full max-w-lg bg-[rgba(4,10,24,0.92)] backdrop-blur-2xl rounded-2xl border border-sky-500/25 shadow-panel-dark text-white font-mono flex flex-col overflow-hidden animate-fade-slide">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Geospatial Coordinate Targeting"
+        className="w-full max-w-lg bg-[rgba(4,10,24,0.92)] backdrop-blur-2xl rounded-2xl border border-sky-500/25 shadow-panel-dark text-white font-mono flex flex-col overflow-hidden animate-fade-slide"
+      >
         {/* ─── Header ─── */}
         <div className="flex items-center justify-between px-5 py-3.5 bg-black/40 border-b border-white/[0.08]">
           <div className="flex items-center gap-2.5">
@@ -86,6 +92,7 @@ export const GoToLocationModal = () => {
           </div>
           <button
             onClick={toggleGoToLocationModal}
+            aria-label="Close coordinate targeting dialog"
             className="text-slate-400 hover:text-white hover:bg-white/10 p-1 rounded-md transition-colors"
           >
             <X className="w-4 h-4" />
@@ -107,21 +114,19 @@ export const GoToLocationModal = () => {
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] text-slate-400 flex items-center justify-between font-semibold">
                 <span>LATITUDE (-90° to +90°)</span>
-                {!isLatValid && !isNaN(parsedLat) && (
+                {!isLatValid && latInput.trim() !== '' && (
                   <span className="text-rose-400">OUT OF BOUNDS</span>
                 )}
               </label>
               <div className="relative">
                 <input
-                  type="number"
-                  step="0.01"
-                  min="-90"
-                  max="90"
+                  type="text"
                   value={latInput}
                   onChange={(e) => setLatInput(e.target.value)}
-                  placeholder="e.g. 12.83"
+                  placeholder="e.g. 12.83 or 12° 50' N"
+                  aria-label="Target Latitude"
                   className={`w-full px-3 py-2 bg-black/40 border rounded-xl text-white font-bold focus:outline-none transition-all ${
-                    isLatValid || isNaN(parsedLat)
+                    isLatValid || latInput.trim() === ''
                       ? 'border-sky-500/30 focus:border-sky-400 focus:ring-1 focus:ring-sky-400'
                       : 'border-rose-500 focus:border-rose-500'
                   }`}
@@ -133,21 +138,19 @@ export const GoToLocationModal = () => {
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] text-slate-400 flex items-center justify-between font-semibold">
                 <span>LONGITUDE (-180° to +180°)</span>
-                {!isLonValid && !isNaN(parsedLon) && (
+                {!isLonValid && lonInput.trim() !== '' && (
                   <span className="text-rose-400">OUT OF BOUNDS</span>
                 )}
               </label>
               <div className="relative">
                 <input
-                  type="number"
-                  step="0.01"
-                  min="-180"
-                  max="180"
+                  type="text"
                   value={lonInput}
                   onChange={(e) => setLonInput(e.target.value)}
-                  placeholder="e.g. 69.00"
+                  placeholder="e.g. 69.00 or 69° 00' E"
+                  aria-label="Target Longitude"
                   className={`w-full px-3 py-2 bg-black/40 border rounded-xl text-white font-bold focus:outline-none transition-all ${
-                    isLonValid || isNaN(parsedLon)
+                    isLonValid || lonInput.trim() === ''
                       ? 'border-sky-500/30 focus:border-sky-400 focus:ring-1 focus:ring-sky-400'
                       : 'border-rose-500 focus:border-rose-500'
                   }`}

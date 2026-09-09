@@ -1,4 +1,8 @@
 /**
+ * INCOIS 3D Ocean Data Visualization Platform
+ * Copyright (c) 2026 INCOIS / Ministry of Earth Sciences, Govt. of India
+ * SPDX-License-Identifier: MIT
+ *
  * OceanSceneController Deep Module
  * Encapsulates the Three.js WebGL2 scene graph:
  * - High-resolution 3D Earth Globe with atmospheric Fresnel scattering
@@ -8,7 +12,7 @@
  * - Authoritative INCOIS Bio-ROMS model simulation domain footprint & dynamic surface scalar data field
  * - In-situ Argo profiling floats with acoustic beacon pulses on the spherical Earth
  * - Volumetric raymarching shader pipelines (Float32 Data3DTexture) for 3D Ocean mode
- * - Cinematic and tactical camera systems with smooth great-circle interpolations
+ * - Cinematic and mission control camera systems with smooth great-circle interpolations
  * - Authoritative spherical geographic coordinate transformations
  */
 
@@ -73,6 +77,10 @@ export class OceanSceneController {
     this.animationId = null;
     this.isDisposed = false;
 
+    this.settings = options.settings || {};
+    this.fpsCap = Number(this.settings.fpsCap) || 60;
+    this.lastRenderTime = 0;
+
     // Camera target interpolation state
     this.cameraTargetPos = null;
     this.controlsTargetPos = null;
@@ -97,12 +105,15 @@ export class OceanSceneController {
     this.camera.position.set(initialGlobePos.x, initialGlobePos.y + 0.3, initialGlobePos.z);
     this.camera.up.set(0, 1, 0); // North is visually UP
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    const antialias = this.settings.antialiasing !== undefined ? Boolean(this.settings.antialiasing) : true;
+    this.renderer = new THREE.WebGLRenderer({ antialias, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const pixelRatio = this.settings.highDpi === false ? 1.0 : Math.min(window.devicePixelRatio || 1, 2);
+    this.renderer.setPixelRatio(pixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
-    this.renderer.shadowMap.enabled = true;
+    const shadows = this.settings.volumetricShadows !== undefined ? Boolean(this.settings.volumetricShadows) : true;
+    this.renderer.shadowMap.enabled = shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.container.innerHTML = '';
@@ -121,7 +132,7 @@ export class OceanSceneController {
 
     this.dirLight = new THREE.DirectionalLight(0xffffff, 1.7);
     this.dirLight.position.set(4.0, 3.5, 4.5);
-    this.dirLight.castShadow = true;
+    this.dirLight.castShadow = shadows;
     this.scene.add(this.dirLight);
 
     // Secondary fill light from opposite side for scientific visibility
@@ -232,6 +243,7 @@ export class OceanSceneController {
         u_sliceZ: { value: 0.0 },
         u_enableSlice: { value: 0 },
         u_isLogScale: { value: 0 },
+        u_raymarchingSteps: { value: 256 },
       },
     });
     this.volMesh = new THREE.Mesh(this.volGeo, this.volumeMaterial);
@@ -263,6 +275,15 @@ export class OceanSceneController {
   _animate() {
     if (this.isDisposed) return;
     this.animationId = requestAnimationFrame(() => this._animate());
+
+    // FPS Throttling for Target Frame Rate Cap
+    if (this.fpsCap && this.fpsCap < 120) {
+      const now = performance.now();
+      const delta = now - (this.lastRenderTime || 0);
+      const interval = 1000 / this.fpsCap;
+      if (delta < interval) return;
+      this.lastRenderTime = now - (delta % interval);
+    }
 
     const elapsedTime = this.clock.getElapsedTime();
 
@@ -546,6 +567,46 @@ export class OceanSceneController {
       }
       if (sliceDepthMeters !== undefined) this.volumeMaterial.uniforms.u_sliceZ.value = sliceDepthMeters / 2000.0;
       if (enableSlice !== undefined) this.volumeMaterial.uniforms.u_enableSlice.value = enableSlice ? 1 : 0;
+    }
+  }
+
+  updateRenderParams(params) {
+    if (params) this.updateUniforms(params);
+  }
+
+  applySettings(settings) {
+    if (!settings) return;
+    this.settings = { ...this.settings, ...settings };
+
+    // 1. High-DPI Canvas Scaling
+    if (settings.highDpi !== undefined && this.renderer) {
+      const pr = settings.highDpi ? Math.min(window.devicePixelRatio || 1, 2) : 1.0;
+      this.renderer.setPixelRatio(pr);
+    }
+
+    // 2. Target FPS Throttling
+    if (settings.fpsCap !== undefined) {
+      this.fpsCap = Number(settings.fpsCap) || 60;
+    }
+
+    // 3. Volumetric Raymarching Steps
+    if (settings.raymarchingSteps !== undefined && this.volumeMaterial?.uniforms?.u_raymarchingSteps) {
+      const steps = Number(settings.raymarchingSteps) || 256;
+      this.volumeMaterial.uniforms.u_raymarchingSteps.value = steps;
+      this.volumeMaterial.uniforms.u_stepSize.value = 1.0 / steps;
+    }
+
+    // 4. Volumetric Shadows & Directional Light Shadow Casting
+    if (settings.volumetricShadows !== undefined && this.renderer) {
+      this.renderer.shadowMap.enabled = Boolean(settings.volumetricShadows);
+      if (this.dirLight) {
+        this.dirLight.castShadow = Boolean(settings.volumetricShadows);
+      }
+    }
+
+    // 5. Bathymetric Depth Contours Layer
+    if (settings.bathymetricContours !== undefined) {
+      this.setLayerVisibility({ bathymetricFloor: settings.bathymetricContours });
     }
   }
 
