@@ -1,63 +1,45 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { useOceanStore } from '../store/oceanStore';
+import {
+  Database,
+  Compass,
+  Activity,
+  Cpu,
+  Layers,
+  ShieldCheck,
+  ChevronDown,
+  ArrowRight,
+} from '../components/Icons';
 
-// ─── Inline SVG Icons (no extra imports needed) ─────────────────────────────
+// ─── Shared SVG Icons ────────────────────────────────────────────────────────
 
-const IconDatabase   = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>
-  </svg>
-);
-const IconCompass    = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-  </svg>
-);
-const IconActivity   = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-  </svg>
-);
-const IconCpu        = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/>
-    <path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/>
-  </svg>
-);
-const IconLayers     = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
-  </svg>
-);
-const IconShield     = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>
-  </svg>
-);
-const IconCheck      = ({ className }) => (
+const IconDatabase = Database;
+const IconCompass = Compass;
+const IconActivity = Activity;
+const IconCpu = Cpu;
+const IconLayers = Layers;
+const IconShield = ShieldCheck;
+const IconChevronDown = ChevronDown;
+const IconArrowRight = ArrowRight;
+
+const IconCheck = ({ className }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12"/>
   </svg>
 );
-const IconCopy       = ({ className }) => (
+
+const IconCopy = ({ className }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
   </svg>
 );
-const IconChevronDown = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m6 9 6 6 6-6"/>
-  </svg>
-);
-const IconArrowRight = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
-  </svg>
-);
-const IconFlask      = ({ className }) => (
+
+const IconFlask = ({ className }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 19.477a1 1 0 0 0 .898 1.523h12.764a1 1 0 0 0 .898-1.523l-5.07-9.054A2 2 0 0 1 14 9.527V2"/>
-    <path d="M8.5 2h7"/><path d="M7 16h10"/>
+    <path d="M8.5 2h7"/>
+    <path d="M7 16h10"/>
   </svg>
 );
 
@@ -1001,7 +983,7 @@ if (accumulatedColor.a >= 0.98) break;  // Early-ray termination`}
           </div>
           <p className="text-[10px] text-slate-500 mt-4 font-mono flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-            All formulas derived from and consistent with the production implementation. Source-of-truth: <code className="text-slate-300">METHODOLOGY.md</code> · <code className="text-slate-300">SCIENTIFIC_METHODS.md</code>
+            All formulas derived from and consistent with the production implementation. Source-of-truth: <code className="text-slate-300">METHODOLOGY.md</code>
           </p>
         </div>
       </div>
