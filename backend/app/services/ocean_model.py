@@ -49,6 +49,8 @@ def geo_to_cartesian(lon_deg: np.ndarray, lat_deg: np.ndarray) -> np.ndarray:
 VAR_ALIASES = {
     "temp": ["temp", "to", "temperature", "TEMP", "thetao", "sst", "SST", "Sea_surface_temperature"],
     "salt": ["salt", "so", "salinity", "PSAL", "sss", "SSS", "Sea_surface_salinity"],
+    "currents": ["u", "ugo", "uo", "u_eastward"],
+    "velocity": ["u", "ugo", "uo", "u_eastward"],
     "u": ["u", "ugo", "uo", "u_eastward"],
     "v": ["v", "vgo", "vo", "v_northward"],
     "w": ["w", "w_velocity"],
@@ -498,26 +500,39 @@ class OceanModel:
                 valid_time_idx = 0
                 da_sub = da
 
-            # 2. Optional Spatial Subsetting before materialization
+            # 2. Optional Spatial Subsetting before materialization via xarray.sel
             if spatial_bounds and self.lat_key in da_sub.dims and self.lon_key in da_sub.dims:
-                min_lon = spatial_bounds.get("min_lon")
-                max_lon = spatial_bounds.get("max_lon")
-                min_lat = spatial_bounds.get("min_lat")
-                max_lat = spatial_bounds.get("max_lat")
+                b_min_lon = float(spatial_bounds.get("min_lon", 50.0))
+                b_max_lon = float(spatial_bounds.get("max_lon", 95.0))
+                b_min_lat = float(spatial_bounds.get("min_lat", 0.0))
+                b_max_lat = float(spatial_bounds.get("max_lat", 26.0))
 
                 lats = ds[self.lat_key].values
                 lons = ds[self.lon_key].values
-                lat_slice = slice(min_lat, max_lat) if lats[0] < lats[-1] else slice(max_lat, min_lat)
-                lon_slice = slice(min_lon, max_lon) if lons[0] < lons[-1] else slice(max_lat, min_lon)
-                da_sub = da_sub.sel({self.lat_key: lat_slice, self.lon_key: lon_slice})
+                lat_slice = slice(b_min_lat, b_max_lat) if lats[0] < lats[-1] else slice(b_max_lat, b_min_lat)
+                lon_slice = slice(b_min_lon, b_max_lon) if lons[0] < lons[-1] else slice(b_max_lon, b_min_lon)
+                da_cropped = da_sub.sel({self.lat_key: lat_slice, self.lon_key: lon_slice})
+
+                if da_cropped.size > 0 and not any(s == 0 for s in da_cropped.shape):
+                    da_sub = da_cropped
+                    sub_lats = da_sub[self.lat_key].values
+                    sub_lons = da_sub[self.lon_key].values
+                    min_lon = float(np.nanmin(sub_lons))
+                    max_lon = float(np.nanmax(sub_lons))
+                    min_lat = float(np.nanmin(sub_lats))
+                    max_lat = float(np.nanmax(sub_lats))
+                else:
+                    min_lon = float(np.nanmin(ds[self.lon_key].values)) if self.lon_key else 0.0
+                    max_lon = float(np.nanmax(ds[self.lon_key].values)) if self.lon_key else 1.0
+                    min_lat = float(np.nanmin(ds[self.lat_key].values)) if self.lat_key else 0.0
+                    max_lat = float(np.nanmax(ds[self.lat_key].values)) if self.lat_key else 1.0
+            else:
+                min_lon = float(np.nanmin(ds[self.lon_key].values)) if self.lon_key else 0.0
+                max_lon = float(np.nanmax(ds[self.lon_key].values)) if self.lon_key else 1.0
+                min_lat = float(np.nanmin(ds[self.lat_key].values)) if self.lat_key else 0.0
+                max_lat = float(np.nanmax(ds[self.lat_key].values)) if self.lat_key else 1.0
 
             raw_data = da_sub.values.astype(np.float32)
-
-            # Spatial Bounds
-            min_lon = float(np.nanmin(ds[self.lon_key].values)) if self.lon_key else 0.0
-            max_lon = float(np.nanmax(ds[self.lon_key].values)) if self.lon_key else 1.0
-            min_lat = float(np.nanmin(ds[self.lat_key].values)) if self.lat_key else 0.0
-            max_lat = float(np.nanmax(ds[self.lat_key].values)) if self.lat_key else 1.0
 
             # Physical Vertical Depth Bounds
             min_depth = 0.0
@@ -638,6 +653,40 @@ class OceanModel:
             vol_norm[nan_mask] = -1.0
 
             buffer = vol_norm.tobytes()
+            
+            # Extract and interpolate Bathymetry (h)
+            h_bytes = 0
+            if "h" in ds:
+                h_da = ds["h"]
+                if spatial_bounds and self.lat_key in h_da.dims and self.lon_key in h_da.dims:
+                    b_min_lon = float(spatial_bounds.get("min_lon", 50.0))
+                    b_max_lon = float(spatial_bounds.get("max_lon", 95.0))
+                    b_min_lat = float(spatial_bounds.get("min_lat", 0.0))
+                    b_max_lat = float(spatial_bounds.get("max_lat", 26.0))
+                    lats = ds[self.lat_key].values
+                    lons = ds[self.lon_key].values
+                    lat_slice = slice(b_min_lat, b_max_lat) if lats[0] < lats[-1] else slice(b_max_lat, b_min_lat)
+                    lon_slice = slice(b_min_lon, b_max_lon) if lons[0] < lons[-1] else slice(b_max_lon, b_min_lon)
+                    h_cropped = h_da.sel({self.lat_key: lat_slice, self.lon_key: lon_slice})
+                    h_sub = h_cropped if h_cropped.size > 0 else h_da
+                else:
+                    h_sub = h_da
+                
+                h_raw = h_sub.values.astype(np.float32)
+                ny_curr, nx_curr = h_raw.shape
+                y_in = np.linspace(0, 1, ny_curr)
+                x_in = np.linspace(0, 1, nx_curr)
+                h_filled = np.nan_to_num(h_raw, nan=0.0)
+                interp_h = RegularGridInterpolator((y_in, x_in), h_filled, bounds_error=False, fill_value=0.0)
+                
+                y_out = np.linspace(0, 1, ny_tgt)
+                x_out = np.linspace(0, 1, nx_tgt)
+                grid_y, grid_x = np.meshgrid(y_out, x_out, indexing="ij")
+                h_interp = interp_h((grid_y, grid_x)).astype(np.float32)
+                
+                h_buffer = h_interp.tobytes()
+                buffer += h_buffer
+                h_bytes = len(h_buffer)
 
             metadata = {
                 "min_val": min_val,
@@ -656,6 +705,7 @@ class OceanModel:
                 "long_name": da.attrs.get("long_name", variable),
                 "has_nan": has_nan,
                 "nan_value": -1.0,
+                "bathymetry_bytes": h_bytes,
             }
 
             result = (buffer, metadata)

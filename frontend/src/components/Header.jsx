@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Compass,
   Crosshair,
@@ -17,6 +17,8 @@ import {
   Box,
   Clock,
   Waves,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
@@ -32,12 +34,25 @@ export const Header = () => {
     engineMode,
     setEngineMode,
     variable,
+    setVariable,
     depthLevelMeters,
     timeIndex,
     metadata,
   } = useOceanStore();
 
   const [utcTime, setUtcTime] = useState('');
+  const [isFieldDropdownOpen, setIsFieldDropdownOpen] = useState(false);
+  const fieldDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (fieldDropdownRef.current && !fieldDropdownRef.current.contains(event.target)) {
+        setIsFieldDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Live Mission UTC Clock
   useEffect(() => {
@@ -62,14 +77,46 @@ export const Header = () => {
     }
   };
 
-  const fieldLabels = {
-    temp: 'Sea Surface Temperature (SST)',
-    salt: 'Sea Surface Salinity (SSS)',
-    chl: 'Chlorophyll-a Biomass (CHLA)',
-    currents: 'Surface Velocity Vectors (CURR)',
-    waves: 'Significant Wave Height (SWH)',
-  };
-  const activeFieldName = fieldLabels[variable] || variable.toUpperCase();
+  const OCEAN_FIELDS = [
+    {
+      id: 'temp',
+      label: 'Temperature (SST)',
+      fullName: 'Potential Sea Surface Temperature',
+      units: 'degC',
+      code: 'TEMP',
+      badgeColor: 'text-amber-300 bg-amber-500/15 border-amber-400/30',
+      description: 'Thermal energy distribution and thermocline stratification',
+    },
+    {
+      id: 'salt',
+      label: 'Salinity (SSS)',
+      fullName: 'Practical Sea Surface Salinity',
+      units: 'PSU',
+      code: 'SALT',
+      badgeColor: 'text-cyan-300 bg-cyan-500/15 border-cyan-400/30',
+      description: 'Haline gradients, river discharge, and evaporation fronts',
+    },
+    {
+      id: 'currents',
+      label: 'Current Velocity (CURR)',
+      fullName: 'Ocean Current Velocity Field',
+      units: 'm/s',
+      code: 'CURR',
+      badgeColor: 'text-emerald-300 bg-emerald-500/15 border-emerald-400/30',
+      description: 'Zonal and meridional surface and subsurface transport',
+    },
+    {
+      id: 'chl',
+      label: 'Chlorophyll-a (CHLA)',
+      fullName: 'Chlorophyll-a Biomass Concentration',
+      units: 'mg/m³',
+      code: 'CHLA',
+      badgeColor: 'text-lime-300 bg-lime-500/15 border-lime-400/30',
+      description: 'Phytoplankton blooms, upwelling zones, and biological productivity',
+    },
+  ];
+  const currentField = OCEAN_FIELDS.find(f => f.id === variable || (f.id === 'currents' && (variable === 'u' || variable === 'v' || variable === 'currents'))) || OCEAN_FIELDS[0];
+
   const timeRange = metadata?.time_range || [];
   const currentDateStr = timeRange[timeIndex] ? timeRange[timeIndex].split('T')[0] : '2023-08-15';
 
@@ -140,10 +187,69 @@ export const Header = () => {
       {/* ─── Center Section: Active Ocean Field & Telemetry Hub (Hierarchies #2 & #3) ─── */}
       {activePage === 'home' && (
         <div className="hidden xl:flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-black/45 backdrop-blur-md border border-cyan-500/35 shadow-[0_0_20px_rgba(6,182,212,0.15)] data-shimmer">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#00f2fe]" />
-            <span className="text-[10px] font-mono tracking-widest text-cyan-400 font-bold uppercase">FIELD:</span>
-            <span className="text-xs font-semibold text-white tracking-wide glow-text-cyan">{activeFieldName}</span>
+          <div className="flex items-center gap-2" ref={fieldDropdownRef}>
+            <div className="relative">
+              <button
+                onClick={() => setIsFieldDropdownOpen(!isFieldDropdownOpen)}
+                className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/35 hover:border-cyan-400/60 transition-all cursor-pointer shadow-sm group"
+                title="Select Active Ocean Data Field"
+              >
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#00f2fe]" />
+                <span className="text-[10px] font-mono tracking-widest text-cyan-400 font-bold uppercase">FIELD:</span>
+                <span className="text-xs font-semibold text-white tracking-wide glow-text-cyan flex items-center gap-1.5">
+                  {currentField.label}
+                  <ChevronDown className={`w-3.5 h-3.5 text-cyan-400 transition-transform ${isFieldDropdownOpen ? 'rotate-180' : ''}`} />
+                </span>
+              </button>
+
+              {isFieldDropdownOpen && (
+                <div className="absolute top-full left-0 mt-2 w-72 bg-slate-950/95 backdrop-blur-xl border border-cyan-500/40 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] p-1.5 z-50 animate-fade-slide">
+                  <div className="px-2.5 py-1.5 border-b border-white/10 text-[9px] font-mono uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                    <span>Select Ocean Parameter</span>
+                    <span className="text-cyan-400">ROMS 1/12°</span>
+                  </div>
+                  <div className="flex flex-col gap-1 mt-1">
+                    {OCEAN_FIELDS.map((f) => {
+                      const isSelected = variable === f.id || (f.id === 'currents' && (variable === 'u' || variable === 'v' || variable === 'currents'));
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => {
+                            setVariable(f.id);
+                            setIsFieldDropdownOpen(false);
+                          }}
+                          className={`flex items-start gap-2.5 p-2 rounded-lg text-left transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-cyan-500/20 border border-cyan-400/50 text-white shadow-[0_0_12px_rgba(6,182,212,0.2)]'
+                              : 'hover:bg-white/5 text-slate-300 hover:text-white border border-transparent'
+                          }`}
+                        >
+                          <div className="mt-0.5">
+                            {isSelected ? (
+                              <Check className="w-3.5 h-3.5 text-cyan-400" />
+                            ) : (
+                              <div className="w-3.5 h-3.5 rounded-full border border-slate-600" />
+                            )}
+                          </div>
+                          <div className="flex flex-col flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold">{f.label}</span>
+                              <span className={`text-[9px] font-mono px-1 py-0.2 rounded border ${f.badgeColor}`}>
+                                {f.units}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 leading-tight mt-0.5 font-light">
+                              {f.description}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <span className="text-[10px] font-mono text-cyan-300 px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/40">
               σ: {depthLevelMeters}m
             </span>

@@ -6,6 +6,7 @@ import { LocationDataPanel } from '../components/LocationDataPanel';
 import { ViewRegionPanel } from '../components/ViewRegionPanel';
 import { ActiveLayerPanel } from '../components/ActiveLayerPanel';
 import { SelectedFeaturePanel } from '../components/SelectedFeaturePanel';
+import { SynopticMinimapPanel } from '../components/SynopticMinimapPanel';
 import { GlobeControls } from '../components/GlobeControls';
 import { OceanTimeline } from '../components/OceanTimeline';
 import { BottomStatusBar } from '../components/BottomStatusBar';
@@ -31,14 +32,20 @@ export const HomePage = () => {
       {/* 2. Left Panel: Location & Ocean Intelligence */}
       <LocationDataPanel />
 
-      {/* 3. Floating Vertical Globe Controls */}
-      <GlobeControls />
+      {/* 3. Floating Vertical Globe Controls (Master Globe only) */}
+      {engineMode === 'cesium' && <GlobeControls />}
 
-      {/* 4. Right Panels Stack: View & Region, Active Layer, Selected Feature */}
-      <div className="absolute top-18 right-6 z-30 flex flex-col gap-3">
-        <ViewRegionPanel />
-        <ActiveLayerPanel />
-        <SelectedFeaturePanel />
+      {/* 4. Right Panels Stack: Synoptic Minimap in 3D mode OR Master View/Layer/Feature in Globe mode */}
+      <div className="absolute top-16 right-6 z-30 flex flex-col gap-3">
+        {engineMode === 'three' ? (
+          <SynopticMinimapPanel />
+        ) : (
+          <>
+            <ViewRegionPanel />
+            <ActiveLayerPanel />
+            <SelectedFeaturePanel />
+          </>
+        )}
       </div>
 
       {/* 4.1 Three.js Scientific Colorbar Legend with Log/Linear scale */}

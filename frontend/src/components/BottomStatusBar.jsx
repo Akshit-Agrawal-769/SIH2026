@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Activity } from 'lucide-react';
+import { useOceanStore } from '../store/oceanStore';
 
 function toDms(val, posChar, negChar) {
   const char = val >= 0 ? posChar : negChar;
@@ -11,6 +12,7 @@ function toDms(val, posChar, negChar) {
 }
 
 export const BottomStatusBar = () => {
+  const { engineMode } = useOceanStore();
   const [telemetry, setTelemetry] = useState({
     latStr: `10°00'00.00" N`,
     lonStr: `75°00'00.00" E`,
@@ -57,15 +59,24 @@ export const BottomStatusBar = () => {
     <div className="absolute bottom-2 left-6 right-6 z-20 flex items-end justify-between pointer-events-none select-none text-[10px] font-mono text-slate-400">
       {/* ─── Bottom Left: Scientific Data Provenance ─── */}
       <div className="flex items-center gap-3 pointer-events-auto mission-panel px-3.5 py-1.5 rounded-xl text-[9.5px]">
-        {/* Cesium ion badge */}
-        <div className="flex items-center gap-1.5 opacity-90">
-          <svg className="w-3.5 h-3.5 fill-cyan-400 drop-shadow-[0_0_4px_#00f2fe]" viewBox="0 0 24 24">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-          <span className="font-bold text-xs tracking-wider text-slate-100">
-            CESIUM <span className="text-cyan-400 font-normal">ion</span>
-          </span>
-        </div>
+        {/* Engine mode provenance badge */}
+        {engineMode === 'cesium' ? (
+          <div className="flex items-center gap-1.5 opacity-90">
+            <svg className="w-3.5 h-3.5 fill-cyan-400 drop-shadow-[0_0_4px_#00f2fe]" viewBox="0 0 24 24">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+            <span className="font-bold text-xs tracking-wider text-slate-100">
+              CESIUM <span className="text-cyan-400 font-normal">ion</span>
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 opacity-90">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="font-bold text-xs tracking-wider text-slate-100">
+              THREE.JS <span className="text-cyan-400 font-normal">WebGL2</span>
+            </span>
+          </div>
+        )}
 
         <div className="w-[1px] h-3.5 bg-white/10" />
 

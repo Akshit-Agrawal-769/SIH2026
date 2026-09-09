@@ -75,33 +75,168 @@ export const CesiumOceanViewer = () => {
           window.__argoFloatEntities.push(entity);
         });
 
-        // Set up click & mouse move handlers on viewer
-        if (!window.__oceanScreenHandler && viewer.canvas) {
-          const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
-          handler.setInputAction((movement) => {
-            const picked = viewer.scene.pick(movement.position);
-            if (Cesium.defined(picked) && picked.id && picked.id._argoFloat) {
-              useOceanStore.getState().selectFloat(picked.id._argoFloat);
-            }
-          }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+        // Add Interactive INCOIS Model Domain Footprint on Cesium Globe
+        if (!window.__incoisDomainEntity) {
+          window.__incoisDomainEntity = viewer.entities.add({
+            name: 'INCOIS Model Domain Footprint',
+            rectangle: {
+              coordinates: Cesium.Rectangle.fromDegrees(50.0, 0.0, 95.0, 26.0),
+              material: new Cesium.Color(0.06, 0.72, 0.95, 0.12),
+              outline: true,
+              outlineColor: new Cesium.Color(0.22, 0.74, 0.97, 0.85),
+              outlineWidth: 2,
+            },
+            description: 'Click to drill down into 3D Volumetric Water Column Analysis',
+          });
+          window.__incoisDomainEntity._isModelDomain = true;
+        }
 
-          handler.setInputAction((movement) => {
-            const ray = viewer.camera.getPickRay(movement.endPosition);
-            if (!ray) return;
-            const cartesian = viewer.scene.globe.pick(ray, viewer.scene);
+
+      });
+    }
+  }, [argoFloats]);
+
+  // Dedicated Robust Cesium ScreenSpaceEventHandler for Instant Globe Click-to-3D
+  useEffect(() => {
+    let handler = null;
+    let pollInterval = null;
+    let isCancelled = false;
+
+    import('cesium').then((Cesium) => {
+      if (isCancelled) return;
+
+      const initHandler = () => {
+        const viewer = window.__godsEyeView?.viewer;
+        if (!viewer || !viewer.canvas) return false;
+
+        if (window.__oceanScreenHandler) {
+          try { window.__oceanScreenHandler.destroy(); } catch (e) {}
+          window.__oceanScreenHandler = null;
+        }
+
+        handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
+
+        handler.setInputAction((movement) => {
+          // 1. Check if an Argo Float was clicked
+          try {
+            const picked = viewer.scene.pick(movement.position);
+            if (Cesium.defined(picked) && picked.id?._argoFloat) {
+              useOceanStore.getState().selectFloat(picked.id._argoFloat);
+              return;
+            }
+          } catch (err) {}
+
+          // 2. Pick coordinates on globe surface
+          let lon = 72.5;
+          let lat = 13.0;
+          let cartesian = null;
+
+          try {
+            cartesian = viewer.camera.pickEllipsoid(movement.position, viewer.scene.globe.ellipsoid);
+          } catch (e) {}
+
+          if (!cartesian) {
+            try {
+              const ray = viewer.camera.getPickRay(movement.position);
+              if (ray) cartesian = viewer.scene.globe.pick(ray, viewer.scene);
+            } catch (e) {}
+          }
+
+          if (cartesian) {
+            try {
+              const carto = Cesium.Cartographic.fromCartesian(cartesian);
+              lon = Cesium.Math.toDegrees(carto.longitude);
+              lat = Cesium.Math.toDegrees(carto.latitude);
+            } catch (e) {}
+          }
+
+          console.log(`[CesiumOceanViewer] Globe LEFT_CLICK at Lon: ${lon.toFixed(2)}, Lat: ${lat.toFixed(2)} -> Switching to 3D Volumetric`);
+
+          useOceanStore.getState().selectRegionAndSwitchTo3D({
+            id: 'clicked_sector',
+            name: `Sector (${lat.toFixed(1)}°N, ${lon.toFixed(1)}°E)`,
+            centerLon: lon,
+            centerLat: lat,
+            minLon: lon - 3.0,
+            maxLon: lon + 3.0,
+            minLat: lat - 3.0,
+            maxLat: lat + 3.0,
+            minDepth: 0,
+            maxDepth: 2000,
+          });
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+        handler.setInputAction((movement) => {
+          try {
+            const cartesian = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
             if (cartesian) {
               const carto = Cesium.Cartographic.fromCartesian(cartesian);
               const lon = Cesium.Math.toDegrees(carto.longitude);
               const lat = Cesium.Math.toDegrees(carto.latitude);
               useOceanStore.setState({ cursorCoords: { lon, lat, depth: 0 } });
             }
-          }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+          } catch (err) {}
+        }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
-          window.__oceanScreenHandler = handler;
-        }
-      });
-    }
-  }, [argoFloats]);
+        window.__oceanScreenHandler = handler;
+
+        // Native DOM click fallback directly on the canvas element
+        const onCanvasClick = (evt) => {
+          let lon = 72.5;
+          let lat = 13.0;
+          try {
+            const rect = viewer.canvas.getBoundingClientRect();
+            const pos = new Cesium.Cartesian2(evt.clientX - rect.left, evt.clientY - rect.top);
+            const cartesian = viewer.camera.pickEllipsoid(pos, viewer.scene.globe.ellipsoid);
+            if (cartesian) {
+              const carto = Cesium.Cartographic.fromCartesian(cartesian);
+              lon = Cesium.Math.toDegrees(carto.longitude);
+              lat = Cesium.Math.toDegrees(carto.latitude);
+            }
+          } catch (err) {}
+
+          useOceanStore.getState().selectRegionAndSwitchTo3D({
+            id: 'clicked_sector',
+            name: `Sector (${lat.toFixed(1)}°N, ${lon.toFixed(1)}°E)`,
+            centerLon: lon,
+            centerLat: lat,
+            minLon: lon - 3.0,
+            maxLon: lon + 3.0,
+            minLat: lat - 3.0,
+            maxLat: lat + 3.0,
+            minDepth: 0,
+            maxDepth: 2000,
+          });
+        };
+        viewer.canvas.addEventListener('click', onCanvasClick);
+        viewer.canvas._onOceanClick = onCanvasClick;
+
+        return true;
+      };
+
+      if (!initHandler()) {
+        pollInterval = setInterval(() => {
+          if (initHandler()) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        }, 100);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+      if (pollInterval) clearInterval(pollInterval);
+      if (handler) {
+        try { handler.destroy(); } catch (e) {}
+        handler = null;
+      }
+      if (window.__oceanScreenHandler) {
+        try { window.__oceanScreenHandler.destroy(); } catch (e) {}
+        window.__oceanScreenHandler = null;
+      }
+    };
+  }, []);
 
   // Sync Camera Actions
   useEffect(() => {
@@ -202,12 +337,130 @@ export const CesiumOceanViewer = () => {
     };
   }, [volumeBuffer, volumeMeta]);
 
+  const pointerDownPosRef = useRef(null);
+
+  const handlePointerDown = (e) => {
+    pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerUp = (e) => {
+    if (!pointerDownPosRef.current) return;
+    const dx = Math.abs(e.clientX - pointerDownPosRef.current.x);
+    const dy = Math.abs(e.clientY - pointerDownPosRef.current.y);
+    pointerDownPosRef.current = null;
+
+    if (dx < 10 && dy < 10) {
+      const viewer = window.__godsEyeView?.viewer;
+      let lon = 72.5;
+      let lat = 13.0;
+
+      if (viewer && window.Cesium) {
+        try {
+          const rect = mountRef.current?.getBoundingClientRect();
+          const localX = e.clientX - (rect?.left || 0);
+          const localY = e.clientY - (rect?.top || 0);
+          const pos = new window.Cesium.Cartesian2(localX, localY);
+          const cartesian = viewer.camera.pickEllipsoid(pos, viewer.scene.globe.ellipsoid);
+          if (cartesian) {
+            const carto = window.Cesium.Cartographic.fromCartesian(cartesian);
+            lon = window.Cesium.Math.toDegrees(carto.longitude);
+            lat = window.Cesium.Math.toDegrees(carto.latitude);
+          }
+        } catch (err) {}
+      }
+
+      useOceanStore.getState().selectRegionAndSwitchTo3D({
+        id: 'clicked_sector',
+        name: `Sector (${lat.toFixed(1)}°N, ${lon.toFixed(1)}°E)`,
+        centerLon: lon,
+        centerLat: lat,
+        minLon: Math.max(30.0, lon - 15.0),
+        maxLon: Math.min(120.0, lon + 15.0),
+        minLat: Math.max(-30.0, lat - 10.0),
+        maxLat: Math.min(30.0, lat + 10.0),
+        minDepth: 0,
+        maxDepth: 2000,
+      });
+    }
+  };
+
   return (
     <div className="relative w-full h-full select-none overflow-hidden bg-[#030712] gev-container">
       <div 
         ref={mountRef} 
-        className="w-full h-full absolute top-0 left-0" 
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        className="w-full h-full absolute top-0 left-0 cursor-crosshair" 
       />
+
+      {/* Master Overview Drill-Down Floating HUD */}
+      <div className="absolute bottom-20 left-6 z-20 flex flex-col gap-2 p-3.5 bg-slate-950/85 backdrop-blur-md border border-cyan-500/25 rounded-2xl shadow-2xl max-w-xs sm:max-w-sm text-white">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-mono font-bold tracking-wider text-cyan-300 uppercase flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            Master: God's Eye Globe
+          </span>
+          <span className="text-[9px] font-mono text-cyan-300/80 bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 rounded-full">
+            Select Region
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-300 font-light leading-relaxed">
+          Click any ocean sector on the globe or select below to drill down into <strong className="text-cyan-300 font-semibold">3D Volumetric Water Column Analysis</strong>.
+        </p>
+        <div className="grid grid-cols-3 gap-1.5 mt-0.5">
+          <button
+            onClick={() => useOceanStore.getState().selectRegionAndSwitchTo3D({
+              id: 'arabian_sea',
+              name: 'Arabian Sea Sector',
+              minLon: 52.0,
+              maxLon: 77.0,
+              minLat: 6.0,
+              maxLat: 25.0,
+              centerLon: 65.0,
+              centerLat: 15.0,
+              minDepth: 0,
+              maxDepth: 2000,
+            })}
+            className="px-2 py-1.5 bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/40 rounded-xl text-[10px] font-mono text-cyan-200 transition-all text-center hover:shadow-[0_0_12px_rgba(6,182,212,0.3)] cursor-pointer"
+          >
+            Arabian Sea
+          </button>
+          <button
+            onClick={() => useOceanStore.getState().selectRegionAndSwitchTo3D({
+              id: 'bay_of_bengal',
+              name: 'Bay of Bengal Sector',
+              minLon: 78.0,
+              maxLon: 96.0,
+              minLat: 6.0,
+              maxLat: 24.0,
+              centerLon: 88.0,
+              centerLat: 15.0,
+              minDepth: 0,
+              maxDepth: 2000,
+            })}
+            className="px-2 py-1.5 bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/40 rounded-xl text-[10px] font-mono text-cyan-200 transition-all text-center hover:shadow-[0_0_12px_rgba(6,182,212,0.3)] cursor-pointer"
+          >
+            Bay of Bengal
+          </button>
+          <button
+            onClick={() => useOceanStore.getState().selectRegionAndSwitchTo3D({
+              id: 'full_domain',
+              name: 'North Indian Ocean Basin',
+              minLon: 50.0,
+              maxLon: 95.0,
+              minLat: 0.0,
+              maxLat: 26.0,
+              centerLon: 72.5,
+              centerLat: 13.0,
+              minDepth: 0,
+              maxDepth: 2000,
+            })}
+            className="px-2 py-1.5 bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/50 rounded-xl text-[10px] font-mono text-sky-200 transition-all text-center hover:shadow-[0_0_12px_rgba(56,189,248,0.3)] cursor-pointer"
+          >
+            Full Basin
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

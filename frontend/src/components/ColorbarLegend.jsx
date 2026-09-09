@@ -4,22 +4,38 @@ import { useOceanStore, VITAL_SIGNS_CATALOG } from '../store/oceanStore';
 export const ColorbarLegend = () => {
   const volumeMeta = useOceanStore((state) => state.volumeMeta);
   const colormap = useOceanStore((state) => state.colormap);
-  const activeVitalSign = useOceanStore((state) => state.activeVitalSign);
+  const variable = useOceanStore((state) => state.variable || state.activeVariable || 'temp');
 
   const isLogScale = useOceanStore((state) => state.isLogScale);
   const toggleLogScale = useOceanStore((state) => state.toggleLogScale);
 
-  // Find vital sign details
-  const allSigns = [
-    ...VITAL_SIGNS_CATALOG.surface,
-    ...VITAL_SIGNS_CATALOG.subsurface,
-    ...VITAL_SIGNS_CATALOG.dynamic,
-  ];
-  const sign = allSigns.find((s) => s.id === activeVitalSign) || allSigns[0];
+  const VARIABLE_PROFILES = {
+    temp: { name: 'Sea Surface Temperature', units: 'degC', defaultRange: [18.5, 31.8] },
+    salt: { name: 'Practical Salinity', units: 'PSU', defaultRange: [32.0, 36.5] },
+    currents: { name: 'Current Velocity', units: 'm/s', defaultRange: [0.0, 1.8] },
+    u: { name: 'Zonal Current Velocity', units: 'm/s', defaultRange: [-1.2, 1.2] },
+    v: { name: 'Meridional Current Velocity', units: 'm/s', defaultRange: [-1.2, 1.2] },
+    chl: { name: 'Chlorophyll-a Biomass', units: 'mg/m³', defaultRange: [0.01, 2.5] },
+  };
 
-  const minVal = volumeMeta?.minVal !== undefined ? volumeMeta.minVal.toFixed(1) : sign.range[0].toString();
-  const maxVal = volumeMeta?.maxVal !== undefined ? volumeMeta.maxVal.toFixed(1) : sign.range[1].toString();
-  const units = volumeMeta?.units || sign.units;
+  const currentProf = VARIABLE_PROFILES[variable] || VARIABLE_PROFILES.temp;
+  const isCurrentVarMeta = volumeMeta?.variable === variable;
+
+  const minVal = (isCurrentVarMeta && volumeMeta?.minVal !== undefined)
+    ? volumeMeta.minVal.toFixed(1)
+    : currentProf.defaultRange[0].toFixed(1);
+
+  const maxVal = (isCurrentVarMeta && volumeMeta?.maxVal !== undefined)
+    ? volumeMeta.maxVal.toFixed(1)
+    : currentProf.defaultRange[1].toFixed(1);
+
+  const title = (isCurrentVarMeta && volumeMeta?.variable)
+    ? (VARIABLE_PROFILES[volumeMeta.variable]?.name || volumeMeta.variable.toUpperCase())
+    : currentProf.name;
+
+  const units = (isCurrentVarMeta && volumeMeta?.units)
+    ? volumeMeta.units
+    : currentProf.units;
 
   const getGradient = () => {
     switch (colormap) {
@@ -40,9 +56,9 @@ export const ColorbarLegend = () => {
       {/* Title & Unit */}
       <div className="flex items-center justify-between gap-2 mb-2 font-mono">
         <span className="text-[11px] font-bold truncate text-white uppercase tracking-wider">
-          {sign.name}
+          {title}
         </span>
-        <span className="text-[10px] text-sky-300 font-mono px-1 py-0.2 rounded bg-sky-500/15 border border-sky-400/30 shrink-0">
+        <span className="text-[10px] text-sky-300 font-mono px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 shrink-0">
           {units}
         </span>
       </div>
