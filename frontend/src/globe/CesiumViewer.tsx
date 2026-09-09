@@ -7,6 +7,8 @@ import { serializeCameraState, setCameraState } from './cameraUtils';
 import { createInstrumentsLayer, InstrumentsLayerManager } from '../layers/instrumentsLayer';
 import { createDepthSliceLayer, DepthSliceLayerManager } from '../rendering/depthSliceLayer';
 import { createCurrentsLayer, CurrentsLayerManager } from '../layers/currentsLayer';
+import { createDragSelectHandler } from './DragSelectHandler';
+import { createVolumeAxisGrid, VolumeAxisGridManager } from '../layers/VolumeAxisGridLayer';
 
 interface CesiumViewerProps {
   onViewerReady?: (viewer: Cesium.Viewer) => void;
@@ -19,6 +21,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
   const instrumentsManagerRef = useRef<InstrumentsLayerManager | null>(null);
   const depthSliceManagerRef = useRef<DepthSliceLayerManager | null>(null);
   const currentsManagerRef = useRef<CurrentsLayerManager | null>(null);
+  const volumeAxisGridManagerRef = useRef<VolumeAxisGridManager | null>(null);
 
   const {
     activeLayers,
@@ -36,7 +39,9 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     setCurrentTime,
     setSelectedVariable,
     setMode,
-    setSelectedInstrumentId
+    setSelectedInstrumentId,
+    activeBoundingBox,
+    verticalExaggeration
   } = useOceanStore();
 
   useEffect(() => {
@@ -198,6 +203,13 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       }
     });
 
+    // 6. Interactive SHIFT+Drag Selection
+    const dragSelectHandler = createDragSelectHandler(viewer);
+
+    // 7. Scientific 3D Axis Grid
+    const volumeAxisGridManager = createVolumeAxisGrid(viewer);
+    volumeAxisGridManagerRef.current = volumeAxisGridManager;
+
     viewerRef.current = viewer;
     if (onViewerReady) {
       onViewerReady(viewer);
@@ -206,6 +218,8 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     return () => {
       removeMoveEndListener();
       hoverHandler.destroy();
+      dragSelectHandler.destroy();
+      volumeAxisGridManager.destroy();
       instrumentsManagerRef.current?.destroy();
       depthSliceManagerRef.current?.destroy();
       currentsManagerRef.current?.destroy();
@@ -243,11 +257,14 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
         scaleType
       });
     }
+    if (volumeAxisGridManagerRef.current) {
+      volumeAxisGridManagerRef.current.updateBox(activeBoundingBox, verticalExaggeration);
+    }
     if (viewerRef.current) {
       const camState = serializeCameraState(viewerRef.current);
       syncStateToUrl(camState, useOceanStore.getState());
     }
-  }, [activeLayers, depthLevel, currentTime, selectedVariable, mode, opacity, colorPalette, colorRange, scaleType, vectorArrowScale]);
+  }, [activeLayers, depthLevel, currentTime, selectedVariable, mode, opacity, colorPalette, colorRange, scaleType, vectorArrowScale, activeBoundingBox, verticalExaggeration]);
 
   return (
     <div className="relative w-full h-full">

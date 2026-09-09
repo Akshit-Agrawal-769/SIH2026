@@ -59,6 +59,10 @@ export interface OceanState {
   showBottomBar: boolean;
   setShowBottomBar: (show: boolean) => void;
   toggleBottomBar: () => void;
+
+  // Selected bounding box for detail analysis
+  activeBoundingBox: { north: number; south: number; east: number; west: number } | null;
+  setActiveBoundingBox: (box: { north: number; south: number; east: number; west: number } | null) => void;
 }
 
 export interface HoveredOceanInfo {
@@ -190,5 +194,8 @@ export const useOceanStore = create<OceanState>((set) => ({
 
   showBottomBar: true,
   setShowBottomBar: (showBottomBar) => set({ showBottomBar }),
-  toggleBottomBar: () => set((s) => ({ showBottomBar: !s.showBottomBar }))
+  toggleBottomBar: () => set((s) => ({ showBottomBar: !s.showBottomBar })),
+
+  activeBoundingBox: null,
+  setActiveBoundingBox: (activeBoundingBox) => set({ activeBoundingBox })
 }));

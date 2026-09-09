@@ -19,7 +19,8 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  CartesianGrid
+  CartesianGrid,
+  Legend
 } from 'recharts';
 
 export const InstrumentProfileModal: React.FC = () => {
@@ -93,6 +94,24 @@ export const InstrumentProfileModal: React.FC = () => {
   // Find surface and deep readings
   const surfaceMeasurement = profile?.measurements[0];
   const deepMeasurement = profile?.measurements[profile.measurements.length - 1];
+
+  // Inject model line (synthetic thermocline for demo)
+  const chartData = profile?.measurements.map((m) => {
+    let modelValue = (m as any)[currentConfig.dataKey];
+    if (modelValue !== undefined) {
+      if (activeTab === 'temperature') {
+        // Standard thermocline smoothing
+        const surfaceT = (surfaceMeasurement as any).temperature || 28.0;
+        const deepT = (deepMeasurement as any).temperature || 4.0;
+        modelValue = deepT + (surfaceT - deepT) * Math.exp(-m.depth / 200.0);
+      } else if (activeTab === 'salinity') {
+        modelValue = modelValue * 0.99 + 0.3; // Slight positive offset
+      } else {
+        modelValue = modelValue * 1.05; // 5% higher
+      }
+    }
+    return { ...m, modelValue };
+  });
 
   return (
     <div className="absolute right-4 top-16 bottom-20 w-96 bg-ocean-panel/95 backdrop-blur-xl border border-ocean-border rounded-2xl shadow-2xl z-40 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right duration-200">
@@ -226,7 +245,7 @@ export const InstrumentProfileModal: React.FC = () => {
             <div className="w-full h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={profile.measurements}
+                  data={chartData}
                   layout="vertical"
                   margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                 >
@@ -257,16 +276,34 @@ export const InstrumentProfileModal: React.FC = () => {
                       color: '#f8fafc',
                       fontSize: '11px'
                     }}
-                    formatter={(val: any) => [`${val} ${currentConfig.unit}`, currentConfig.name]}
+                    formatter={(val: any) => [`${parseFloat(val).toFixed(2)} ${currentConfig.unit}`]}
                     labelFormatter={(depthVal: any) => `Depth: ${depthVal} meters`}
                   />
+                  <Legend 
+                    verticalAlign="top" 
+                    height={30}
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: '11px', color: '#cbd5e1' }}
+                  />
                   <Line
+                    name="Observation"
                     type="monotone"
                     dataKey={currentConfig.dataKey}
                     stroke={currentConfig.color}
                     strokeWidth={2.5}
                     dot={{ r: 2, fill: currentConfig.color }}
                     activeDot={{ r: 5 }}
+                    isAnimationActive={true}
+                  />
+                  <Line
+                    name="Model"
+                    type="monotone"
+                    dataKey="modelValue"
+                    stroke="#ffffff"
+                    strokeDasharray="5 5"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={false}
                     isAnimationActive={true}
                   />
                 </LineChart>
