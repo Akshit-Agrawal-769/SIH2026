@@ -1,1 +1,1 @@
-import platform; platform.mac_ver = lambda: ('14.0.0', ('', '', ''), 'arm64')
+import platform; platform.mac_ver = lambda: ("14.0.0", ("", "", ""), "arm64"); print("SITECUSTOMIZE LOADED")
