@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Activity } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { useOceanStore } from '../store/oceanStore';
 
 export function toDms(val, posChar, negChar) {
@@ -9,6 +9,7 @@ export function toDms(val, posChar, negChar) {
   let d = Math.floor(abs);
   let m = Math.floor((abs - d) * 60);
   let s = parseFloat((((abs - d) * 60 - m) * 60).toFixed(2));
+
   if (s >= 59.995) {
     s = 0;
     m += 1;
@@ -17,60 +18,46 @@ export function toDms(val, posChar, negChar) {
       d += 1;
     }
   }
+
   return `${d}°${String(m).padStart(2, '0')}'${s.toFixed(2).padStart(5, '0')}" ${char}`;
 }
 
 export const BottomStatusBar = () => {
   const { engineMode } = useOceanStore();
-  const [telemetry, setTelemetry] = useState({
+
+  const [coordinates, setCoordinates] = useState({
     latStr: `10°00'00.00" N`,
     lonStr: `75°00'00.00" E`,
-    altStr: `8000.0 km`,
-    elevStr: `0 m`,
-    headingStr: `000°`,
-    pitchStr: `-90°`,
   });
 
   useEffect(() => {
-    const updateTelemetry = () => {
+    const updateCoordinates = () => {
       try {
         const viewer = window.__cesiumViewer;
-        if (!viewer || viewer.isDestroyed() || !viewer.camera || !viewer.camera.positionCartographic) return;
+        if (!viewer || viewer.isDestroyed() || !viewer.camera?.positionCartographic) return;
 
         const carto = viewer.camera.positionCartographic;
         const lat = (carto.latitude * 180) / Math.PI;
         const lon = (carto.longitude * 180) / Math.PI;
-        const altKm = (carto.height / 1000).toFixed(1);
 
-        let headingDeg = 0;
-        let pitchDeg = -90;
-        if (viewer.camera.heading !== undefined) {
-          headingDeg = Math.round((viewer.camera.heading * 180) / Math.PI) % 360;
-        }
-        if (viewer.camera.pitch !== undefined) {
-          pitchDeg = Math.round((viewer.camera.pitch * 180) / Math.PI);
-        }
-
-        setTelemetry({
+        setCoordinates({
           latStr: toDms(lat, 'N', 'S'),
           lonStr: toDms(lon, 'E', 'W'),
-          altStr: `${altKm} km`,
-          elevStr: '0 m',
-          headingStr: `${String(headingDeg).padStart(3, '0')}°`,
-          pitchStr: `${pitchDeg}°`,
         });
-      } catch (e) {}
+      } catch (e) {
+        // Cesium may be unavailable during initialization or teardown.
+      }
     };
 
-    const interval = setInterval(updateTelemetry, 250);
+    updateCoordinates();
+    const interval = setInterval(updateCoordinates, 500);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="absolute bottom-2 left-6 right-6 z-20 flex items-end justify-between pointer-events-none select-none text-[10px] font-mono text-slate-400">
-      {/* ─── Bottom Left: Scientific Data Provenance ─── */}
+      {/* Bottom Left: Scientific Data Provenance */}
       <div className="flex items-center gap-3 pointer-events-auto mission-panel px-3.5 py-1.5 rounded-xl text-[9.5px]">
-        {/* Engine mode provenance badge */}
         {engineMode === 'cesium' ? (
           <div className="flex items-center gap-1.5 opacity-90">
             <svg className="w-3.5 h-3.5 fill-cyan-400 drop-shadow-[0_0_4px_#00f2fe]" viewBox="0 0 24 24">
@@ -104,7 +91,7 @@ export const BottomStatusBar = () => {
         </div>
       </div>
 
-      {/* ─── Bottom Center: Strict Scientific QC & Model Status Banner ─── */}
+      {/* Bottom Center: Scientific QC & Model Status */}
       <div className="hidden lg:flex items-center gap-3 pointer-events-auto mission-panel px-3.5 py-1.5 rounded-xl border-emerald-500/25 text-[9.5px]">
         <div className="flex items-center gap-1.5">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
@@ -113,7 +100,7 @@ export const BottomStatusBar = () => {
           </span>
         </div>
         <span className="text-slate-600">|</span>
-        <div className="flex items-center gap-1.5 text-slate-300">
+        <div className="flex items-center gap-2 text-slate-300">
           <div className="flex items-end gap-0.5 h-2">
             <div className="w-0.5 bg-cyan-400 rounded-full signal-bar-1" />
             <div className="w-0.5 bg-cyan-400 rounded-full signal-bar-2" />
@@ -123,19 +110,15 @@ export const BottomStatusBar = () => {
         </div>
       </div>
 
-      {/* ─── Bottom Right: Live Camera Telemetry Readout (Hierarchy #4 Important Telemetry) ─── */}
+      {/* Bottom Right: Geographic Position */}
       <div className="pointer-events-auto mission-panel px-3.5 py-1.5 rounded-xl text-right text-[10px] font-mono leading-tight">
-        <div className="text-cyan-200 font-semibold flex items-center justify-end gap-2 tabular-nums glow-text-cyan">
-          <span>{telemetry.latStr}</span>
+        <div className="text-cyan-200 font-semibold flex items-center justify-end gap-2 tabular-nums">
+          <span>{coordinates.latStr}</span>
           <span className="text-slate-500">·</span>
-          <span>{telemetry.lonStr}</span>
+          <span>{coordinates.lonStr}</span>
         </div>
-        <div className="text-slate-400 text-[9px] mt-0.5 flex items-center justify-end gap-2 tabular-nums">
-          <span>ALT: <span className="text-cyan-300 font-medium">{telemetry.altStr}</span></span>
-          <span className="text-slate-600">|</span>
-          <span>HDG: <span className="text-cyan-300 font-medium">{telemetry.headingStr}</span></span>
-          <span className="text-slate-600">|</span>
-          <span>PITCH: <span className="text-cyan-300 font-medium">{telemetry.pitchStr}</span></span>
+        <div className="text-slate-500 text-[9px] mt-0.5">
+          VIEW CENTER
         </div>
       </div>
     </div>
