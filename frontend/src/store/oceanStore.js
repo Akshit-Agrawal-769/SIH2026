@@ -531,6 +531,7 @@ export const useOceanStore = create((set, get) => ({
 
   // Scientific Controls
   variable: 'temp',
+  activeVariable: 'temp',
   renderMode: 'volume', // 'volume' | 'iso'
   colormap: 'turbo',    // 'turbo' | 'viridis' | 'thermal' | 'jet'
   timeIndex: 0,
@@ -562,8 +563,32 @@ export const useOceanStore = create((set, get) => ({
       engineMode,
       sliceDepthMeters: depth,
       depthLevelMeters: depth,
+      viewMode: engineMode === 'three' ? 'ocean3d' : 'globe',
     };
   }),
+
+  // Active Region for Master-Detail drill-down
+  activeRegion: {
+    id: 'north_indian_ocean',
+    name: 'North Indian Ocean (Arabian Sea & Bay of Bengal)',
+    minLon: 50.0,
+    maxLon: 95.0,
+    minLat: 0.0,
+    maxLat: 26.0,
+    centerLon: 72.5,
+    centerLat: 13.0,
+    minDepth: 0,
+    maxDepth: 2000,
+  },
+  setActiveRegion: (activeRegion) => set({ activeRegion }),
+  selectRegionAndSwitchTo3D: (region) => {
+    set((state) => ({
+      activeRegion: region || state.activeRegion,
+      engineMode: 'three',
+      viewMode: 'ocean3d',
+    }));
+    get().fetchVolumeData();
+  },
 
   // Logarithmic / Linear Color Transfer Scale
   isLogScale: false,
@@ -813,12 +838,15 @@ export const useOceanStore = create((set, get) => ({
   },
 
   fetchVolumeData: async () => {
-    const { activeDataset, variable, timeIndex, metadata } = get();
+    const { activeDataset, variable, timeIndex, metadata, activeRegion } = get();
     if (!activeDataset) return;
     try {
       const timeLabel = metadata?.time_range?.[timeIndex] || `Step ${timeIndex + 1}`;
       set({ isLoading: true, loadingMessage: `STREAMING SCIENTIFIC FLOAT32 BUFFER (${variable.toUpperCase()}, ${timeLabel})` });
-      const url = `${API_BASE}/api/v1/model/volume3d?filename=${encodeURIComponent(activeDataset)}&variable=${variable}&time_idx=${timeIndex}&dim_x=64&dim_y=64&dim_z=32`;
+      let url = `${API_BASE}/api/v1/model/volume3d?filename=${encodeURIComponent(activeDataset)}&variable=${variable}&time_idx=${timeIndex}&dim_x=64&dim_y=64&dim_z=32`;
+      if (activeRegion && activeRegion.minLon !== undefined && activeRegion.maxLon !== undefined && activeRegion.minLat !== undefined && activeRegion.maxLat !== undefined) {
+        url += `&min_lon=${activeRegion.minLon}&max_lon=${activeRegion.maxLon}&min_lat=${activeRegion.minLat}&max_lat=${activeRegion.maxLat}`;
+      }
       const res = await fetch(url);
       if (!res.ok) {
         throw new Error(`Volume fetch failed with status ${res.status}`);
@@ -839,12 +867,22 @@ export const useOceanStore = create((set, get) => ({
       const hasNan = res.headers.get('X-Has-Nan') === 'True';
       const nanValue = parseFloat(res.headers.get('X-Nan-Value') || '-1.0');
       const units = res.headers.get('X-Units') || '';
+      const bathyBytes = parseInt(res.headers.get('X-Bathymetry-Bytes') || '0', 10);
 
       const arrayBuffer = await res.arrayBuffer();
-      const float32 = new Float32Array(arrayBuffer);
+      
+      let volumeBuffer, bathymetryBuffer = null;
+      if (bathyBytes > 0) {
+        const volumeBytes = arrayBuffer.byteLength - bathyBytes;
+        volumeBuffer = new Float32Array(arrayBuffer.slice(0, volumeBytes));
+        bathymetryBuffer = new Float32Array(arrayBuffer.slice(volumeBytes));
+      } else {
+        volumeBuffer = new Float32Array(arrayBuffer);
+      }
 
       set({
-        volumeBuffer: float32,
+        volumeBuffer,
+        bathymetryBuffer,
         volumeMeta: {
           minVal, maxVal, dimX, dimY, dimZ,
           minLon, maxLon, minLat, maxLat, minDepth, maxDepth,
@@ -860,11 +898,14 @@ export const useOceanStore = create((set, get) => ({
   },
 
   setVariable: (variable) => {
-    set({ variable });
+    set({ variable, activeVariable: variable });
     get().fetchVolumeData();
     if (get().isModalOpen && get().selectedFloat) {
       get().fetchComparison(get().selectedFloat.platform_number, get().selectedCycle || undefined);
     }
+  },
+  setActiveVariable: (activeVariable) => {
+    get().setVariable(activeVariable);
   },
 
   setRenderMode: (renderMode) => set({ renderMode }),
@@ -1102,4 +1143,6 @@ export const useOceanStore = create((set, get) => ({
 
 if (typeof window !== 'undefined') {
   window.__oceanStore = useOceanStore;
+  window.__incoisOceanStore = useOceanStore;
+  window.useOceanStore = useOceanStore;
 }

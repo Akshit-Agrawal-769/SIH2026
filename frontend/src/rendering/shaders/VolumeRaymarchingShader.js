@@ -1,7 +1,7 @@
 export const VolumeVertexShader = `
-  varying vec3 vOrigin;
-  varying vec3 vDirection;
-  varying vec3 vPosition;
+  out vec3 vOrigin;
+  out vec3 vDirection;
+  out vec3 vPosition;
 
   void main() {
     vPosition = position;
@@ -29,9 +29,11 @@ export const VolumeFragmentShader = `
   uniform int u_isLogScale; // 0 = Linear, 1 = Logarithmic scaling
   uniform int u_raymarchingSteps; // 128, 256, 512 iteration count
 
-  varying vec3 vOrigin;
-  varying vec3 vDirection;
-  varying vec3 vPosition;
+  in vec3 vOrigin;
+  in vec3 vDirection;
+  in vec3 vPosition;
+
+  out vec4 fragColor;
 
   // Jet Colormap
   vec3 colormap_jet(float t) {
@@ -144,6 +146,11 @@ export const VolumeFragmentShader = `
 
         if (!sliceClip) {
           float rawScalar = texture(u_data, texCoord).r;
+          if (rawScalar < -0.5) {
+            // Land or missing data in model grid
+            currentPos += stepVec;
+            continue;
+          }
           float scalar = rawScalar;
           if (u_isLogScale == 1) {
             // Emphasize subtle low-end gradients via normalized logarithm
@@ -154,19 +161,19 @@ export const VolumeFragmentShader = `
             if (u_renderMode == 1) {
               if (abs(scalar - u_isoValue) < 0.035) {
                 vec3 col = apply_colormap(scalar);
-                accumulatedColor = vec4(col, 0.92);
+                accumulatedColor = vec4(col, 0.95);
                 break;
               }
             } else {
               vec3 col = apply_colormap(scalar);
-              float density = (scalar - u_threshold) / (1.0 - u_threshold + 1e-4);
-              float alpha = (1.0 - exp(-density * u_opacity * 3.5)) * dt * 30.0;
-              alpha = clamp(alpha, 0.0, 1.0);
+              float density = clamp((scalar - u_threshold) / (1.0 - u_threshold + 1e-4), 0.0, 1.0);
+              // Solid step alpha absorption ensuring dense, solid water block without hollow artifacts
+              float stepAlpha = clamp((1.0 - exp(-density * u_opacity * 6.5)) * dt * 38.0, 0.03, 0.45);
 
-              accumulatedColor.rgb += (1.0 - accumulatedColor.a) * col * alpha;
-              accumulatedColor.a += (1.0 - accumulatedColor.a) * alpha;
+              accumulatedColor.rgb += (1.0 - accumulatedColor.a) * col * stepAlpha;
+              accumulatedColor.a += (1.0 - accumulatedColor.a) * stepAlpha;
 
-              if (accumulatedColor.a >= 0.98) {
+              if (accumulatedColor.a >= 0.985) {
                 break;
               }
             }
@@ -181,6 +188,6 @@ export const VolumeFragmentShader = `
       discard;
     }
 
-    gl_FragColor = accumulatedColor;
+    fragColor = accumulatedColor;
   }
 `;

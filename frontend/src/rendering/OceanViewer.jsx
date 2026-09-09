@@ -21,6 +21,7 @@ export const OceanViewer = () => {
     viewMode,
     setViewMode,
     volumeBuffer,
+    bathymetryBuffer,
     volumeMeta,
     renderMode,
     colormap,
@@ -109,8 +110,8 @@ export const OceanViewer = () => {
   // Sync 3D Volume Data Buffer
   useEffect(() => {
     if (!controllerRef.current) return;
-    controllerRef.current.updateVolumeData(volumeBuffer, volumeMeta);
-  }, [volumeBuffer, volumeMeta]);
+    controllerRef.current.updateVolumeData(volumeBuffer, volumeMeta, bathymetryBuffer);
+  }, [volumeBuffer, volumeMeta, bathymetryBuffer]);
 
   // Sync Shading & Slicing Uniforms
   useEffect(() => {

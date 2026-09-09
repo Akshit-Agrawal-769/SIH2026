@@ -191,6 +191,20 @@ export const CesiumOceanViewer = () => {
         window.__argoFloatEntities.push(entity);
       });
     }
+    if (!window.__incoisDomainEntity) {
+      window.__incoisDomainEntity = viewer.entities.add({
+        name: 'INCOIS Model Domain Footprint',
+        rectangle: {
+          coordinates: Cesium.Rectangle.fromDegrees(50.0, 0.0, 95.0, 26.0),
+          material: new Cesium.Color(0.06, 0.72, 0.95, 0.12),
+          outline: true,
+          outlineColor: new Cesium.Color(0.22, 0.74, 0.97, 0.85),
+          outlineWidth: 2,
+        },
+        description: 'Click to drill down into 3D Volumetric Water Column Analysis',
+      });
+      window.__incoisDomainEntity._isModelDomain = true;
+    }
   }, [argoFloats]);
 
   // Sync Camera Navigation Actions
@@ -325,9 +339,105 @@ export const CesiumOceanViewer = () => {
     viewer.scene?.requestRender();
   }, [settings]);
 
+  const pointerDownPosRef = useRef(null);
+
+  const handlePointerDown = (event) => {
+    pointerDownPosRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handlePointerUp = (event) => {
+    if (!pointerDownPosRef.current) return;
+    const dx = Math.abs(event.clientX - pointerDownPosRef.current.x);
+    const dy = Math.abs(event.clientY - pointerDownPosRef.current.y);
+    pointerDownPosRef.current = null;
+    if (dx >= 10 || dy >= 10) return;
+
+    useOceanStore.getState().selectRegionAndSwitchTo3D({
+      id: 'clicked_sector',
+      name: 'Selected Ocean Sector',
+      minLon: 50.0,
+      maxLon: 95.0,
+      minLat: 0.0,
+      maxLat: 26.0,
+      centerLon: 72.5,
+      centerLat: 13.0,
+      minDepth: 0,
+      maxDepth: 2000,
+    });
+  };
+
   return (
     <div className="relative w-full h-full select-none overflow-hidden bg-[#030712]">
-      <div ref={mountRef} className="w-full h-full absolute top-0 left-0" />
+      <div ref={mountRef} onPointerDown={handlePointerDown} onPointerUp={handlePointerUp} className="w-full h-full absolute top-0 left-0 cursor-crosshair" />
+
+      {/* Master Overview Drill-Down Floating HUD */}
+      <div className="absolute bottom-20 left-6 z-20 flex flex-col gap-2 p-3.5 bg-slate-950/85 backdrop-blur-md border border-cyan-500/25 rounded-2xl shadow-2xl max-w-xs sm:max-w-sm text-white">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-mono font-bold tracking-wider text-cyan-300 uppercase flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            Master: God's Eye Globe
+          </span>
+          <span className="text-[9px] font-mono text-cyan-300/80 bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 rounded-full">
+            Select Region
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-300 font-light leading-relaxed">
+          Click any ocean sector on the globe or select below to drill down into <strong className="text-cyan-300 font-semibold">3D Volumetric Water Column Analysis</strong>.
+        </p>
+        <div className="grid grid-cols-3 gap-1.5 mt-0.5">
+          <button
+            onClick={() => useOceanStore.getState().selectRegionAndSwitchTo3D({
+              id: 'arabian_sea',
+              name: 'Arabian Sea Sector',
+              minLon: 52.0,
+              maxLon: 77.0,
+              minLat: 6.0,
+              maxLat: 25.0,
+              centerLon: 65.0,
+              centerLat: 15.0,
+              minDepth: 0,
+              maxDepth: 2000,
+            })}
+            className="px-2 py-1.5 bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/40 rounded-xl text-[10px] font-mono text-cyan-200 transition-all text-center hover:shadow-[0_0_12px_rgba(6,182,212,0.3)] cursor-pointer"
+          >
+            Arabian Sea
+          </button>
+          <button
+            onClick={() => useOceanStore.getState().selectRegionAndSwitchTo3D({
+              id: 'bay_of_bengal',
+              name: 'Bay of Bengal Sector',
+              minLon: 78.0,
+              maxLon: 96.0,
+              minLat: 6.0,
+              maxLat: 24.0,
+              centerLon: 88.0,
+              centerLat: 15.0,
+              minDepth: 0,
+              maxDepth: 2000,
+            })}
+            className="px-2 py-1.5 bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/40 rounded-xl text-[10px] font-mono text-cyan-200 transition-all text-center hover:shadow-[0_0_12px_rgba(6,182,212,0.3)] cursor-pointer"
+          >
+            Bay of Bengal
+          </button>
+          <button
+            onClick={() => useOceanStore.getState().selectRegionAndSwitchTo3D({
+              id: 'full_domain',
+              name: 'North Indian Ocean Basin',
+              minLon: 50.0,
+              maxLon: 95.0,
+              minLat: 0.0,
+              maxLat: 26.0,
+              centerLon: 72.5,
+              centerLat: 13.0,
+              minDepth: 0,
+              maxDepth: 2000,
+            })}
+            className="px-2 py-1.5 bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/50 rounded-xl text-[10px] font-mono text-sky-200 transition-all text-center hover:shadow-[0_0_12px_rgba(56,189,248,0.3)] cursor-pointer"
+          >
+            Full Basin
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

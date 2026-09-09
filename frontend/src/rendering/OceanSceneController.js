@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { EarthGlobe } from './environment/EarthGlobe';
+import { RealBathymetryMesh } from './environment/RealBathymetryMesh';
 import { CoastlineLayer } from './layers/CoastlineLayer';
 import { LandLayer } from './layers/LandLayer';
 import { CountryBorderLayer } from './layers/CountryBorderLayer';
@@ -87,6 +88,9 @@ export class OceanSceneController {
     this.isCameraLerping = false;
 
     this._initScene();
+    if (this.viewMode !== 'globe') {
+      this.setViewMode(this.viewMode);
+    }
   }
 
   _initScene() {
@@ -218,23 +222,44 @@ export class OceanSceneController {
     this.scene.add(this.targetMarker);
 
     // 15. Volumetric Raymarching Shader Pipeline for 3D Ocean Mode
-    this.volGeo = new THREE.BoxGeometry(this.xScale, 0.6 * this.verticalExaggeration, this.zScale);
-    const dummyTex = new THREE.Data3DTexture(new Float32Array(64 * 64 * 32), 64, 64, 32);
+    // Unit cube ensures inverse(modelMatrix) maps local space strictly to [-0.5, 0.5]^3
+    this.volGeo = new THREE.BoxGeometry(1.0, 1.0, 1.0);
+    this.volHeight = 0.32 * this.verticalExaggeration;
+
+    // Procedural initial temperature field (warm orange on surface, thermocline drop to deep blue)
+    const initialVolData = new Float32Array(64 * 64 * 32);
+    for (let z = 0; z < 32; z++) {
+      const normDepth = z / 31.0;
+      for (let y = 0; y < 64; y++) {
+        const normLat = y / 63.0;
+        for (let x = 0; x < 64; x++) {
+          const normLon = x / 63.0;
+          const idx = z * 64 * 64 + y * 64 + x;
+          const tempProfile = 0.90 - 0.72 * Math.pow(normDepth, 0.65) + 0.04 * Math.sin(normLon * Math.PI) - 0.03 * (normLat * 0.5);
+          initialVolData[idx] = Math.max(0.05, Math.min(0.98, tempProfile));
+        }
+      }
+    }
+    const dummyTex = new THREE.Data3DTexture(initialVolData, 64, 64, 32);
     dummyTex.format = THREE.RedFormat;
     dummyTex.type = THREE.FloatType;
+    dummyTex.minFilter = THREE.LinearFilter;
+    dummyTex.magFilter = THREE.LinearFilter;
+    dummyTex.unpackAlignment = 1;
     dummyTex.needsUpdate = true;
     this.volumeTexture = dummyTex;
 
     this.volumeMaterial = new THREE.ShaderMaterial({
+      glslVersion: THREE.GLSL3,
       vertexShader: VolumeVertexShader,
       fragmentShader: VolumeFragmentShader,
-      side: THREE.BackSide,
+      side: THREE.FrontSide,
       transparent: true,
       depthWrite: false,
       uniforms: {
         u_data: { value: this.volumeTexture },
         u_dim: { value: new THREE.Vector3(64, 64, 32) },
-        u_opacity: { value: 0.6 },
+        u_opacity: { value: 0.85 },
         u_threshold: { value: 0.0 },
         u_isoValue: { value: 0.5 },
         u_renderMode: { value: 0 },
@@ -248,8 +273,47 @@ export class OceanSceneController {
     });
     this.volMesh = new THREE.Mesh(this.volGeo, this.volumeMaterial);
     this.volMesh.name = 'VolumeMesh';
+    this.volMesh.scale.set(this.xScale, this.volHeight, this.zScale);
+    this.volMesh.position.set(0, -this.volHeight * 0.5 + 0.005, 0);
     this.volMesh.visible = false; // Hidden in default Earth Globe mode
     this.scene.add(this.volMesh);
+
+    // 15. Pure Volumetric Prism Bounding Cage & Seafloor Plate
+    const cageGeo = new THREE.BoxGeometry(1.0, 1.0, 1.0);
+    const cageEdges = new THREE.EdgesGeometry(cageGeo);
+    this.volumeCageMat = new THREE.LineBasicMaterial({
+      color: 0x06b6d4,
+      transparent: true,
+      opacity: 0.55,
+    });
+    this.volumeCage = new THREE.LineSegments(cageEdges, this.volumeCageMat);
+    this.volumeCage.name = 'VolumePrismBoundingCage';
+    this.volumeCage.scale.set(this.xScale, this.volHeight, this.zScale);
+    this.volumeCage.position.set(0, -this.volHeight * 0.5, 0);
+    this.volumeCage.visible = false;
+    this.scene.add(this.volumeCage);
+
+    const baseGeo = new THREE.PlaneGeometry(this.xScale, this.zScale);
+    baseGeo.rotateX(-Math.PI / 2);
+    const baseMat = new THREE.MeshBasicMaterial({
+      color: 0x0a1120,
+      side: THREE.DoubleSide,
+    });
+    this.basePlate = new THREE.Mesh(baseGeo, baseMat);
+    this.basePlate.name = 'VolumeBasePlate';
+    this.basePlate.position.set(0, -this.volHeight, 0);
+    this.basePlate.visible = false;
+    this.scene.add(this.basePlate);
+
+    // 15. Realistic Bathymetry and Landmass Terrain from extracted backend data
+    this.realBathymetryMesh = new RealBathymetryMesh({
+      bounds: this.bounds,
+      xScale: this.xScale,
+      zScale: this.zScale,
+      verticalExaggeration: this.verticalExaggeration,
+    });
+    this.realBathymetryMesh.setVisible(this.viewMode === 'ocean3d');
+    this.scene.add(this.realBathymetryMesh.group);
 
     // 16. Raycaster & Pointer Handlers
     this.raycaster = new THREE.Raycaster();
@@ -495,15 +559,23 @@ export class OceanSceneController {
     if (this.currentVectorLayer) this.currentVectorLayer.setVisible(isGlobe);
 
     if (this.volMesh) this.volMesh.visible = !isGlobe;
+    if (this.volumeCage) this.volumeCage.visible = !isGlobe;
+    if (this.basePlate) this.basePlate.visible = !isGlobe;
+    if (this.realBathymetryMesh) this.realBathymetryMesh.setVisible(!isGlobe);
+
+    if (!isGlobe) {
+      this.fitVolumeBounds();
+    }
+
     this.updateArgoMarkers(this.argoFloats, this.selectedFloat, this.verticalExaggeration, this.volumeMeta);
   }
 
-  updateVolumeData(volumeBuffer, volumeMeta) {
+  updateVolumeData(volumeBuffer, volumeMeta, bathymetryBuffer) {
     if (!volumeBuffer || !volumeMeta) return;
 
     this.volumeBuffer = volumeBuffer;
     this.volumeMeta = volumeMeta;
-    const { dimX, dimY, dimZ } = volumeMeta;
+    const { dimX, dimY, dimZ, maxDepth = 2000 } = volumeMeta;
 
     if (volumeMeta.minLon !== undefined && volumeMeta.maxLon !== undefined) {
       this.bounds = {
@@ -512,6 +584,41 @@ export class OceanSceneController {
         minLat: volumeMeta.minLat,
         maxLat: volumeMeta.maxLat,
       };
+
+      const lonSpan = Math.max(1.0, this.bounds.maxLon - this.bounds.minLon);
+      const latSpan = Math.max(1.0, this.bounds.maxLat - this.bounds.minLat);
+      const aspect = lonSpan / latSpan;
+
+      if (aspect >= 1.0) {
+        this.xScale = 2.2;
+        this.zScale = 2.2 / aspect;
+      } else {
+        this.zScale = 2.0;
+        this.xScale = 2.0 * aspect;
+      }
+
+      if (this.volMesh) {
+        this.volMesh.scale.set(this.xScale, this.volHeight, this.zScale);
+        this.volMesh.position.set(0, -this.volHeight * 0.5 + 0.005, 0);
+      }
+      if (this.volumeCage) {
+        this.volumeCage.scale.set(this.xScale, this.volHeight, this.zScale);
+        this.volumeCage.position.set(0, -this.volHeight * 0.5, 0);
+      }
+      if (this.realBathymetryMesh) {
+        this.realBathymetryMesh.update({
+          bounds: this.bounds,
+          xScale: this.xScale,
+          zScale: this.zScale,
+          verticalExaggeration: this.verticalExaggeration,
+          bathymetryBuffer,
+          dimX,
+          dimY,
+          maxDepth,
+        });
+      }
+
+      this.fitVolumeBounds();
     }
 
     // 1. Update Volumetric 3D texture for Ocean 3D mode
@@ -541,6 +648,24 @@ export class OceanSceneController {
     }
   }
 
+  fitVolumeBounds() {
+    if (this.viewMode !== 'ocean3d') return;
+    
+    // Calculate a good camera distance based on xScale and zScale
+    const maxDim = Math.max(this.xScale, this.zScale);
+    const dist = maxDim * 1.2;
+    
+    // Maintain the isometric angle (-35 deg azimuth, 30 deg elevation)
+    // Azimuth -35 deg from +Z axis towards -X axis:
+    // x = -dist * sin(35) ~ -dist * 0.573
+    // z = dist * cos(35) ~ dist * 0.819
+    // y = dist * sin(30) ~ dist * 0.5 + 0.3 (offset for center)
+    
+    this.cameraTargetPos = new THREE.Vector3(-dist * 0.57, dist * 0.5 + 0.3, dist * 0.82);
+    this.controlsTargetPos = new THREE.Vector3(0, -this.volHeight * 0.5, 0);
+    this.isCameraLerping = true;
+  }
+
   updateUniforms({
     opacity,
     threshold,
@@ -567,6 +692,29 @@ export class OceanSceneController {
       }
       if (sliceDepthMeters !== undefined) this.volumeMaterial.uniforms.u_sliceZ.value = sliceDepthMeters / 2000.0;
       if (enableSlice !== undefined) this.volumeMaterial.uniforms.u_enableSlice.value = enableSlice ? 1 : 0;
+      if (verticalExaggeration !== undefined) {
+        this.verticalExaggeration = verticalExaggeration;
+        this.volHeight = 0.32 * this.verticalExaggeration;
+        if (this.volMesh) {
+          this.volMesh.scale.set(this.xScale, this.volHeight, this.zScale);
+          this.volMesh.position.set(0, -this.volHeight * 0.5 + 0.005, 0);
+        }
+        if (this.volumeCage) {
+          this.volumeCage.scale.set(this.xScale, this.volHeight, this.zScale);
+          this.volumeCage.position.set(0, -this.volHeight * 0.5, 0);
+        }
+        if (this.basePlate) {
+          this.basePlate.position.set(0, -this.volHeight, 0);
+        }
+        if (this.realBathymetryMesh) {
+          this.realBathymetryMesh.update({
+            bounds: this.bounds,
+            xScale: this.xScale,
+            zScale: this.zScale,
+            verticalExaggeration: this.verticalExaggeration,
+          });
+        }
+      }
     }
   }
 
@@ -624,18 +772,24 @@ export class OceanSceneController {
     volumeRaymarch,
     atmosphere,
   }) {
-    if (earthGlobe !== undefined && this.earthGlobe) this.earthGlobe.setVisible(earthGlobe);
-    if (coastlines !== undefined && this.coastlineLayer) this.coastlineLayer.setVisible(coastlines);
-    if (land !== undefined && this.landLayer) this.landLayer.setVisible(land);
-    if (countryBorders !== undefined && this.countryBorderLayer) this.countryBorderLayer.setVisible(countryBorders);
-    if (graticule !== undefined && this.graticuleLayer) this.graticuleLayer.setVisible(graticule);
-    if (modelCoverage !== undefined && this.modelCoverageLayer) this.modelCoverageLayer.setVisible(modelCoverage);
+    const is3D = this.viewMode === 'ocean3d';
+
+    if (this.earthGlobe) this.earthGlobe.setVisible(is3D ? false : (earthGlobe ?? true));
+    if (this.coastlineLayer) this.coastlineLayer.setVisible(is3D ? false : (coastlines ?? true));
+    if (this.landLayer) this.landLayer.setVisible(is3D ? false : (land ?? true));
+    if (this.countryBorderLayer) this.countryBorderLayer.setVisible(is3D ? false : (countryBorders ?? true));
+    if (this.graticuleLayer) this.graticuleLayer.setVisible(is3D ? false : (graticule ?? true));
+    if (this.modelCoverageLayer) this.modelCoverageLayer.setVisible(is3D ? false : (modelCoverage ?? true));
+    if (this.satelliteLayer) this.satelliteLayer.setVisible(is3D ? false : (satellites ?? true));
+    if (this.eventsLayer) this.eventsLayer.setVisible(is3D ? false : (events ?? true));
+    if (this.currentVectorLayer) this.currentVectorLayer.setVisible(is3D ? false : (currentVectors ?? true));
+
+    if (this.volMesh) this.volMesh.visible = is3D;
+    if (this.volumeCage) this.volumeCage.visible = is3D;
+    if (this.basePlate) this.basePlate.visible = is3D;
+    if (this.realBathymetryMesh) this.realBathymetryMesh.setVisible(is3D);
     if (argoSensors !== undefined && this.floatGroup) this.floatGroup.visible = argoSensors;
-    if (satellites !== undefined && this.satelliteLayer) this.satelliteLayer.setVisible(satellites);
-    if (events !== undefined && this.eventsLayer) this.eventsLayer.setVisible(events);
-    if (currentVectors !== undefined && this.currentVectorLayer) this.currentVectorLayer.setVisible(currentVectors);
-    if (volumeRaymarch !== undefined && this.volMesh) this.volMesh.visible = volumeRaymarch;
-    if (atmosphere !== undefined && this.earthGlobe) this.earthGlobe.setAtmosphereVisible(atmosphere);
+    if (atmosphere !== undefined && this.earthGlobe) this.earthGlobe.setAtmosphereVisible(is3D ? false : atmosphere);
   }
 
   updateArgoMarkers(argoFloats, selectedFloat, verticalExaggeration, volumeMeta) {
@@ -711,35 +865,46 @@ export class OceanSceneController {
         marker.add(pingRing);
       } else {
         // Planar Ocean 3D Mode
-        const surfaceY = 0.3 * this.verticalExaggeration;
-        const w = lonLatToWorld(float.latest_position.longitude, float.latest_position.latitude, surfaceY, this.bounds, {
+        const lat = float.latest_position?.latitude;
+        const lon = float.latest_position?.longitude;
+        if (lat === undefined || lon === undefined) return;
+        // Only show Argo floats inside the active 3D volume domain
+        if (lat < this.bounds.minLat || lat > this.bounds.maxLat || lon < this.bounds.minLon || lon > this.bounds.maxLon) {
+          return;
+        }
+
+        const surfaceY = 0.01;
+        const seabedY = -0.30 * this.verticalExaggeration;
+        const w = lonLatToWorld(lon, lat, surfaceY, this.bounds, {
           xScale: this.xScale,
           zScale: this.zScale,
         });
 
+        // Depth profile line
         const lineGeo = new THREE.BufferGeometry().setFromPoints([
           new THREE.Vector3(w.x, surfaceY, w.z),
-          new THREE.Vector3(w.x, -0.3 * this.verticalExaggeration, w.z),
+          new THREE.Vector3(w.x, seabedY, w.z),
         ]);
         const lineMat = new THREE.LineDashedMaterial({
-          color: isSelected ? 0x38bdf8 : 0xf59e0b,
-          dashSize: 0.02,
-          gapSize: 0.01,
+          color: isSelected ? 0x38bdf8 : 0xf97316,
+          dashSize: 0.015,
+          gapSize: 0.008,
         });
         const line = new THREE.Line(lineGeo, lineMat);
         line.computeLineDistances();
         marker.add(line);
 
-        const buoyGeo = new THREE.CylinderGeometry(0.016, 0.016, 0.042, 16);
+        // Subtle 3D Glowing Profiler Buoy Pin (radius 0.012)
+        const buoyGeo = new THREE.SphereGeometry(0.012, 12, 12);
         const buoyMat = new THREE.MeshStandardMaterial({
-          color: isSelected ? 0x38bdf8 : 0xf59e0b,
+          color: isSelected ? 0x38bdf8 : 0xf97316,
           roughness: 0.2,
           metalness: 0.8,
-          emissive: isSelected ? 0x0284c7 : 0xd97706,
-          emissiveIntensity: isSelected ? 0.9 : 0.4,
+          emissive: isSelected ? 0x0284c7 : 0xea580c,
+          emissiveIntensity: isSelected ? 1.0 : 0.6,
         });
         const buoy = new THREE.Mesh(buoyGeo, buoyMat);
-        buoy.position.set(w.x, surfaceY + 0.02, w.z);
+        buoy.position.set(w.x, surfaceY + 0.006, w.z);
         marker.add(buoy);
       }
 
@@ -898,5 +1063,18 @@ export class OceanSceneController {
     if (this.volumeTexture) this.volumeTexture.dispose();
     if (this.volGeo) this.volGeo.dispose();
     if (this.volumeMaterial) this.volumeMaterial.dispose();
+    if (this.volumeCage) {
+      this.volumeCage.geometry.dispose();
+      this.volumeCageMat.dispose();
+    }
+    if (this.basePlate) {
+      this.basePlate.geometry.dispose();
+      this.basePlate.material.dispose();
+    }
+    if (this.displacementTerrain) {
+      this.displacementTerrain.dispose();
+      this.scene.remove(this.displacementTerrain.group);
+      this.displacementTerrain = null;
+    }
   }
 }

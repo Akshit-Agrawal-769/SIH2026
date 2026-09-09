@@ -1,3 +1,4 @@
+from typing import Optional
 import os
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Response
@@ -35,7 +36,11 @@ def get_model_volume_3d(
     time_idx: int = Query(0, ge=0, description="Time step index"),
     dim_x: int = Query(64, ge=16, le=256, description="Resolution X cap"),
     dim_y: int = Query(64, ge=16, le=256, description="Resolution Y cap"),
-    dim_z: int = Query(32, ge=8, le=128, description="Resolution Z cap")
+    dim_z: int = Query(32, ge=8, le=128, description="Resolution Z cap"),
+    min_lon: Optional[float] = Query(None, description="Bounding box min longitude"),
+    max_lon: Optional[float] = Query(None, description="Bounding box max longitude"),
+    min_lat: Optional[float] = Query(None, description="Bounding box min latitude"),
+    max_lat: Optional[float] = Query(None, description="Bounding box max latitude")
 ):
 
     model = ocean_model_registry.get_model(filename)
@@ -45,7 +50,16 @@ def get_model_volume_3d(
             detail=f"REAL DATASET REQUIRED: Dataset '{filename}' not found or invalid format."
         )
 
-    result = model.extract_volume_buffer(variable, time_idx, (dim_x, dim_y, dim_z))
+    spatial_bounds = None
+    if min_lon is not None and max_lon is not None and min_lat is not None and max_lat is not None:
+        spatial_bounds = {
+            "min_lon": min_lon,
+            "max_lon": max_lon,
+            "min_lat": min_lat,
+            "max_lat": max_lat,
+        }
+
+    result = model.extract_volume_buffer(variable, time_idx, (dim_x, dim_y, dim_z), spatial_bounds=spatial_bounds)
     if not result:
         raise HTTPException(
             status_code=404,
@@ -70,6 +84,7 @@ def get_model_volume_3d(
         "X-Units": meta["units"],
         "X-Has-Nan": str(meta["has_nan"]),
         "X-Nan-Value": str(meta["nan_value"]),
+        "X-Bathymetry-Bytes": str(meta.get("bathymetry_bytes", 0)),
     }
     
     return Response(content=buffer, media_type="application/octet-stream", headers=headers)
