@@ -983,7 +983,7 @@ if (accumulatedColor.a >= 0.98) break;  // Early-ray termination`}
           </div>
           <p className="text-[10px] text-slate-500 mt-4 font-mono flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-            All formulas derived from and consistent with the production implementation. Source-of-truth: <code className="text-slate-300">METHODOLOGY.md</code> · <code className="text-slate-300">SCIENTIFIC_METHODS.md</code>
+            All formulas derived from and consistent with the production implementation. Source-of-truth: <code className="text-slate-300">METHODOLOGY.md</code>
           </p>
         </div>
       </div>
