@@ -10,7 +10,8 @@ import {
   Droplets,
   Activity,
   Wind,
-  Loader2
+  Loader2,
+  Box
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -19,12 +20,11 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  CartesianGrid,
-  Legend
+  CartesianGrid
 } from 'recharts';
 
 export const InstrumentProfileModal: React.FC = () => {
-  const { selectedInstrumentId, setSelectedInstrumentId } = useOceanStore();
+  const { selectedInstrumentId, setSelectedInstrumentId, openWaterBlock } = useOceanStore();
   const [profile, setProfile] = useState<InstrumentProfileResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,24 +95,6 @@ export const InstrumentProfileModal: React.FC = () => {
   const surfaceMeasurement = profile?.measurements[0];
   const deepMeasurement = profile?.measurements[profile.measurements.length - 1];
 
-  // Inject model line (synthetic thermocline for demo)
-  const chartData = profile?.measurements.map((m) => {
-    let modelValue = (m as any)[currentConfig.dataKey];
-    if (modelValue !== undefined) {
-      if (activeTab === 'temperature') {
-        // Standard thermocline smoothing
-        const surfaceT = (surfaceMeasurement as any).temperature || 28.0;
-        const deepT = (deepMeasurement as any).temperature || 4.0;
-        modelValue = deepT + (surfaceT - deepT) * Math.exp(-m.depth / 200.0);
-      } else if (activeTab === 'salinity') {
-        modelValue = modelValue * 0.99 + 0.3; // Slight positive offset
-      } else {
-        modelValue = modelValue * 1.05; // 5% higher
-      }
-    }
-    return { ...m, modelValue };
-  });
-
   return (
     <div className="absolute right-4 top-16 bottom-20 w-96 bg-ocean-panel/95 backdrop-blur-xl border border-ocean-border rounded-2xl shadow-2xl z-40 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right duration-200">
       {/* Header */}
@@ -166,6 +148,27 @@ export const InstrumentProfileModal: React.FC = () => {
               {new Date(profile.timestamp).toLocaleDateString()}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* 3D Volumetric Ocean Block Trigger */}
+      {profile && (
+        <div className="px-3 pt-2.5">
+          <button
+            onClick={() => {
+              openWaterBlock({
+                lon: profile.longitude,
+                lat: profile.latitude,
+                name: `${meta.wmo ? `Float WMO #${meta.wmo}` : profile.external_id} (${meta.location_name || 'In-Situ Water Column'})`,
+                instrumentId: selectedInstrumentId,
+                platformType: profile.platform_type
+              });
+            }}
+            className="w-full py-2 px-3 bg-gradient-to-r from-cyan-600/30 to-blue-600/40 hover:from-cyan-600/50 hover:to-blue-600/60 text-cyan-200 border border-cyan-400/50 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md shadow-cyan-500/20 transition active:scale-[0.98]"
+          >
+            <Box className="w-4 h-4 text-cyan-300 animate-pulse" />
+            <span>Inspect 3D Water Block (0–2000m)</span>
+          </button>
         </div>
       )}
 
@@ -245,7 +248,7 @@ export const InstrumentProfileModal: React.FC = () => {
             <div className="w-full h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={chartData}
+                  data={profile.measurements}
                   layout="vertical"
                   margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                 >
@@ -276,34 +279,16 @@ export const InstrumentProfileModal: React.FC = () => {
                       color: '#f8fafc',
                       fontSize: '11px'
                     }}
-                    formatter={(val: any) => [`${parseFloat(val).toFixed(2)} ${currentConfig.unit}`]}
+                    formatter={(val: any) => [`${val} ${currentConfig.unit}`, currentConfig.name]}
                     labelFormatter={(depthVal: any) => `Depth: ${depthVal} meters`}
                   />
-                  <Legend 
-                    verticalAlign="top" 
-                    height={30}
-                    iconType="circle"
-                    wrapperStyle={{ fontSize: '11px', color: '#cbd5e1' }}
-                  />
                   <Line
-                    name="Observation"
                     type="monotone"
                     dataKey={currentConfig.dataKey}
                     stroke={currentConfig.color}
                     strokeWidth={2.5}
                     dot={{ r: 2, fill: currentConfig.color }}
                     activeDot={{ r: 5 }}
-                    isAnimationActive={true}
-                  />
-                  <Line
-                    name="Model"
-                    type="monotone"
-                    dataKey="modelValue"
-                    stroke="#ffffff"
-                    strokeDasharray="5 5"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={false}
                     isAnimationActive={true}
                   />
                 </LineChart>

@@ -1,13 +1,13 @@
 import React from 'react';
 import { useOceanStore } from '../store/useOceanStore';
-import { Thermometer, Droplets, Activity, Compass } from 'lucide-react';
+import { Thermometer, Droplets, Activity, Compass, Wind } from 'lucide-react';
 
 export const OceanHoverHUD: React.FC = () => {
   const { hoveredOceanInfo } = useOceanStore();
 
   if (!hoveredOceanInfo) return null;
 
-  const { lon, lat, variable, depth, value, unit, screenX, screenY } = hoveredOceanInfo;
+  const { lon, lat, variable, depth, value, unit, screenX, screenY, currentSpeed, currentHeading } = hoveredOceanInfo;
 
   // Determine geographic basin name from coordinates
   const getBasinName = (lonVal: number, latVal: number): string => {
@@ -74,6 +74,22 @@ export const OceanHoverHUD: React.FC = () => {
           {basin}
         </div>
       </div>
+
+      {/* Ocean Current Telemetry if available */}
+      {currentSpeed !== undefined && (
+        <div className="pt-1.5 border-t border-cyan-500/20 flex items-center justify-between text-[10px] font-mono">
+          <div className="flex items-center gap-1 text-cyan-300">
+            <Wind className="w-3 h-3 text-cyan-400" />
+            <span>Current:</span>
+          </div>
+          <span className="font-bold text-white">
+            {currentSpeed.toFixed(2)} m/s
+            {currentHeading !== undefined && (
+              <span className="text-cyan-400 text-[9px] ml-1 font-normal">({currentHeading}°)</span>
+            )}
+          </span>
+        </div>
+      )}
     </div>
   );
 };

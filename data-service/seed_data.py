@@ -9,6 +9,7 @@ from app.db.session import SessionLocal, engine
 from app.db.models import Base, Instrument, Profile, Measurement
 from app.ingestion.argo import ArgoIngestionAdapter
 from app.ingestion.glider import GliderIngestionAdapter
+from app.ingestion.moored_buoy import MooredBuoyIngestionAdapter
 from app.ingestion.copernicus import CopernicusIngestionAdapter
 
 def seed_all():
@@ -32,7 +33,7 @@ def seed_all():
         print(f"-> Ingested {argo_count} Argo float stations into PostGIS!")
 
         # 2. Ingest Autonomous Gliders
-        print("\n[2/3] Running Autonomous Glider Ingestion...")
+        print("\n[2/4] Running Autonomous Glider Ingestion...")
         glider_adapter = GliderIngestionAdapter()
         raw_gliders = glider_adapter.fetch(
             start_date=datetime(2024, 6, 1, tzinfo=timezone.utc),
@@ -43,8 +44,20 @@ def seed_all():
         glider_count = glider_adapter.store(norm_gliders, db)
         print(f"-> Ingested {glider_count} Glider transect missions into PostGIS!")
 
-        # 3. Model Voxelization & Binary Tile Storage (MinIO)
-        print("\n[3/3] Running Model Voxelization & MinIO Texture Upload...")
+        # 3. Ingest Moored MetOcean Buoys
+        print("\n[3/4] Running Moored MetOcean Buoy Ingestion...")
+        buoy_adapter = MooredBuoyIngestionAdapter()
+        raw_buoys = buoy_adapter.fetch(
+            start_date=datetime(2024, 6, 1, tzinfo=timezone.utc),
+            end_date=datetime(2024, 6, 5, tzinfo=timezone.utc),
+            bbox=[45.0, -15.0, 100.0, 30.0]
+        )
+        norm_buoys = buoy_adapter.normalize(raw_buoys)
+        buoy_count = buoy_adapter.store(norm_buoys, db)
+        print(f"-> Ingested {buoy_count} Moored Buoy stations into PostGIS!")
+
+        # 4. Model Voxelization & Binary Tile Storage (MinIO)
+        print("\n[4/4] Running Model Voxelization & MinIO Texture Upload...")
         model_adapter = CopernicusIngestionAdapter()
         tile_stats = model_adapter.generate_and_store_tiles(["temperature", "salinity", "chlorophyll", "currents"])
         for var, count in tile_stats.items():

@@ -1,10 +1,18 @@
 import React from 'react';
 import { useOceanStore } from '../store/useOceanStore';
 import { getAllLayers, LayerCategory } from '../layers/registry';
-import { Layers, Activity, Droplets, Wind, Waves, Radio, Anchor, Compass } from 'lucide-react';
+import { Layers, Activity, Droplets, Wind, Waves, Radio, Anchor, Compass, Box } from 'lucide-react';
 
 export const LeftPanel: React.FC = () => {
-  const { activeLayers, toggleLayer, selectedVariable, setSelectedVariable } = useOceanStore();
+  const {
+    activeLayers,
+    toggleLayer,
+    selectedVariable,
+    setSelectedVariable,
+    is3DVolumeBlockEnabled,
+    toggle3DVolumeBlock,
+    openWaterBlock
+  } = useOceanStore();
   const allLayers = getAllLayers();
 
   const getIcon = (iconName?: string, fallbackId?: string) => {
@@ -75,6 +83,49 @@ export const LeftPanel: React.FC = () => {
               </div>
 
               <div className="space-y-1">
+                {cat.key === 'model_field' && (
+                  <div
+                    onClick={toggle3DVolumeBlock}
+                    className={`p-2 rounded-lg border transition-all flex items-center justify-between cursor-pointer select-none mb-1.5 ${
+                      is3DVolumeBlockEnabled
+                        ? 'bg-cyan-500/15 border-cyan-400/50 text-white shadow-sm'
+                        : 'bg-ocean-dark/40 border-ocean-border/40 text-slate-400 hover:border-slate-600 hover:text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={is3DVolumeBlockEnabled}
+                        onChange={() => {}}
+                        className="rounded bg-ocean-dark border-slate-600 text-cyan-400 focus:ring-0 cursor-pointer"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Box className="w-3.5 h-3.5 text-cyan-300" />
+                        <div>
+                          <div className="text-xs font-medium leading-none flex items-center gap-1.5">
+                            <span>3D Volumetric Slab</span>
+                            <span className="text-[8px] bg-cyan-400/20 text-cyan-300 px-1 py-0.5 rounded font-mono">0-2000m</span>
+                          </div>
+                          <span className="text-[8px] text-ocean-muted font-mono">Depth walls &amp; strata</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openWaterBlock({
+                          lon: 78.0,
+                          lat: 12.0,
+                          name: 'Indian Ocean Water Column'
+                        });
+                      }}
+                      className="text-[9px] text-cyan-300 hover:text-white px-1.5 py-0.5 rounded bg-cyan-500/20 hover:bg-cyan-500/40 border border-cyan-500/40 font-mono transition"
+                      title="Open 3D Volumetric Water Block Studio"
+                    >
+                      3D View
+                    </button>
+                  </div>
+                )}
                 {layersInCat.map((layer) => {
                   const isEnabled = activeLayers.includes(layer.id);
                   const isSelectedModel = selectedVariable === layer.id;

@@ -13,7 +13,8 @@ import {
   Share2,
   Check,
   MapPin,
-  Loader2
+  Loader2,
+  Box
 } from 'lucide-react';
 import * as Cesium from 'cesium';
 import { flyToCoordinates } from '../globe/cameraUtils';
@@ -55,7 +56,8 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
     showRightPanel,
     toggleRightPanel,
     showBottomBar,
-    toggleBottomBar
+    toggleBottomBar,
+    openWaterBlock
   } = useOceanStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -160,24 +162,24 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
   };
 
   return (
-    <header className="absolute top-0 left-0 right-0 h-14 bg-ocean-dark/90 backdrop-blur-md border-b border-ocean-border z-30 flex items-center justify-between px-4">
+    <header className="absolute top-0 left-0 right-0 h-14 bg-ocean-dark/90 backdrop-blur-md border-b border-ocean-border z-30 flex items-center justify-between px-4 gap-3">
       {/* Brand & Title */}
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20">
+      <div className="flex items-center gap-2.5 shrink-0 select-none">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20 shrink-0">
           <Compass className="w-5 h-5 text-white" />
         </div>
-        <div>
-          <h1 className="font-bold text-sm tracking-wide text-white flex items-center gap-2">
-            INCOIS <span className="text-ocean-accent">3D Ocean Platform</span>
+        <div className="flex flex-col justify-center">
+          <h1 className="font-bold text-sm tracking-wide text-white flex items-center gap-1.5 whitespace-nowrap leading-tight">
+            INCOIS <span className="text-ocean-accent font-semibold">3D Ocean Platform</span>
           </h1>
-          <p className="text-[10px] text-ocean-muted tracking-tight">
+          <p className="text-[10px] text-ocean-muted tracking-tight whitespace-nowrap leading-tight hidden sm:block">
             Indian Ocean Digital Twin &amp; In-Situ Observations
           </p>
         </div>
       </div>
 
       {/* Geocoding Location Search */}
-      <div ref={searchRef} className="relative w-64 md:w-80 lg:w-96">
+      <div ref={searchRef} className="relative w-44 sm:w-60 md:w-72 lg:w-80 min-w-0 shrink">
         <form onSubmit={handleOnlineGeocode} className="relative flex items-center">
           <input
             type="text"
@@ -206,13 +208,27 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
               >
                 <div className="flex items-center gap-2">
                   <MapPin className="w-3.5 h-3.5 text-ocean-accent shrink-0" />
-                  <span className="text-xs text-slate-200 font-medium truncate max-w-[200px]">
+                  <span className="text-xs text-slate-200 font-medium truncate max-w-[180px]">
                     {loc.name}
                   </span>
                 </div>
-                <span className="text-[10px] font-mono text-ocean-muted uppercase px-1.5 py-0.5 rounded bg-ocean-dark/60">
-                  {loc.category}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono text-ocean-muted uppercase px-1.5 py-0.5 rounded bg-ocean-dark/60">
+                    {loc.category}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openWaterBlock({ lon: loc.lon, lat: loc.lat, name: `${loc.name} Water Column` });
+                      setShowDropdown(false);
+                    }}
+                    className="p-1 rounded bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-300 border border-cyan-500/40 text-[9px] font-mono flex items-center gap-1 transition"
+                    title="Open 3D Volumetric Water Block for this location"
+                  >
+                    <Box className="w-3 h-3 text-cyan-300" />
+                    <span>3D Cube</span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -257,10 +273,25 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
         >
           Arabian Sea
         </button>
+        <div className="w-[1px] h-4 bg-ocean-border/80 mx-1" />
+        <button
+          onClick={() => {
+            openWaterBlock({
+              lon: 78.0,
+              lat: 12.0,
+              name: 'Indian Ocean Water Column'
+            });
+          }}
+          className="px-2.5 py-1 text-xs font-semibold rounded bg-gradient-to-r from-cyan-500/25 to-blue-600/30 border border-cyan-400/60 text-cyan-200 hover:from-cyan-500/40 hover:to-blue-600/50 transition flex items-center gap-1.5 shadow-md shadow-cyan-500/20"
+          title="Open 3D Volumetric Water Column Cube Viewer (0–2000m)"
+        >
+          <Box className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+          <span>3D Ocean Cube</span>
+        </button>
       </div>
 
       {/* Right Controls: Share Link, HUD Toggles, Mode Switch */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 shrink-0">
         {/* Share View Permalink */}
         <button
           onClick={handleShareLink}
