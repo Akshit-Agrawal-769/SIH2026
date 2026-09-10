@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useOceanStore } from '../store/useOceanStore';
-import { Thermometer, Droplets, Activity, Wind } from 'lucide-react';
+import { Thermometer, Droplets, Activity, Wind, X } from 'lucide-react';
 
 export const ColorbarLegend: React.FC = () => {
+  const [isDismissed, setIsDismissed] = useState(false);
   const {
     selectedVariable,
     depthLevel,
@@ -14,14 +15,20 @@ export const ColorbarLegend: React.FC = () => {
   } = useOceanStore();
 
   const isLayerActive = activeLayers.includes(selectedVariable);
-  if (!isLayerActive) return null;
+  if (!isLayerActive || isDismissed) return null;
 
   const getGradientCss = () => {
     switch (colorPalette.toLowerCase()) {
+      case 'noaa_sst':
+      case 'noaa':
+      case 'sst':
+        return 'linear-gradient(to right, #73088c 0%, #5014b4 8%, #1446d7 15%, #0080f0 23%, #00b4e6 30%, #00d7c8 38%, #14d278 45%, #3cd71e 52%, #aae600 60%, #ffeb00 68%, #ffb900 75%, #ff7d00 82%, #f5410a 88%, #e1190f 94%, #b90c0c 100%)';
+      case 'gfdl_chl':
+      case 'gfdl':
+      case 'chlorophyll':
+        return 'linear-gradient(to right, #aa14af 0%, #7319c3 7%, #2337d7 15%, #0a69eb 25%, #00aff0 35%, #0fd7c3 45%, #28d255 55%, #87e614 65%, #fae60a 75%, #ffaa00 85%, #f54b0f 92%, #c30f14 100%)';
       case 'viridis':
         return 'linear-gradient(to right, #440154, #3b528b, #21918c, #5ec962, #fde725)';
-      case 'chlorophyll':
-        return 'linear-gradient(to right, #0f172a, #0e7490, #10b981, #84cc16, #facc15)';
       case 'thermal':
       case 'plasma':
       case 'magma':
@@ -29,8 +36,9 @@ export const ColorbarLegend: React.FC = () => {
       case 'coolwarm':
         return 'linear-gradient(to right, #3b4cc0, #8daff0, #dddddd, #f39475, #b40426)';
       case 'turbo':
-      default:
         return 'linear-gradient(to right, #30123b, #4145ab, #4675ed, #39a2fc, #1bcfd4, #24eca6, #61fc4c, #a4fc3b, #d1e834, #f3c63a, #fe9b2d, #f36315, #d93806, #b11901, #7a0402)';
+      default:
+        return 'linear-gradient(to right, #73088c 0%, #5014b4 8%, #1446d7 15%, #0080f0 23%, #00b4e6 30%, #00d7c8 38%, #14d278 45%, #3cd71e 52%, #aae600 60%, #ffeb00 68%, #ffb900 75%, #ff7d00 82%, #f5410a 88%, #e1190f 94%, #b90c0c 100%)';
     }
   };
 
@@ -107,6 +115,13 @@ export const ColorbarLegend: React.FC = () => {
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-ocean-dark border border-ocean-border text-cyan-400">
             {depthLevel === 0.5 ? 'Surface (0m)' : `${depthLevel}m`}
           </span>
+          <button
+            onClick={() => setIsDismissed(true)}
+            className="p-0.5 rounded hover:bg-white/10 text-slate-400 hover:text-white transition ml-1"
+            title="Dismiss legend"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 

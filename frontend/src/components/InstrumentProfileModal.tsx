@@ -10,7 +10,8 @@ import {
   Droplets,
   Activity,
   Wind,
-  Loader2
+  Loader2,
+  Box
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -24,7 +25,7 @@ import {
 } from 'recharts';
 
 export const InstrumentProfileModal: React.FC = () => {
-  const { selectedInstrumentId, setSelectedInstrumentId } = useOceanStore();
+  const { selectedInstrumentId, setSelectedInstrumentId, openWaterBlock } = useOceanStore();
   const [profile, setProfile] = useState<InstrumentProfileResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,6 +167,27 @@ export const InstrumentProfileModal: React.FC = () => {
               {new Date(profile.timestamp).toLocaleDateString()}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* 3D Volumetric Ocean Block Trigger */}
+      {profile && (
+        <div className="px-3 pt-2.5">
+          <button
+            onClick={() => {
+              openWaterBlock({
+                lon: profile.longitude,
+                lat: profile.latitude,
+                name: `${meta.wmo ? `Float WMO #${meta.wmo}` : profile.external_id} (${meta.location_name || 'In-Situ Water Column'})`,
+                instrumentId: selectedInstrumentId,
+                platformType: profile.platform_type
+              });
+            }}
+            className="w-full py-2 px-3 bg-gradient-to-r from-cyan-600/30 to-blue-600/40 hover:from-cyan-600/50 hover:to-blue-600/60 text-cyan-200 border border-cyan-400/50 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md shadow-cyan-500/20 transition active:scale-[0.98]"
+          >
+            <Box className="w-4 h-4 text-cyan-300 animate-pulse" />
+            <span>Inspect 3D Water Block (0–2000m)</span>
+          </button>
         </div>
       )}
 
