@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from typing import Tuple, List, Dict, Any
+from app.config import DATE_RANGE_START
 
 # Standard 20 oceanographic depth levels from surface to 2000 meters
 STANDARD_DEPTH_LEVELS = [
@@ -99,7 +100,7 @@ def get_grid_coordinates() -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 def generate_synthetic_ocean_slice(
     variable: str,
     depth: float,
-    date_str: str = "2024-06-01"
+    date_str: str = DATE_RANGE_START
 ) -> Tuple[np.ndarray, float, float]:
     """
     Generates a single 2D high-resolution (550x450, 0.1°) geophysical ocean depth slice
@@ -223,7 +224,7 @@ def generate_synthetic_ocean_slice(
 
 def generate_synthetic_ocean_field(
     variable: str,
-    date_str: str = "2024-06-01"
+    date_str: str = DATE_RANGE_START
 ) -> Tuple[np.ndarray, float, float]:
     """Generates the full 3D ocean volume stack across all standard depth levels."""
     lons, lats, depths = get_grid_coordinates()

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { TIMESTEPS } from '../config';
 
 export interface OceanState {
   // Mode
@@ -222,7 +223,7 @@ export const useOceanStore = create<OceanState>((set) => ({
   clickedGlobePoint: null,
   setClickedGlobePoint: (clickedGlobePoint) => set({ clickedGlobePoint }),
 
-  currentTime: '2024-06-01',
+  currentTime: TIMESTEPS[0],
   setCurrentTime: (currentTime) => set({ currentTime }),
   isPlaying: false,
   setIsPlaying: (isPlaying) => set({ isPlaying }),

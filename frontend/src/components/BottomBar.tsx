@@ -1,13 +1,12 @@
 import React, { useEffect } from 'react';
 import { useOceanStore } from '../store/useOceanStore';
 import { fetchOceanTile } from '../api/client';
+import { TIMESTEPS } from '../config';
 import { Play, Pause, FastForward, Rewind, Clock, Layers } from 'lucide-react';
 
 const DEPTH_LEVELS = [
   0.5, 5.0, 15.0, 30.0, 50.0, 75.0, 100.0, 150.0, 200.0, 300.0, 500.0, 800.0, 1000.0, 1500.0, 2000.0
 ];
-
-const TIMESTEPS = Array.from({ length: 14 }, (_, i) => `2024-06-${String(i + 1).padStart(2, '0')}`);
 
 export const BottomBar: React.FC = () => {
   const {

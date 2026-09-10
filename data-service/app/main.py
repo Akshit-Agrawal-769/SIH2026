@@ -13,32 +13,25 @@ app = FastAPI(
 )
 
 # CORS configuration
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers with and without /api prefix for proxy resilience
-app.include_router(variables.router, prefix="/api")
-app.include_router(manifest.router, prefix="/api")
-app.include_router(instruments.router, prefix="/api")
-app.include_router(tiles.router, prefix="/api")
-app.include_router(wms.router, prefix="/api")
-app.include_router(export.router, prefix="/api")
-
-app.include_router(variables.router)
-app.include_router(manifest.router)
-app.include_router(instruments.router)
-app.include_router(tiles.router)
-app.include_router(wms.router)
-app.include_router(export.router)
+for r in [variables.router, manifest.router, instruments.router, tiles.router, wms.router, export.router]:
+    app.include_router(r, prefix="/api")
+    app.include_router(r)
 
 start_time = time.time()
 
 @app.get("/health")
+@app.get("/api/health")
 def health_check():
     """System health check verifying database and service availability."""
     db_status = "unknown"

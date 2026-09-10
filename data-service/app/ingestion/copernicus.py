@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Dict, Any, List
 import numpy as np
 
+from app.config import TIMESTEPS
 from app.ingestion.base import IngestionAdapter
 from app.processing.voxelize import (
     generate_synthetic_ocean_field,
@@ -29,7 +30,7 @@ UNITS = {
     "chlorophyll": "mg/m³"
 }
 
-SAMPLE_TIMESTEPS = [f"2024-06-{d:02d}" for d in range(1, 15)]
+SAMPLE_TIMESTEPS = TIMESTEPS
 
 class CopernicusIngestionAdapter(IngestionAdapter):
     @property

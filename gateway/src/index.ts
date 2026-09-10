@@ -59,6 +59,7 @@ wss.on('connection', (ws: WebSocket) => {
   console.log('[WebSocket] Client connected');
   ws.send(JSON.stringify({ type: 'CONNECTED', message: 'Connected to INCOIS Live Gateway' }));
 
+  // TODO: not wired to any data source yet — broadcast() is exported but currently unused
   ws.on('message', (message: string) => {
     try {
       const data = JSON.parse(message.toString());

@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "dev:all": "concurrently \"cd ../data-service && python -m uvicorn app.main:app --reload\" \"vite\"",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
@@ -27,6 +28,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.19",
+    "concurrently": "^10.0.5",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.4.5",

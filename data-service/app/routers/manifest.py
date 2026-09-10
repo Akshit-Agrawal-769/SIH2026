@@ -4,6 +4,7 @@ import json
 import os
 from minio import Minio
 from minio.error import S3Error
+from app.config import TIMESTEPS
 from app.processing.voxelize import (
     STANDARD_DEPTH_LEVELS,
     LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
@@ -41,7 +42,6 @@ VARIABLE_CONFIGS: Dict[str, Dict[str, Any]] = {
     }
 }
 
-TIMESTEPS = ["2024-06-01", "2024-06-02", "2024-06-03", "2024-06-04", "2024-06-05"]
 
 @router.get("/{variable}")
 def get_manifest(variable: str):

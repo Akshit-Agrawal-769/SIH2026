@@ -14,6 +14,7 @@ from app.processing.voxelize import (
     LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
     GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH
 )
+from app.config import DATE_RANGE_START
 from app.processing.pack_texture import download_tile_from_minio
 
 router = APIRouter(prefix="/export", tags=["export"])
@@ -53,7 +54,7 @@ def remove_temp_file(path: str):
 def export_netcdf(
     background_tasks: BackgroundTasks,
     variable: str = Query("temperature", description="Ocean variable: temperature, salinity, currents, chlorophyll, or all"),
-    date: str = Query("2024-06-01", description="Simulation date (YYYY-MM-DD)"),
+    date: str = Query(DATE_RANGE_START, description="Simulation date (YYYY-MM-DD)"),
     min_lon: float = Query(LON_MIN, description="Western boundary longitude"),
     max_lon: float = Query(LON_MAX, description="Eastern boundary longitude"),
     min_lat: float = Query(LAT_MIN, description="Southern boundary latitude"),
@@ -87,7 +88,7 @@ def export_netcdf(
     # Calculate day index relative to base date 2024-06-01
     try:
         d_obj = datetime.strptime(date, "%Y-%m-%d")
-        base_obj = datetime(2024, 6, 1)
+        base_obj = datetime.strptime(DATE_RANGE_START, "%Y-%m-%d")
         day_val = float((d_obj - base_obj).days)
     except Exception:
         day_val = 0.0
@@ -123,7 +124,7 @@ def export_netcdf(
             v_time = ds.createVariable("time", "f8", ("time",))
             v_time.standard_name = "time"
             v_time.long_name = "Time"
-            v_time.units = "days since 2024-06-01 00:00:00"
+            v_time.units = f"days since {DATE_RANGE_START} 00:00:00"
             v_time.calendar = "standard"
             v_time.axis = "T"
             v_time[:] = [day_val]

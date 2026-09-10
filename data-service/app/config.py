@@ -1,0 +1,3 @@
+DATE_RANGE_START = "2024-06-01"
+DATE_RANGE_END = "2024-06-14"
+TIMESTEPS = [f"2024-06-{d:02d}" for d in range(1, 15)]

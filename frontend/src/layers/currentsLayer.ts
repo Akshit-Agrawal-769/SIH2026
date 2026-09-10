@@ -1,5 +1,6 @@
 import * as Cesium from 'cesium';
 import { isLand } from '../rendering/colormaps';
+import { TIMESTEPS } from '../config';
 
 export interface CurrentsSettings {
   speed?: number;
@@ -85,7 +86,7 @@ export function computeOceanVelocity(
   lon: number,
   lat: number,
   depth: number,
-  dateStr: string = '2024-06-01'
+  dateStr: string = TIMESTEPS[0]
 ): { u: number; v: number; speed: number; headingDeg: number } {
   // Vertical decay curve: rapid drop across pycnocline/thermocline, slow abyssal residual
   const depthDecay = Math.exp(-depth / 140.0);
@@ -183,7 +184,7 @@ export function createCurrentsLayer(
   const arrowTexture = getVectorArrowTexture();
   let isVisible = false;
   let currentDepth = 0.5;
-  let currentDate = '2024-06-01';
+  let currentDate = TIMESTEPS[0];
   let userArrowScale = 1.0;
   let flowSpeedMultiplier = 1.0;
 

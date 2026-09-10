@@ -162,6 +162,7 @@ export function parseOceanTileBuffer(
   };
 }
 
+const MAX_TILE_CACHE_SIZE = 200;
 const tileCache = new Map<string, OceanTileData>();
 
 /**
@@ -185,6 +186,14 @@ export async function fetchOceanTile(
 
   const buffer = await res.arrayBuffer();
   const parsed = parseOceanTileBuffer(buffer, variable, depth, date);
+
+  if (tileCache.size >= MAX_TILE_CACHE_SIZE) {
+    const oldestKey = tileCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      tileCache.delete(oldestKey);
+    }
+  }
+
   tileCache.set(cacheKey, parsed);
   return parsed;
 }

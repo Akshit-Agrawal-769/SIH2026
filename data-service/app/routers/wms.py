@@ -14,6 +14,7 @@ from app.processing.voxelize import (
     GRID_WIDTH, GRID_HEIGHT,
     compute_land_mask, point_in_polygon, LAND_POLYGONS
 )
+from app.config import DATE_RANGE_START, DATE_RANGE_END
 from app.processing.pack_texture import download_tile_from_minio
 
 router = APIRouter(tags=["wms"])
@@ -81,7 +82,7 @@ LAYER_METADATA = {
     }
 }
 
-CAPABILITIES_XML = """<?xml version="1.0" encoding="UTF-8"?>
+CAPABILITIES_XML = f"""<?xml version="1.0" encoding="UTF-8"?>
 <WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms"
     xmlns:xlink="http://www.w3.org/1999/xlink"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -163,7 +164,7 @@ CAPABILITIES_XML = """<?xml version="1.0" encoding="UTF-8"?>
         <Name>temperature</Name>
         <Title>Ocean Potential Temperature</Title>
         <Abstract>3D numerical model potential temperature field (°C) across the Indian Ocean basin.</Abstract>
-        <Dimension name="time" default="2024-06-01" units="ISO8601">2024-06-01/2024-06-14/P1D</Dimension>
+        <Dimension name="time" default="{DATE_RANGE_START}" units="ISO8601">{DATE_RANGE_START}/{DATE_RANGE_END}/P1D</Dimension>
         <Dimension name="elevation" default="0.5" units="meters">0.5,5.0,15.0,30.0,50.0,75.0,100.0,125.0,150.0,200.0,250.0,300.0,400.0,500.0,600.0,800.0,1000.0,1250.0,1500.0,2000.0</Dimension>
         <Style>
           <Name>default</Name>
@@ -176,7 +177,7 @@ CAPABILITIES_XML = """<?xml version="1.0" encoding="UTF-8"?>
         <Name>salinity</Name>
         <Title>Ocean Practical Salinity</Title>
         <Abstract>3D numerical model practical salinity field (PSU).</Abstract>
-        <Dimension name="time" default="2024-06-01" units="ISO8601">2024-06-01/2024-06-14/P1D</Dimension>
+        <Dimension name="time" default="{DATE_RANGE_START}" units="ISO8601">{DATE_RANGE_START}/{DATE_RANGE_END}/P1D</Dimension>
         <Dimension name="elevation" default="0.5" units="meters">0.5,5.0,15.0,30.0,50.0,75.0,100.0,125.0,150.0,200.0,250.0,300.0,400.0,500.0,600.0,800.0,1000.0,1250.0,1500.0,2000.0</Dimension>
         <Style>
           <Name>default</Name>
@@ -189,7 +190,7 @@ CAPABILITIES_XML = """<?xml version="1.0" encoding="UTF-8"?>
         <Name>currents</Name>
         <Title>Ocean Current Velocity</Title>
         <Abstract>Ocean hydrodynamic horizontal current velocity magnitude (m/s).</Abstract>
-        <Dimension name="time" default="2024-06-01" units="ISO8601">2024-06-01/2024-06-14/P1D</Dimension>
+        <Dimension name="time" default="{DATE_RANGE_START}" units="ISO8601">{DATE_RANGE_START}/{DATE_RANGE_END}/P1D</Dimension>
         <Dimension name="elevation" default="0.5" units="meters">0.5,5.0,15.0,30.0,50.0,75.0,100.0,125.0,150.0,200.0,250.0,300.0,400.0,500.0,600.0,800.0,1000.0,1250.0,1500.0,2000.0</Dimension>
         <Style>
           <Name>default</Name>
@@ -202,7 +203,7 @@ CAPABILITIES_XML = """<?xml version="1.0" encoding="UTF-8"?>
         <Name>chlorophyll</Name>
         <Title>Chlorophyll-a Concentration</Title>
         <Abstract>Photic zone biological chlorophyll-a phytoplankton biomass (mg/m³).</Abstract>
-        <Dimension name="time" default="2024-06-01" units="ISO8601">2024-06-01/2024-06-14/P1D</Dimension>
+        <Dimension name="time" default="{DATE_RANGE_START}" units="ISO8601">{DATE_RANGE_START}/{DATE_RANGE_END}/P1D</Dimension>
         <Dimension name="elevation" default="0.5" units="meters">0.5,5.0,15.0,30.0,50.0,75.0,100.0,125.0,150.0,200.0,250.0,300.0,400.0,500.0,600.0,800.0,1000.0,1250.0,1500.0,2000.0</Dimension>
         <Style>
           <Name>default</Name>
@@ -226,7 +227,7 @@ def handle_wms(
     crs: Optional[str] = Query(None, alias="CRS"),
     srs: Optional[str] = Query(None, alias="SRS"),
     format: str = Query("image/png", alias="FORMAT"),
-    time: str = Query("2024-06-01", alias="TIME"),
+    time: str = Query(DATE_RANGE_START, alias="TIME"),
     elevation: Optional[float] = Query(None, alias="ELEVATION"),
     depth: Optional[float] = Query(0.5, alias="DEPTH"),
     transparent: str = Query("TRUE", alias="TRANSPARENT"),
