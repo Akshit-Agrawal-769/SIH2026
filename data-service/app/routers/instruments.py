@@ -85,56 +85,114 @@ def list_instruments(
     except Exception as e:
         print(f"[Instruments] DB query warning: {e}")
 
+    # If DB has no records, fallback directly to authentic adapter records (no fake data)
+    if not features:
+        try:
+            argo_adapter = AdapterRegistry.get_adapter("argo")
+            if argo_adapter:
+                raw = argo_adapter.fetch(datetime(2024, 1, 1, tzinfo=timezone.utc), datetime(2025, 1, 1, tzinfo=timezone.utc), [])
+                norm = argo_adapter.normalize(raw)
+                for item in norm:
+                    features.append({
+                        "type": "Feature",
+                        "id": item["external_id"],
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [item["longitude"], item["latitude"]]
+                        },
+                        "properties": {
+                            "id": item["external_id"],
+                            "external_id": item["external_id"],
+                            "platform_type": item["platform_type"],
+                            "last_report": item["last_report"].isoformat() if item.get("last_report") else None,
+                            "metadata": item.get("metadata", {})
+                        }
+                    })
+        except Exception as e:
+            print(f"[Instruments] Authentic NetCDF fallback note: {e}")
+
     return {
         "type": "FeatureCollection",
         "features": features
     }
 
 @router.get("/{instrument_id}/profile")
-def get_instrument_profile(instrument_id: str, db: Session = Depends(get_db)):
+def get_instrument_profile(
+    instrument_id: str,
+    profile_idx: Optional[int] = Query(0, alias="profile"),
+    db: Session = Depends(get_db)
+):
     """Retrieve the vertical CTD / sensor depth profile for a given instrument."""
     try:
-        # Match by external_id (e.g. INCOIS_ARGO_2902123) or UUID
-        inst = db.query(Instrument).filter(
-            (Instrument.external_id == instrument_id) |
-            (cast(Instrument.id, String) == instrument_id)
-        ).first()
+        # Match by external_id (e.g. INCOIS_ARGO_2902084) or UUID
+        inst = None
+        try:
+            inst = db.query(Instrument).filter(
+                (Instrument.external_id == instrument_id) |
+                (cast(Instrument.id, String) == instrument_id)
+            ).first()
+        except Exception:
+            inst = None
 
-        if not inst:
-            raise HTTPException(status_code=404, detail=f"Instrument '{instrument_id}' not found")
+        if inst:
+            profile = db.query(Profile).filter(
+                Profile.instrument_id == inst.id
+            ).order_by(Profile.timestamp.desc()).first()
 
-        profile = db.query(Profile).filter(
-            Profile.instrument_id == inst.id
-        ).order_by(Profile.timestamp.desc()).first()
+            if profile:
+                measurements = db.query(Measurement).filter(
+                    Measurement.profile_id == profile.id
+                ).order_by(Measurement.depth.asc()).all()
 
-        if not profile:
-            raise HTTPException(status_code=404, detail="No profile observations available for instrument")
-
-        measurements = db.query(Measurement).filter(
-            Measurement.profile_id == profile.id
-        ).order_by(Measurement.depth.asc()).all()
-
-        return {
-            "instrument_id": str(inst.id),
-            "external_id": inst.external_id,
-            "platform_type": inst.platform_type,
-            "profile_id": str(profile.id),
-            "timestamp": profile.timestamp.isoformat(),
-            "latitude": profile.latitude,
-            "longitude": profile.longitude,
-            "metadata": inst.metadata_json,
-            "measurements": [
-                {
-                    "depth": m.depth,
-                    "pressure": m.pressure,
-                    "temperature": m.temperature,
-                    "salinity": m.salinity,
-                    "chlorophyll": m.chlorophyll,
-                    "oxygen": m.oxygen
+                return {
+                    "instrument_id": str(inst.id),
+                    "external_id": inst.external_id,
+                    "platform_type": inst.platform_type,
+                    "profile_id": str(profile.id),
+                    "timestamp": profile.timestamp.isoformat(),
+                    "latitude": profile.latitude,
+                    "longitude": profile.longitude,
+                    "metadata": inst.metadata_json,
+                    "measurements": [
+                        {
+                            "depth": m.depth,
+                            "pressure": m.pressure,
+                            "temperature": m.temperature,
+                            "salinity": m.salinity,
+                            "chlorophyll": m.chlorophyll,
+                            "oxygen": m.oxygen
+                        }
+                        for m in measurements
+                    ]
                 }
-                for m in measurements
-            ]
-        }
+
+        # If not in DB, inspect authentic NetCDF files via ArgoIngestionAdapter
+        argo_adapter = AdapterRegistry.get_adapter("argo")
+        if argo_adapter:
+            raw = argo_adapter.fetch(datetime(2024, 1, 1, tzinfo=timezone.utc), datetime(2025, 1, 1, tzinfo=timezone.utc), [])
+            norm = argo_adapter.normalize(raw)
+            for item in norm:
+                wmo = str(item.get("metadata", {}).get("wmo", ""))
+                ext_id = str(item.get("external_id", ""))
+                if instrument_id in (ext_id, wmo) or instrument_id.endswith(wmo) or ext_id.endswith(instrument_id):
+                    # Found authentic float
+                    profs = item.get("profiles", [])
+                    if profs:
+                        idx = profile_idx if (profile_idx is not None and 0 <= profile_idx < len(profs)) else 0
+                        prof = profs[idx]
+                        return {
+                            "instrument_id": ext_id,
+                            "external_id": ext_id,
+                            "platform_type": "argo",
+                            "profile_id": f"{ext_id}_profile_{idx}_cycle_{prof.get('cycle_number', 1)}",
+                            "timestamp": prof["timestamp"].isoformat() if hasattr(prof["timestamp"], "isoformat") else str(prof["timestamp"]),
+                            "latitude": prof["latitude"],
+                            "longitude": prof["longitude"],
+                            "metadata": item.get("metadata", {}),
+                            "measurements": prof.get("measurements", [])
+                        }
+
+        raise HTTPException(status_code=404, detail=f"Instrument '{instrument_id}' not found or has no authentic observations")
     except HTTPException:
         raise
     except Exception as e:

@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useOceanStore } from '../store/useOceanStore';
+import { fetchOceanTile, OceanTileData } from '../api/client';
+import { renderTileToCanvas, sampleOceanDataAt } from '../rendering/colormaps';
 import {
   X,
   Maximize2,
@@ -14,10 +16,13 @@ import {
   Wind,
   Activity,
   Box,
-  Layers,
   Sparkles,
   Compass,
-  ArrowDown
+  ArrowDown,
+  AlertTriangle,
+  CheckCircle,
+  Database,
+  Radio
 } from 'lucide-react';
 
 export const OceanWaterCubeModal: React.FC = () => {
@@ -26,11 +31,19 @@ export const OceanWaterCubeModal: React.FC = () => {
 
   // UI state
   const [activeVar, setActiveVar] = useState<'temperature' | 'salinity' | 'currents' | 'chlorophyll'>('temperature');
-  const [sliceDepth, setSliceDepth] = useState<number>(100);
+  const [sliceDepth, setSliceDepth] = useState<number>(0.5);
   const [isAutoRotating, setIsAutoRotating] = useState<boolean>(true);
   const [showFlowParticles, setShowFlowParticles] = useState<boolean>(true);
   const [showStrataPlanes, setShowStrataPlanes] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [authenticProfile, setAuthenticProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState<boolean>(false);
+
+  // Authentic Model Tile state (from authoritative C++ ocean_core tile store)
+  const [modelTileData, setModelTileData] = useState<OceanTileData | null>(null);
+  const [modelTileLoading, setModelTileLoading] = useState<boolean>(false);
+  const [modelTileError, setModelTileError] = useState<string | null>(null);
+  const [modelSampledValue, setModelSampledValue] = useState<number | null>(null);
 
   // References to Three.js objects
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -42,6 +55,7 @@ export const OceanWaterCubeModal: React.FC = () => {
   // Dynamic mesh references
   const cubeMeshRef = useRef<THREE.Mesh | null>(null);
   const laserPlaneRef = useRef<THREE.Group | null>(null);
+  const laserPlaneMeshRef = useRef<THREE.Mesh | null>(null);
   const particlesRef = useRef<THREE.Points | null>(null);
   const strataGroupRef = useRef<THREE.Group | null>(null);
 
@@ -294,6 +308,7 @@ export const OceanWaterCubeModal: React.FC = () => {
     });
     const laserPlaneMesh = new THREE.Mesh(laserPlaneGeo, laserPlaneMat);
     laserGroup.add(laserPlaneMesh);
+    laserPlaneMeshRef.current = laserPlaneMesh;
 
     // Glowing laser border
     const borderGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(CUBE_W * 0.99, 0.05, CUBE_L * 0.99));
@@ -476,38 +491,163 @@ export const OceanWaterCubeModal: React.FC = () => {
     }
   };
 
+  // Fetch authentic gridded ocean model depth slice (Strict real-data zero-synthetic policy)
+  useEffect(() => {
+    let isMounted = true;
+    setModelTileLoading(true);
+    setModelTileError(null);
+
+    // In CMEMS and INCOIS-BIO-ROMS, only depth 0.0-0.5m is authentically present in source NetCDFs
+    const targetDepth = sliceDepth <= 0.5 ? 0.5 : sliceDepth;
+
+    fetchOceanTile(activeVar, '2024-06-01', targetDepth)
+      .then((tile) => {
+        if (!isMounted) return;
+        setModelTileData(tile);
+        setModelTileLoading(false);
+        if (activeWaterBlockTarget) {
+          const sample = sampleOceanDataAt(tile, activeWaterBlockTarget.lon, activeWaterBlockTarget.lat);
+          setModelSampledValue(sample.value);
+        }
+        // Render authentic tile directly onto Three.js laser plane and surface mesh
+        try {
+          const canvas = renderTileToCanvas(tile);
+          const tileTex = new THREE.CanvasTexture(canvas);
+          tileTex.wrapS = THREE.ClampToEdgeWrapping;
+          tileTex.wrapT = THREE.ClampToEdgeWrapping;
+          if (laserPlaneMeshRef.current) {
+            (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).map = tileTex;
+            (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).color.setHex(0xffffff);
+            (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).opacity = 0.95;
+            (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).needsUpdate = true;
+          }
+          if (cubeMeshRef.current && Array.isArray(cubeMeshRef.current.material)) {
+            const topMat = cubeMeshRef.current.material[2] as THREE.MeshStandardMaterial;
+            topMat.map = tileTex;
+            topMat.needsUpdate = true;
+          }
+          if (typeof window !== 'undefined') {
+            (window as any).__OCEAN_VERIFICATION__ = (window as any).__OCEAN_VERIFICATION__ || {};
+            (window as any).__OCEAN_VERIFICATION__.modalTileData = tile;
+            (window as any).__OCEAN_VERIFICATION__.laserPlaneMesh = laserPlaneMeshRef.current;
+            (window as any).__OCEAN_VERIFICATION__.cubeMesh = cubeMeshRef.current;
+            (window as any).__OCEAN_VERIFICATION__.renderer = rendererRef.current;
+            (window as any).__OCEAN_VERIFICATION__.scene = sceneRef.current;
+            (window as any).__OCEAN_VERIFICATION__.camera = cameraRef.current;
+          }
+        } catch (e) {
+          console.error('[ThreeJS] Colormap texture generation error:', e);
+        }
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setModelTileData(null);
+        setModelSampledValue(null);
+        setModelTileLoading(false);
+        const errMsg = `No authentic gridded model slice at depth ${sliceDepth}m (Source NetCDF contains depth: 1 at 0.0m). Synthetic subsurface interpolation strictly forbidden.`;
+        setModelTileError(errMsg);
+        if (typeof window !== 'undefined') {
+          (window as any).__OCEAN_VERIFICATION__ = (window as any).__OCEAN_VERIFICATION__ || {};
+          (window as any).__OCEAN_VERIFICATION__.modalTileData = null;
+          (window as any).__OCEAN_VERIFICATION__.modalTileError = errMsg;
+        }
+        if (laserPlaneMeshRef.current) {
+          (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).map = null;
+          (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).color.setHex(0x00e5ff);
+          (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).opacity = 0.20;
+          (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).needsUpdate = true;
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeVar, sliceDepth, activeWaterBlockTarget]);
+
+  // Fetch authentic instrument profile for this water column target (NO synthetic generation)
+  useEffect(() => {
+    if (!activeWaterBlockTarget) return;
+
+    let isMounted = true;
+    setProfileLoading(true);
+
+    const loadProfile = async () => {
+      try {
+        let instId = activeWaterBlockTarget.instrumentId;
+        if (!instId) {
+          const res = await fetch('/api/instruments');
+          if (res.ok) {
+            const data = await res.json();
+            const features = data.features || [];
+            let bestDist = 4.0;
+            let bestId = null;
+            for (const f of features) {
+              const [fLon, fLat] = f.geometry?.coordinates || [0, 0];
+              const dist = Math.hypot(fLon - activeWaterBlockTarget.lon, fLat - activeWaterBlockTarget.lat);
+              if (dist < bestDist) {
+                bestDist = dist;
+                bestId = f.properties?.external_id || f.properties?.id;
+              }
+            }
+            instId = bestId;
+          }
+        }
+
+        if (instId) {
+          const res = await fetch(`/api/instruments/${encodeURIComponent(instId)}/profile`);
+          if (res.ok) {
+            const data = await res.json();
+            if (isMounted) {
+              setAuthenticProfile(data);
+              setProfileLoading(false);
+              return;
+            }
+          }
+        }
+
+        if (isMounted) {
+          setAuthenticProfile(null);
+          setProfileLoading(false);
+        }
+      } catch {
+        if (isMounted) {
+          setAuthenticProfile(null);
+          setProfileLoading(false);
+        }
+      }
+    };
+
+    loadProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeWaterBlockTarget]);
+
   if (!activeWaterBlockTarget) return null;
 
-  // Oceanographic Telemetry Calculations for this specific water column
-  const surfaceTemp = 29.4 - (Math.abs(activeWaterBlockTarget.lat - 10) * 0.2);
-  const tempAtDepth = sliceDepth <= 50
-    ? surfaceTemp - (sliceDepth * 0.02)
-    : sliceDepth <= 200
-    ? surfaceTemp - 1.0 - ((sliceDepth - 50) * 0.12)
-    : sliceDepth <= 1000
-    ? 12.0 - ((sliceDepth - 200) * 0.009)
-    : 4.8 - ((sliceDepth - 1000) * 0.0016);
+  // Authentic Observations: Sample closest in-situ measurement without mathematical synthesis
+  const measurements: any[] = authenticProfile?.measurements || [];
+  let closestMeas: any = null;
+  if (measurements.length > 0) {
+    let minDiff = 100.0;
+    for (const m of measurements) {
+      const diff = Math.abs(m.depth - sliceDepth);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestMeas = m;
+      }
+    }
+  }
 
-  const salinityAtDepth = sliceDepth <= 50
-    ? 36.2
-    : sliceDepth <= 200
-    ? 35.8 - ((sliceDepth - 50) * 0.006)
-    : 34.9;
+  const tempAtDepth: number | null = closestMeas?.temperature ?? null;
+  const salinityAtDepth: number | null = closestMeas?.salinity ?? null;
+  const currentSpeedAtDepth: number | null = closestMeas?.currentSpeed ?? null;
+  const chlAtDepth: number | null = closestMeas?.chlorophyll ?? null;
 
-  const currentSpeedAtDepth = sliceDepth <= 50
-    ? 1.45
-    : sliceDepth <= 200
-    ? 0.75 - ((sliceDepth - 50) * 0.003)
-    : 0.06;
-
-  const chlAtDepth = sliceDepth <= 40
-    ? 1.85
-    : sliceDepth <= 100
-    ? 0.45
-    : 0.02;
-
-  // Sound speed (Mackenzie equation approx) showing SOFAR channel minimum around 800m
-  const soundSpeed = 1448.96 + 4.591 * tempAtDepth - 0.05304 * Math.pow(tempAtDepth, 2) + 1.34 * (salinityAtDepth - 35) + 0.0163 * sliceDepth;
+  // Sound speed (Mackenzie equation) computed strictly on authentic in-situ readings
+  const soundSpeed: number | null = (tempAtDepth !== null && salinityAtDepth !== null)
+    ? 1448.96 + 4.591 * tempAtDepth - 0.05304 * Math.pow(tempAtDepth, 2) + 1.34 * (salinityAtDepth - 35) + 0.0163 * (closestMeas?.depth ?? sliceDepth)
+    : null;
 
   return (
     <div className={`fixed z-50 transition-all duration-300 flex flex-col bg-ocean-dark/95 backdrop-blur-2xl border border-cyan-500/40 shadow-2xl overflow-hidden ${
@@ -601,54 +741,144 @@ export const OceanWaterCubeModal: React.FC = () => {
 
         {/* Right Side: Oceanographic Telemetry & Physical Stratification */}
         <div className="w-full md:w-72 border-t md:border-t-0 md:border-l border-ocean-border/80 bg-ocean-dark/70 backdrop-blur-md p-3.5 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar">
-          {/* Active Depth Telemetry Card */}
+          {/* 1. ROMS / CMEMS Gridded Numerical Model Volume */}
           <div className="bg-ocean-panel/80 p-3 rounded-xl border border-cyan-500/40 space-y-2 shadow-sm">
             <div className="flex items-center justify-between text-xs font-bold text-slate-200">
-              <span className="flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                Depth Slice Readings
+              <span className="flex items-center gap-1.5 text-cyan-300">
+                <Database className="w-3.5 h-3.5 text-cyan-400" />
+                ROMS/CMEMS Gridded Model
               </span>
               <span className="font-mono text-cyan-300 px-1.5 py-0.5 rounded bg-cyan-500/20 text-[10px]">
-                {sliceDepth}m Level
+                {sliceDepth <= 0.5 ? '0.0m Surface' : `${sliceDepth}m Subsurface`}
               </span>
             </div>
 
-            <div className="space-y-1.5 text-xs font-mono">
+            {modelTileLoading ? (
+              <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-mono text-cyan-300 flex items-center gap-1.5 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                <span>Loading C++ ocean_core gridded tile...</span>
+              </div>
+            ) : modelSampledValue !== null && modelTileData ? (
+              <div className="space-y-1.5">
+                <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono text-emerald-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    Authentic C++ Model Grid Cell
+                  </span>
+                  <span className="font-bold text-white">
+                    {modelSampledValue.toFixed(4)} {activeVar === 'temperature' ? '°C' : activeVar === 'salinity' ? 'PSU' : activeVar === 'currents' ? 'm/s' : 'mg/m³'}
+                  </span>
+                </div>
+                <div className="text-[9px] font-mono text-slate-400 flex items-center justify-between px-1">
+                  <span>Grid: {modelTileData.header.width}×{modelTileData.header.height} ({modelTileData.header.width * modelTileData.header.height} cells)</span>
+                  <span>Source: {activeVar === 'chlorophyll' ? 'INCOIS-BIO-ROMS' : 'CMEMS.nc'}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/40 text-[10px] font-mono text-amber-200 space-y-1">
+                <div className="flex items-start gap-1.5 font-bold text-amber-300">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                  <span>No Gridded Model Level at {sliceDepth}m</span>
+                </div>
+                <p className="text-[9px] text-slate-300 leading-relaxed">
+                  {modelTileError || (
+                    <>Source NetCDF contains single surface level (<code className="text-amber-300">depth: 1</code> at 0.0m). Per strict scientific integrity policy, subsurface model levels are <strong>never fabricated or interpolated</strong>.</>
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Autonomous In-Situ Argo CTD Profiler Observations */}
+          <div className="bg-ocean-panel/80 p-3 rounded-xl border border-emerald-500/40 space-y-2 shadow-sm">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+              <span className="flex items-center gap-1.5 text-emerald-300">
+                <Radio className="w-3.5 h-3.5 text-emerald-400" />
+                Argo In-Situ CTD Observations
+              </span>
+              <span className="font-mono text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-500/20 text-[10px]">
+                {sliceDepth}m Target
+              </span>
+            </div>
+
+            {/* Authentic Provenance Status */}
+            {profileLoading ? (
+              <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-mono text-cyan-300 flex items-center gap-1.5 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                <span>Querying authentic in-situ CTD profile...</span>
+              </div>
+            ) : authenticProfile ? (
+              <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono text-emerald-300 flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">
+                  Float: {authenticProfile.external_id} (QC Flags 1 &amp; 2)
+                </span>
+              </div>
+            ) : (
+              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] font-mono text-amber-300 flex items-start gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                <span>
+                  No in-situ CTD float collocated at this coordinate.
+                </span>
+              </div>
+            )}
+
+            <div className="space-y-1 text-xs font-mono">
               <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
                 <span className="text-slate-400 flex items-center gap-1 text-[11px]">
                   <Waves className="w-3 h-3 text-red-400" /> Temperature:
                 </span>
-                <span className="text-red-400 font-bold">{tempAtDepth.toFixed(2)} °C</span>
+                {tempAtDepth !== null ? (
+                  <span className="text-red-400 font-bold">{tempAtDepth.toFixed(3)} °C <span className="text-[9px] text-slate-400 font-normal">(@{closestMeas?.depth?.toFixed(1)}m)</span></span>
+                ) : (
+                  <span className="text-slate-500 italic text-[10px]">No authentic data</span>
+                )}
               </div>
 
               <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
                 <span className="text-slate-400 flex items-center gap-1 text-[11px]">
                   <Droplets className="w-3 h-3 text-cyan-400" /> Salinity:
                 </span>
-                <span className="text-cyan-300 font-bold">{salinityAtDepth.toFixed(2)} PSU</span>
+                {salinityAtDepth !== null ? (
+                  <span className="text-cyan-300 font-bold">{salinityAtDepth.toFixed(3)} PSU <span className="text-[9px] text-slate-400 font-normal">(@{closestMeas?.depth?.toFixed(1)}m)</span></span>
+                ) : (
+                  <span className="text-slate-500 italic text-[10px]">No authentic data</span>
+                )}
               </div>
+
+              {currentSpeedAtDepth !== null && (
+                <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
+                  <span className="text-slate-400 flex items-center gap-1 text-[11px]">
+                    <Wind className="w-3 h-3 text-lime-400" /> Current Velocity:
+                  </span>
+                  <span className="text-lime-400 font-bold">{currentSpeedAtDepth.toFixed(2)} m/s</span>
+                </div>
+              )}
+
+              {chlAtDepth !== null && (
+                <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
+                  <span className="text-slate-400 flex items-center gap-1 text-[11px]">
+                    <Activity className="w-3 h-3 text-emerald-400" /> Chlorophyll-a:
+                  </span>
+                  <span className="text-emerald-400 font-bold">{chlAtDepth.toFixed(2)} mg/m³</span>
+                </div>
+              )}
 
               <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
                 <span className="text-slate-400 flex items-center gap-1 text-[11px]">
-                  <Wind className="w-3 h-3 text-lime-400" /> Current Velocity:
+                  <Sparkles className="w-3 h-3 text-amber-400" /> Sound Speed:
                 </span>
-                <span className="text-lime-400 font-bold">{currentSpeedAtDepth.toFixed(2)} m/s</span>
-              </div>
-
-              <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                <span className="text-slate-400 flex items-center gap-1 text-[11px]">
-                  <Activity className="w-3 h-3 text-emerald-400" /> Chlorophyll-a:
-                </span>
-                <span className="text-emerald-400 font-bold">{chlAtDepth.toFixed(2)} mg/m³</span>
-              </div>
-
-              <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                <span className="text-slate-400 flex items-center gap-1 text-[11px]">
-                  <Sparkles className="w-3 h-3 text-amber-400" /> Sound Velocity:
-                </span>
-                <span className="text-amber-300 font-bold">{soundSpeed.toFixed(1)} m/s</span>
+                {soundSpeed !== null ? (
+                  <span className="text-amber-300 font-bold">{soundSpeed.toFixed(1)} m/s</span>
+                ) : (
+                  <span className="text-slate-500 italic text-[10px]">No authentic data</span>
+                )}
               </div>
             </div>
+
+            <p className="text-[9px] text-slate-400 italic pt-1 border-t border-white/5">
+              * Scientifically Distinct: In-situ Argo CTD profiles measure authentic physical depth (0–2000m), whereas Eulerian model in cmems.nc is surface-only (0.0m).
+            </p>
           </div>
 
           {/* Vertical Stratification Layers */}

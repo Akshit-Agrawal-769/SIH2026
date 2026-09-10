@@ -195,6 +195,16 @@ export async function fetchOceanTile(
   }
 
   tileCache.set(cacheKey, parsed);
+  if (typeof window !== 'undefined') {
+    (window as any).__OCEAN_VERIFICATION__ = (window as any).__OCEAN_VERIFICATION__ || {};
+    (window as any).__OCEAN_VERIFICATION__.lastFetchedTile = parsed;
+  }
   return parsed;
+}
+
+if (typeof window !== 'undefined') {
+  (window as any).__OCEAN_VERIFICATION__ = (window as any).__OCEAN_VERIFICATION__ || {};
+  (window as any).__OCEAN_VERIFICATION__.fetchOceanTile = fetchOceanTile;
+  (window as any).__OCEAN_VERIFICATION__.parseOceanTileBuffer = parseOceanTileBuffer;
 }
 
