@@ -38,6 +38,8 @@ datasets/aoml/
 datasets/csiro/
 datasets/csio/
 datasets/bodc/
+datasets/argo_index.json
+datasets/geography/
 *.zarr/
 *.bin
 *.grib
@@ -55,6 +57,7 @@ htmlcov/
 .env
 .env.local
 *.log
+*.jsonl
 logs/
 *.zip
 graphify-out/
@@ -62,3 +65,7 @@ gateway/node_modules/
 gateway/dist/
 data-service/venv/
 data-service/__pycache__/
+
+# C++ Build & Output
+cpp_visualizer/build/
+build/
