@@ -12,6 +12,7 @@ MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_BUCKET = os.getenv("MINIO_BUCKET", "ocean-data")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
+ENABLE_MINIO = os.getenv("ENABLE_MINIO", "false").lower() == "true"
 
 def get_minio_client() -> Minio:
     """Returns an authenticated MinIO S3 client."""
@@ -133,17 +134,18 @@ def download_tile_from_minio(variable: str, date_str: str, depth: float) -> Opti
             except Exception as e:
                 print(f"[TileStore] Error reading {p}: {e}")
 
-    # 2. Try MinIO S3 object storage
-    object_name = f"tiles/{variable}/{date_str}/{depth}.bin"
-    try:
-        client = get_minio_client()
-        response = client.get_object(MINIO_BUCKET, object_name)
-        data = response.read()
-        response.close()
-        response.release_conn()
-        if data:
-            return data
-    except Exception:
-        pass
+    # 2. Try MinIO S3 object storage if explicitly enabled
+    if ENABLE_MINIO:
+        object_name = f"tiles/{variable}/{date_str}/{depth}.bin"
+        try:
+            client = get_minio_client()
+            response = client.get_object(MINIO_BUCKET, object_name)
+            data = response.read()
+            response.close()
+            response.release_conn()
+            if data:
+                return data
+        except Exception:
+            pass
 
     return None

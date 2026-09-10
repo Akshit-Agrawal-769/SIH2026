@@ -526,6 +526,15 @@ export const OceanWaterCubeModal: React.FC = () => {
             topMat.map = tileTex;
             topMat.needsUpdate = true;
           }
+          if (typeof window !== 'undefined') {
+            (window as any).__OCEAN_VERIFICATION__ = (window as any).__OCEAN_VERIFICATION__ || {};
+            (window as any).__OCEAN_VERIFICATION__.modalTileData = tile;
+            (window as any).__OCEAN_VERIFICATION__.laserPlaneMesh = laserPlaneMeshRef.current;
+            (window as any).__OCEAN_VERIFICATION__.cubeMesh = cubeMeshRef.current;
+            (window as any).__OCEAN_VERIFICATION__.renderer = rendererRef.current;
+            (window as any).__OCEAN_VERIFICATION__.scene = sceneRef.current;
+            (window as any).__OCEAN_VERIFICATION__.camera = cameraRef.current;
+          }
         } catch (e) {
           console.error('[ThreeJS] Colormap texture generation error:', e);
         }
@@ -535,9 +544,13 @@ export const OceanWaterCubeModal: React.FC = () => {
         setModelTileData(null);
         setModelSampledValue(null);
         setModelTileLoading(false);
-        setModelTileError(
-          `No authentic gridded model slice at depth ${sliceDepth}m (Source NetCDF contains depth: 1 at 0.0m). Synthetic subsurface interpolation strictly forbidden.`
-        );
+        const errMsg = `No authentic gridded model slice at depth ${sliceDepth}m (Source NetCDF contains depth: 1 at 0.0m). Synthetic subsurface interpolation strictly forbidden.`;
+        setModelTileError(errMsg);
+        if (typeof window !== 'undefined') {
+          (window as any).__OCEAN_VERIFICATION__ = (window as any).__OCEAN_VERIFICATION__ || {};
+          (window as any).__OCEAN_VERIFICATION__.modalTileData = null;
+          (window as any).__OCEAN_VERIFICATION__.modalTileError = errMsg;
+        }
         if (laserPlaneMeshRef.current) {
           (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).map = null;
           (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).color.setHex(0x00e5ff);

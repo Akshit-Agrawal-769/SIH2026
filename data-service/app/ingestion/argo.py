@@ -138,15 +138,17 @@ class ArgoIngestionAdapter(IngestionAdapter):
 
                 ds.close()
 
-                if float_profiles and last_lat is not None and last_lon is not None:
+                if float_profiles:
+                    primary_lat = float_profiles[0]["latitude"]
+                    primary_lon = float_profiles[0]["longitude"]
                     raw_floats.append({
                         "external_id": f"INCOIS_ARGO_{wmo}",
                         "wmo": wmo,
                         "platform_type": "argo",
                         "institution": "INCOIS",
-                        "latitude": last_lat,
-                        "longitude": last_lon,
-                        "last_report": last_valid_time or datetime.now(timezone.utc),
+                        "latitude": primary_lat,
+                        "longitude": primary_lon,
+                        "last_report": float_profiles[0]["timestamp"],
                         "source_file": fpath,
                         "profiles": float_profiles
                     })

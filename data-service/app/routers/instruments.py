@@ -117,7 +117,11 @@ def list_instruments(
     }
 
 @router.get("/{instrument_id}/profile")
-def get_instrument_profile(instrument_id: str, db: Session = Depends(get_db)):
+def get_instrument_profile(
+    instrument_id: str,
+    profile_idx: Optional[int] = Query(0, alias="profile"),
+    db: Session = Depends(get_db)
+):
     """Retrieve the vertical CTD / sensor depth profile for a given instrument."""
     try:
         # Match by external_id (e.g. INCOIS_ARGO_2902084) or UUID
@@ -174,12 +178,13 @@ def get_instrument_profile(instrument_id: str, db: Session = Depends(get_db)):
                     # Found authentic float
                     profs = item.get("profiles", [])
                     if profs:
-                        prof = profs[-1]  # Latest authentic profile
+                        idx = profile_idx if (profile_idx is not None and 0 <= profile_idx < len(profs)) else 0
+                        prof = profs[idx]
                         return {
                             "instrument_id": ext_id,
                             "external_id": ext_id,
                             "platform_type": "argo",
-                            "profile_id": f"{ext_id}_cycle_{prof.get('cycle_number', 1)}",
+                            "profile_id": f"{ext_id}_profile_{idx}_cycle_{prof.get('cycle_number', 1)}",
                             "timestamp": prof["timestamp"].isoformat() if hasattr(prof["timestamp"], "isoformat") else str(prof["timestamp"]),
                             "latitude": prof["latitude"],
                             "longitude": prof["longitude"],

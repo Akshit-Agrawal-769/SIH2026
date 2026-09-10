@@ -360,3 +360,9 @@ export function sampleOceanDataAt(
   return { value: isPointLand ? null : val, isLand: isPointLand };
 }
 
+if (typeof window !== 'undefined') {
+  (window as any).__OCEAN_VERIFICATION__ = (window as any).__OCEAN_VERIFICATION__ || {};
+  (window as any).__OCEAN_VERIFICATION__.sampleOceanDataAt = sampleOceanDataAt;
+  (window as any).__OCEAN_VERIFICATION__.renderTileToCanvas = renderTileToCanvas;
+}
+
