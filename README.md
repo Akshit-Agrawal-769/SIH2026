@@ -88,22 +88,6 @@ docker exec -it incois_data_service python3 seed_data.py
 
 ## Option 2: Local Development (Without Docker Containers)
 
-<<<<<<< HEAD
-You can launch the entire local development stack simultaneously using the provided startup script:
-
-```bash
-chmod +x start_dev.sh
-./start_dev.sh
-```
-
-This will automatically start the **Data Service** (Port 8000), **API Gateway** (Port 4000), and **Frontend** (Port 3000).
-
-### Manual Startup Alternative
-
-If you prefer to run the services individually in separate terminals:
-
-**1. API Gateway**
-=======
 ### Prerequisites
 - Node.js 18+ or 20+
 - Python 3.11+
@@ -120,27 +104,13 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 ### Terminal 2: API Gateway
->>>>>>> 21e8540e (Changes)
 ```bash
 cd gateway
 npm install
 npm run dev
 ```
 
-<<<<<<< HEAD
-**2. Python Data Service**
-```bash
-cd data-service
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-**3. Frontend**
-=======
 ### Terminal 3: React Frontend
->>>>>>> 21e8540e (Changes)
 ```bash
 cd frontend
 npm install

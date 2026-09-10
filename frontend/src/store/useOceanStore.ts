@@ -73,11 +73,6 @@ export interface OceanState {
   setShowBottomBar: (show: boolean) => void;
   toggleBottomBar: () => void;
 
-<<<<<<< HEAD
-  // Selected bounding box for detail analysis
-  activeBoundingBox: { north: number; south: number; east: number; west: number } | null;
-  setActiveBoundingBox: (box: { north: number; south: number; east: number; west: number } | null) => void;
-=======
   // On-demand 3D Volumetric Water Column Cube Inspector
   activeWaterBlockTarget: WaterBlockTarget | null;
   openWaterBlock: (target: WaterBlockTarget) => void;
@@ -100,7 +95,6 @@ export interface WaterBlockTarget {
   instrumentId?: string;
   platformType?: string;
   defaultVar?: string;
->>>>>>> 21e8540e (Changes)
 }
 
 export interface HoveredOceanInfo {
@@ -256,12 +250,7 @@ export const useOceanStore = create<OceanState>((set) => ({
   setShowBottomBar: (showBottomBar) => set({ showBottomBar }),
   toggleBottomBar: () => set((s) => ({ showBottomBar: !s.showBottomBar })),
 
-<<<<<<< HEAD
-  activeBoundingBox: null,
-  setActiveBoundingBox: (activeBoundingBox) => set({ activeBoundingBox })
-=======
   isGraticuleEnabled: true,
   setIsGraticuleEnabled: (isGraticuleEnabled) => set({ isGraticuleEnabled }),
   toggleGraticule: () => set((s) => ({ isGraticuleEnabled: !s.isGraticuleEnabled }))
->>>>>>> 21e8540e (Changes)
 }));

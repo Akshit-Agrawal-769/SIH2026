@@ -6,15 +6,9 @@ import { parseUrlState, syncStateToUrl } from '../store/urlState';
 import { serializeCameraState, setCameraState } from './cameraUtils';
 import { createInstrumentsLayer, InstrumentsLayerManager } from '../layers/instrumentsLayer';
 import { createDepthSliceLayer, DepthSliceLayerManager } from '../rendering/depthSliceLayer';
-<<<<<<< HEAD
-import { createCurrentsLayer, CurrentsLayerManager } from '../layers/currentsLayer';
-import { createDragSelectHandler } from './DragSelectHandler';
-import { createVolumeAxisGrid, VolumeAxisGridManager } from '../layers/VolumeAxisGridLayer';
-=======
 import { createCurrentsLayer, CurrentsLayerManager, computeOceanVelocity } from '../layers/currentsLayer';
 import { createVolumetricBlockLayer, VolumetricBlockManager } from '../rendering/volumetricBlockLayer';
 import { createGraticuleLayer, GraticuleLayerManager } from '../rendering/graticuleLayer';
->>>>>>> 21e8540e (Changes)
 
 interface CesiumViewerProps {
   onViewerReady?: (viewer: Cesium.Viewer) => void;
@@ -27,12 +21,8 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
   const instrumentsManagerRef = useRef<InstrumentsLayerManager | null>(null);
   const depthSliceManagerRef = useRef<DepthSliceLayerManager | null>(null);
   const currentsManagerRef = useRef<CurrentsLayerManager | null>(null);
-<<<<<<< HEAD
-  const volumeAxisGridManagerRef = useRef<VolumeAxisGridManager | null>(null);
-=======
   const volumetricBlockManagerRef = useRef<VolumetricBlockManager | null>(null);
   const graticuleManagerRef = useRef<GraticuleLayerManager | null>(null);
->>>>>>> 21e8540e (Changes)
 
   const {
     activeLayers,
@@ -58,9 +48,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     setCurrentTime,
     setSelectedVariable,
     setMode,
-    setSelectedInstrumentId,
-    activeBoundingBox,
-    verticalExaggeration
+    setSelectedInstrumentId
   } = useOceanStore();
 
   useEffect(() => {
@@ -304,13 +292,6 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       }
     });
 
-    // 6. Interactive SHIFT+Drag Selection
-    const dragSelectHandler = createDragSelectHandler(viewer);
-
-    // 7. Scientific 3D Axis Grid
-    const volumeAxisGridManager = createVolumeAxisGrid(viewer);
-    volumeAxisGridManagerRef.current = volumeAxisGridManager;
-
     viewerRef.current = viewer;
     if (onViewerReady) {
       onViewerReady(viewer);
@@ -320,8 +301,6 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       window.removeEventListener('fly-to-ocean-block', handleFlyToBlock);
       removeMoveEndListener();
       hoverHandler.destroy();
-      dragSelectHandler.destroy();
-      volumeAxisGridManager.destroy();
       instrumentsManagerRef.current?.destroy();
       depthSliceManagerRef.current?.destroy();
       currentsManagerRef.current?.destroy();
@@ -365,10 +344,6 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
         scaleType
       });
     }
-<<<<<<< HEAD
-    if (volumeAxisGridManagerRef.current) {
-      volumeAxisGridManagerRef.current.updateBox(activeBoundingBox, verticalExaggeration);
-=======
     if (volumetricBlockManagerRef.current) {
       volumetricBlockManagerRef.current.update({
         variable: selectedVariable,
@@ -382,15 +357,11 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     }
     if (graticuleManagerRef.current) {
       graticuleManagerRef.current.setVisible(isGraticuleEnabled);
->>>>>>> 21e8540e (Changes)
     }
     if (viewerRef.current) {
       const camState = serializeCameraState(viewerRef.current);
       syncStateToUrl(camState, useOceanStore.getState());
     }
-<<<<<<< HEAD
-  }, [activeLayers, depthLevel, currentTime, selectedVariable, mode, opacity, colorPalette, colorRange, scaleType, vectorArrowScale, activeBoundingBox, verticalExaggeration]);
-=======
   }, [
     activeLayers,
     depthLevel,
@@ -411,7 +382,6 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     is3DVolumeBlockEnabled,
     isGraticuleEnabled
   ]);
->>>>>>> 21e8540e (Changes)
 
   return (
     <div className="relative w-full h-full">
