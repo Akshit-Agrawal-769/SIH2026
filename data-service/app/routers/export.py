@@ -9,7 +9,6 @@ from fastapi.responses import FileResponse
 
 from app.processing.voxelize import (
     get_grid_coordinates,
-    generate_synthetic_ocean_field,
     STANDARD_DEPTH_LEVELS,
     LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
     GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH
@@ -162,21 +161,29 @@ def export_netcdf(
                     zlib=True,
                     complevel=4
                 )
-                dvar.standard_name = spec["standard_name"]
-                dvar.long_name = spec["long_name"]
-                dvar.units = spec["units"]
+                # Retrieve authentic binary tile produced by C++ ocean_core
+                tile_bytes = download_tile_from_minio(v_name, date, 0.5)
+                if not tile_bytes:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"No authentic data tile found for '{v_name}' at {date}. Strictly NO synthetic generation permitted."
+                    )
 
-                # Generate or assemble volume: shape (180, 220, 20) -> (depth, lat, lon)
-                vol_field, _, _ = generate_synthetic_ocean_field(v_name, date_str=date)
+                # Unpack 32-byte header + Float32 array
+                import struct
+                header = struct.unpack("<4sHHHHHHff8s", tile_bytes[:32])
+                w, h = header[3], header[4]
+                raw_slice = np.frombuffer(tile_bytes[32:], dtype=np.float32).reshape((h, w))
 
-                # Subsetting:
-                # vol_field is (GRID_HEIGHT, GRID_WIDTH, GRID_DEPTH) -> (lat, lon, depth)
-                sub_vol = vol_field[np.ix_(lat_mask, lon_mask, depth_mask)]
-                # Transpose to (depth, lat, lon)
-                sub_vol = np.transpose(sub_vol, (2, 0, 1))
-
-                # Replace NaNs (land) with CF fill_value
-                sub_vol = np.where(np.isnan(sub_vol), fill_value, sub_vol)
+                # Broadcast or subset across selected depths
+                sub_vol = np.zeros((len(sub_depths), len(sub_lats), len(sub_lons)), dtype=np.float32)
+                # Resample or assign authentic slice to surface level (depth = 0.5m)
+                from scipy.ndimage import zoom
+                zoom_factors = (len(sub_lats) / float(h), len(sub_lons) / float(w))
+                resampled = zoom(np.nan_to_num(raw_slice, nan=fill_value), zoom_factors, order=0)
+                sub_vol[0, :, :] = resampled
+                for d_i in range(1, len(sub_depths)):
+                    sub_vol[d_i, :, :] = fill_value
 
                 # Assign to (time=0, depth, lat, lon)
                 dvar[0, :, :, :] = sub_vol

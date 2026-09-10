@@ -8,7 +8,6 @@ from scipy.interpolate import RegularGridInterpolator
 
 from app.processing.voxelize import (
     get_grid_coordinates,
-    generate_synthetic_ocean_field,
     STANDARD_DEPTH_LEVELS,
     LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
     GRID_WIDTH, GRID_HEIGHT,
@@ -268,23 +267,22 @@ def handle_wms(
         width = max(32, min(width, 2048))
         height = max(32, min(height, 2048))
 
-        # 2. Retrieve data slice
+        # 2. Retrieve authentic data slice
         tile_bytes = download_tile_from_minio(target_layer, time, req_depth)
-        if tile_bytes and len(tile_bytes) >= 32 + (GRID_WIDTH * GRID_HEIGHT * 4):
-            slice_data = np.frombuffer(tile_bytes[32:], dtype=np.float32).reshape((GRID_HEIGHT, GRID_WIDTH))
-        else:
-            vol, _, _ = generate_synthetic_ocean_field(target_layer, date_str=time)
-            depth_idx = 0
-            if req_depth in STANDARD_DEPTH_LEVELS:
-                depth_idx = STANDARD_DEPTH_LEVELS.index(req_depth)
-            else:
-                diffs = [abs(d - req_depth) for d in STANDARD_DEPTH_LEVELS]
-                depth_idx = diffs.index(min(diffs))
-            slice_data = vol[:, :, depth_idx]
+        if not tile_bytes or len(tile_bytes) < 32:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No authentic oceanographic tile available for layer '{target_layer}' at time '{time}', depth {req_depth}m. Strictly NO synthetic fallback permitted."
+            )
+
+        import struct
+        hdr = struct.unpack("<4sHHHHHHff8s", tile_bytes[:32])
+        w, h = hdr[3], hdr[4]
+        slice_data = np.frombuffer(tile_bytes[32:32 + w * h * 4], dtype=np.float32).reshape((h, w))
 
         # 3. Resample onto requested WMS raster bounds
-        src_lats = np.linspace(LAT_MIN, LAT_MAX, GRID_HEIGHT)
-        src_lons = np.linspace(LON_MIN, LON_MAX, GRID_WIDTH)
+        src_lats = np.linspace(-10.0, 25.0, h)
+        src_lons = np.linspace(35.0, 100.0, w)
 
         interpolator = RegularGridInterpolator(
             (src_lats, src_lons),

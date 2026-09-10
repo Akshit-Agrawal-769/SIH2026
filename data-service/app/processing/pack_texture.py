@@ -113,17 +113,37 @@ def upload_manifest_to_minio(variable: str, manifest_data: Dict[str, Any]):
     )
 
 def download_tile_from_minio(variable: str, date_str: str, depth: float) -> Optional[bytes]:
-    """Retrieves binary tile from MinIO if present."""
-    client = get_minio_client()
+    """
+    Retrieves authentic binary tile directly from the local authoritative C++ tile repository,
+    or from MinIO S3 object storage if deployed.
+    """
+    # 1. Check local authoritative real tile repository produced by C++ ocean_core FIRST
+    search_paths = [
+        os.path.join(os.getcwd(), "tiles", variable, date_str, f"{depth}.bin"),
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "tiles", variable, date_str, f"{depth}.bin"),
+        os.path.join(os.path.dirname(__file__), "..", "..", "tiles", variable, date_str, f"{depth}.bin"),
+        os.path.abspath(f"tiles/{variable}/{date_str}/{depth}.bin"),
+        f"D:/OneDrive/Desktop/sih/tiles/{variable}/{date_str}/{depth}.bin"
+    ]
+    for p in search_paths:
+        if os.path.exists(p):
+            try:
+                with open(p, "rb") as f:
+                    return f.read()
+            except Exception as e:
+                print(f"[TileStore] Error reading {p}: {e}")
+
+    # 2. Try MinIO S3 object storage
     object_name = f"tiles/{variable}/{date_str}/{depth}.bin"
     try:
+        client = get_minio_client()
         response = client.get_object(MINIO_BUCKET, object_name)
         data = response.read()
         response.close()
         response.release_conn()
-        return data
-    except S3Error:
-        return None
-    except Exception as e:
-        print(f"[MinIO] Download error: {e}")
-        return None
+        if data:
+            return data
+    except Exception:
+        pass
+
+    return None

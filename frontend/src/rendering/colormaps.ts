@@ -342,13 +342,13 @@ export function sampleOceanDataAt(
   lon: number,
   lat: number
 ): { value: number | null; isLand: boolean } {
-  if (lon < 45.0 || lon > 100.0 || lat < -15.0 || lat > 30.0) {
+  if (lon < 35.0 || lon > 100.0 || lat < -10.0 || lat > 25.0) {
     return { value: null, isLand: false };
   }
 
   const { width, height } = tileData.header;
-  const x = Math.round(((lon - 45.0) / 55.0) * (width - 1));
-  const y = Math.round(((lat - (-15.0)) / 45.0) * (height - 1));
+  const x = Math.round(((lon - 35.0) / 65.0) * (width - 1));
+  const y = Math.round(((lat - (-10.0)) / 35.0) * (height - 1));
 
   if (x < 0 || x >= width || y < 0 || y >= height) {
     return { value: null, isLand: false };

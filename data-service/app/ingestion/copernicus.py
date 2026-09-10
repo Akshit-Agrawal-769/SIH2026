@@ -1,16 +1,15 @@
+import os
 from datetime import datetime
 from typing import Dict, Any, List
 import numpy as np
 
 from app.ingestion.base import IngestionAdapter
 from app.processing.voxelize import (
-    generate_synthetic_ocean_field,
     STANDARD_DEPTH_LEVELS,
     LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
     GRID_WIDTH, GRID_HEIGHT
 )
 from app.processing.pack_texture import (
-    pack_voxel_buffer,
     upload_tile_to_minio,
     upload_manifest_to_minio
 )
@@ -47,58 +46,43 @@ class CopernicusIngestionAdapter(IngestionAdapter):
 
     def generate_and_store_tiles(self, variables: List[str] = None) -> Dict[str, int]:
         """
-        Voxelizes 3D numerical model fields and uploads binary packed textures
-        and manifests to MinIO S3 object storage across 14-day rolling window.
+        Syncs authentic C++ generated binary tiles to MinIO S3 object storage
+        across authentic timesteps. STRICT ZERO SYNTHETIC GENERATION.
         """
         if variables is None:
             variables = ["temperature", "salinity", "chlorophyll", "currents"]
 
         stats = {}
-        for var in variables:
-            print(f"[Model Ingestion] Voxelizing and packing 3D field for '{var}' (14 timesteps)...")
-            var_code = VAR_CODES.get(var, 1)
-            global_min = float("inf")
-            global_max = float("-inf")
+        tile_dirs = [
+            os.path.join(os.getcwd(), "tiles"),
+            os.path.join(os.path.dirname(__file__), "..", "..", "..", "tiles"),
+            os.path.abspath("tiles"),
+            "D:/OneDrive/Desktop/sih/tiles"
+        ]
+        base_tile_dir = next((d for d in tile_dirs if os.path.exists(d)), "tiles")
 
+        for var in variables:
             tile_count = 0
             for date_str in SAMPLE_TIMESTEPS:
-                # Generate dynamic physical field for this specific day
-                volume_field, min_val, max_val = generate_synthetic_ocean_field(var, date_str=date_str)
-                global_min = min(global_min, min_val)
-                global_max = max(global_max, max_val)
-
-                # Pack each depth slice as a binary tile for rapid streaming
-                for depth_idx, depth in enumerate(STANDARD_DEPTH_LEVELS):
-                    depth_slice = volume_field[:, :, depth_idx]
-                    binary_tile = pack_voxel_buffer(
-                        depth_slice,
-                        variable_code=var_code,
-                        min_val=min_val,
-                        max_val=max_val,
-                        depth_levels_count=1
-                    )
-                    upload_tile_to_minio(var, date_str, depth, binary_tile)
+                tile_path = os.path.join(base_tile_dir, var, date_str, "0.5.bin")
+                if os.path.exists(tile_path):
+                    with open(tile_path, "rb") as f:
+                        binary_tile = f.read()
+                    upload_tile_to_minio(var, date_str, 0.5, binary_tile)
                     tile_count += 1
 
             # Upload JSON manifest
             manifest = {
                 "variable": var,
                 "units": UNITS.get(var, ""),
-                "bbox": [LON_MIN, LAT_MIN, LON_MAX, LAT_MAX],
-                "grid": {
-                    "lon_min": LON_MIN,
-                    "lon_max": LON_MAX,
-                    "lat_min": LAT_MIN,
-                    "lat_max": LAT_MAX,
-                    "width": GRID_WIDTH,
-                    "height": GRID_HEIGHT,
-                    "depth_levels": STANDARD_DEPTH_LEVELS
-                },
+                "bbox": [35.0, -10.0, 100.0, 25.0],
+                "data_policy": "STRICT_REAL_DATA_ZERO_SYNTHETIC",
                 "timesteps": SAMPLE_TIMESTEPS,
-                "value_range": [round(global_min, 2), round(global_max, 2)]
+                "depth_levels": [0.5]
             }
             upload_manifest_to_minio(var, manifest)
             stats[var] = tile_count
-            print(f"[Model Ingestion] Uploaded {tile_count} tiles and manifest for '{var}' to MinIO!")
+            print(f"[Model Ingestion] Uploaded {tile_count} authentic C++ tiles for '{var}' to MinIO.")
 
         return stats
+

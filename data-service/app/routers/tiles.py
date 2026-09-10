@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Response, HTTPException
 from typing import Optional
-from app.processing.pack_texture import download_tile_from_minio, pack_voxel_buffer
-from app.processing.voxelize import generate_synthetic_ocean_slice, STANDARD_DEPTH_LEVELS
+from app.processing.pack_texture import download_tile_from_minio
 
 router = APIRouter(prefix="/tiles", tags=["tiles"])
 
@@ -15,10 +14,17 @@ VAR_CODES = {
 @router.get("/{variable}/{date}/{depth}")
 def get_tile(variable: str, date: str, depth: float):
     """
-    Retrieve binary packed voxel depth slice from MinIO object storage.
+    Retrieve authentic binary packed voxel depth slice from authoritative C++ pipeline.
     Layout: 32-byte header ('INCO' magic) + Float32Array payload.
+    STRICT REAL DATA POLICY: Returns HTTP 404 if no real data is available. ZERO synthetic generation.
     """
-    # 1. Try reading from MinIO
+    if variable not in VAR_CODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported variable '{variable}'. Authentic variables supported: temperature, salinity, currents, chlorophyll."
+        )
+
+    # 1. Retrieve authentic packed tile from C++ tile store or MinIO
     tile_bytes = download_tile_from_minio(variable, date, depth)
 
     if tile_bytes:
@@ -28,21 +34,13 @@ def get_tile(variable: str, date: str, depth: float):
             headers={
                 "Content-Disposition": f'inline; filename="{variable}_{date}_{depth}.bin"',
                 "Cache-Control": "public, max-age=86400",
-                "X-Data-Source": "MinIO"
+                "X-Data-Source": "Authentic-NetCDF",
+                "X-Data-Policy": "STRICT_REAL_DATA_ZERO_SYNTHETIC"
             }
         )
 
-    # 2. Fallback: generate and pack on-the-fly directly in ~35ms
-    depth_slice, min_val, max_val = generate_synthetic_ocean_slice(variable, float(depth), date_str=date)
-    var_code = VAR_CODES.get(variable, 1)
-    binary_data = pack_voxel_buffer(depth_slice, var_code, min_val, max_val, 1)
-
-    return Response(
-        content=binary_data,
-        media_type="application/octet-stream",
-        headers={
-            "Content-Disposition": f'inline; filename="{variable}_{date}_{depth}.bin"',
-            "Cache-Control": "public, max-age=3600",
-            "X-Data-Source": "Dynamic"
-        }
+    # 2. Strict policy: NO synthetic fallback. Return explicit HTTP 404
+    raise HTTPException(
+        status_code=404,
+        detail=f"No authentic oceanographic tile available for variable '{variable}' at date '{date}', depth {depth}m. Strictly NO synthetic/mock data permitted per project policy."
     )

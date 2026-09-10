@@ -70,6 +70,13 @@ add_executable(reconcile_coriolis
 target_link_libraries(reconcile_coriolis PRIVATE ocean_core)
 set_target_compiler_warnings(reconcile_coriolis)
 
+# Real Tile Exporter Tool for 3D Visualizer
+add_executable(export_real_tiles
+    tools/export_real_tiles.cpp
+)
+target_link_libraries(export_real_tiles PRIVATE ocean_core)
+set_target_compiler_warnings(export_real_tiles)
+
 # Test Suite Enablement
 enable_testing()
 

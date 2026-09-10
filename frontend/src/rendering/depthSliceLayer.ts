@@ -19,12 +19,12 @@ export interface DepthSliceLayerManager {
   destroy: () => void;
 }
 
-// North Indian Ocean & Arabian Sea / Bay of Bengal bounding box
+// Authentic North Indian Ocean & Arabian Sea / Bay of Bengal bounding box
 export const OCEAN_BOUNDS = {
-  west: 45.0,
-  south: -15.0,
+  west: 35.0,
+  south: -10.0,
   east: 100.0,
-  north: 30.0
+  north: 25.0
 };
 
 const OCEAN_RECTANGLE = Cesium.Rectangle.fromDegrees(
@@ -100,10 +100,16 @@ export async function createDepthSliceLayer(
       currentImageryLayer = newImageryLayer;
 
       console.log(
-        `[DepthSliceLayer] Rendered ${params.variable} at depth ${params.depth}m (min: ${tileData.header.minVal.toFixed(1)}, max: ${tileData.header.maxVal.toFixed(1)})`
+        `[DepthSliceLayer] Rendered authentic ${params.variable} at depth ${params.depth}m (min: ${tileData.header.minVal.toFixed(2)}, max: ${tileData.header.maxVal.toFixed(2)})`
       );
     } catch (err) {
-      console.error('[DepthSliceLayer] Failed to render depth slice:', err);
+      console.warn(`[DepthSliceLayer] No authentic data available for ${params.variable} at depth ${params.depth}m (strict no-mock policy):`, err);
+      // Cleanly remove any previous imagery layer so stale data is not displayed
+      if (currentImageryLayer && !viewer.isDestroyed()) {
+        viewer.imageryLayers.remove(currentImageryLayer, true);
+        currentImageryLayer = null;
+      }
+      currentTileData = null;
     }
   };
 
