@@ -4,7 +4,7 @@ A web-based, browser-native 3D interactive ocean visualization platform ("Digita
 
 Developed for the **Smart India Hackathon 2026 (SIH 2026)**.
 
-> 🌐 **Live Production Link:** [https://incois-ocean-3d.vercel.app](https://incois-ocean-3d.vercel.app)
+> 🌐 **Live Production Link:** https://incois-ocean-3d.vercel.app/?lat=15&lon=78&h=24000000&heading=360&layers=temperature%2Ccurrents%2Cargo%2Cglider%2Cmoored_buoy%2Cindia_eez&time=2024-06-01
 
 ---
 

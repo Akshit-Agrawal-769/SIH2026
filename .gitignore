@@ -42,6 +42,8 @@ datasets/argo_index.json
 datasets/geography/
 *.zarr/
 *.bin
+!frontend/public/tiles/
+!frontend/public/tiles/**
 *.grib
 *.grib2
 *.hdf

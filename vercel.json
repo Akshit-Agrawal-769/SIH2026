@@ -6,7 +6,27 @@
   "installCommand": "cd frontend && npm install",
   "rewrites": [
     {
-      "source": "/((?!assets|cesium|data|favicon.ico|.*\\..*).*)",
+      "source": "/api/tiles/:var/:date/:depth",
+      "destination": "/tiles/:var/:date/:depth.bin"
+    },
+    {
+      "source": "/api/instruments",
+      "destination": "/api/instruments.json"
+    },
+    {
+      "source": "/api/instruments/:id/profile",
+      "destination": "/api/profiles/:id.json"
+    },
+    {
+      "source": "/api/variables",
+      "destination": "/api/variables.json"
+    },
+    {
+      "source": "/api/manifest/:var",
+      "destination": "/api/manifest/:var.json"
+    },
+    {
+      "source": "/((?!assets|cesium|data|tiles|api|favicon.ico|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

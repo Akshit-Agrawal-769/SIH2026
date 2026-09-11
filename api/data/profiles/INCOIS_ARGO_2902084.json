@@ -1,0 +1,599 @@
+{
+  "instrument_id": "INCOIS_ARGO_2902084",
+  "external_id": "INCOIS_ARGO_2902084",
+  "platform_type": "argo",
+  "profile_id": "INCOIS_ARGO_2902084_prof_latest",
+  "timestamp": "2014-02-27T05:50:00+00:00",
+  "latitude": 13.691,
+  "longitude": 88.074,
+  "metadata": {
+    "wmo": "2902084",
+    "institution": "INCOIS",
+    "data_mode": "Authentic NetCDF (QC 1/2 verified)",
+    "qc_passed": true
+  },
+  "measurements": [
+    {
+      "depth": 5.96,
+      "pressure": 6.0,
+      "temperature": 27.284,
+      "salinity": 33.794
+    },
+    {
+      "depth": 6.95,
+      "pressure": 7.0,
+      "temperature": 27.234,
+      "salinity": 33.799
+    },
+    {
+      "depth": 7.94,
+      "pressure": 8.0,
+      "temperature": 27.226,
+      "salinity": 33.802
+    },
+    {
+      "depth": 8.94,
+      "pressure": 9.0,
+      "temperature": 27.218,
+      "salinity": 33.812
+    },
+    {
+      "depth": 9.93,
+      "pressure": 10.0,
+      "temperature": 27.221,
+      "salinity": 33.819
+    },
+    {
+      "depth": 15.89,
+      "pressure": 16.0,
+      "temperature": 27.251,
+      "salinity": 33.86
+    },
+    {
+      "depth": 25.82,
+      "pressure": 26.0,
+      "temperature": 27.277,
+      "salinity": 33.926
+    },
+    {
+      "depth": 34.76,
+      "pressure": 35.0,
+      "temperature": 27.271,
+      "salinity": 33.982
+    },
+    {
+      "depth": 44.69,
+      "pressure": 45.0,
+      "temperature": 27.261,
+      "salinity": 33.984
+    },
+    {
+      "depth": 55.61,
+      "pressure": 56.0,
+      "temperature": 27.239,
+      "salinity": 34.004
+    },
+    {
+      "depth": 65.54,
+      "pressure": 66.0,
+      "temperature": 26.852,
+      "salinity": 34.318
+    },
+    {
+      "depth": 75.47,
+      "pressure": 76.0,
+      "temperature": 25.931,
+      "salinity": 34.531
+    },
+    {
+      "depth": 84.41,
+      "pressure": 85.0,
+      "temperature": 24.249,
+      "salinity": 34.664
+    },
+    {
+      "depth": 95.33,
+      "pressure": 96.0,
+      "temperature": 22.859,
+      "salinity": 34.811
+    },
+    {
+      "depth": 104.27,
+      "pressure": 105.0,
+      "temperature": 21.995,
+      "salinity": 34.845
+    },
+    {
+      "depth": 115.19,
+      "pressure": 116.0,
+      "temperature": 20.9,
+      "salinity": 34.861
+    },
+    {
+      "depth": 125.12,
+      "pressure": 126.0,
+      "temperature": 20.255,
+      "salinity": 34.847
+    },
+    {
+      "depth": 135.05,
+      "pressure": 136.0,
+      "temperature": 19.138,
+      "salinity": 34.866
+    },
+    {
+      "depth": 143.98,
+      "pressure": 145.0,
+      "temperature": 18.325,
+      "salinity": 34.883
+    },
+    {
+      "depth": 154.91,
+      "pressure": 156.0,
+      "temperature": 17.691,
+      "salinity": 34.892
+    },
+    {
+      "depth": 163.84,
+      "pressure": 165.0,
+      "temperature": 16.989,
+      "salinity": 34.905
+    },
+    {
+      "depth": 173.78,
+      "pressure": 175.0,
+      "temperature": 16.162,
+      "salinity": 34.912
+    },
+    {
+      "depth": 184.7,
+      "pressure": 186.0,
+      "temperature": 15.692,
+      "salinity": 34.922
+    },
+    {
+      "depth": 194.63,
+      "pressure": 196.0,
+      "temperature": 15.132,
+      "salinity": 34.947
+    },
+    {
+      "depth": 210.52,
+      "pressure": 212.0,
+      "temperature": 14.286,
+      "salinity": 34.982
+    },
+    {
+      "depth": 236.33,
+      "pressure": 238.0,
+      "temperature": 13.277,
+      "salinity": 35.011
+    },
+    {
+      "depth": 261.16,
+      "pressure": 263.0,
+      "temperature": 12.571,
+      "salinity": 35.025
+    },
+    {
+      "depth": 285.98,
+      "pressure": 288.0,
+      "temperature": 12.095,
+      "salinity": 35.036
+    },
+    {
+      "depth": 310.81,
+      "pressure": 313.0,
+      "temperature": 11.77,
+      "salinity": 35.039
+    },
+    {
+      "depth": 334.64,
+      "pressure": 337.0,
+      "temperature": 11.452,
+      "salinity": 35.04
+    },
+    {
+      "depth": 360.46,
+      "pressure": 363.0,
+      "temperature": 11.12,
+      "salinity": 35.037
+    },
+    {
+      "depth": 385.28,
+      "pressure": 388.0,
+      "temperature": 10.884,
+      "salinity": 35.038
+    },
+    {
+      "depth": 410.11,
+      "pressure": 413.0,
+      "temperature": 10.684,
+      "salinity": 35.036
+    },
+    {
+      "depth": 434.93,
+      "pressure": 438.0,
+      "temperature": 10.479,
+      "salinity": 35.034
+    },
+    {
+      "depth": 459.76,
+      "pressure": 463.0,
+      "temperature": 10.303,
+      "salinity": 35.033
+    },
+    {
+      "depth": 484.58,
+      "pressure": 488.0,
+      "temperature": 10.103,
+      "salinity": 35.03
+    },
+    {
+      "depth": 509.41,
+      "pressure": 513.0,
+      "temperature": 9.903,
+      "salinity": 35.024
+    },
+    {
+      "depth": 534.23,
+      "pressure": 538.0,
+      "temperature": 9.705,
+      "salinity": 35.02
+    },
+    {
+      "depth": 559.06,
+      "pressure": 563.0,
+      "temperature": 9.522,
+      "salinity": 35.016
+    },
+    {
+      "depth": 584.88,
+      "pressure": 589.0,
+      "temperature": 9.338,
+      "salinity": 35.014
+    },
+    {
+      "depth": 608.71,
+      "pressure": 613.0,
+      "temperature": 9.17,
+      "salinity": 35.009
+    },
+    {
+      "depth": 633.53,
+      "pressure": 638.0,
+      "temperature": 9.04,
+      "salinity": 35.005
+    },
+    {
+      "depth": 658.36,
+      "pressure": 663.0,
+      "temperature": 8.926,
+      "salinity": 35.003
+    },
+    {
+      "depth": 683.18,
+      "pressure": 688.0,
+      "temperature": 8.803,
+      "salinity": 35.001
+    },
+    {
+      "depth": 708.01,
+      "pressure": 713.0,
+      "temperature": 8.654,
+      "salinity": 34.997
+    },
+    {
+      "depth": 732.83,
+      "pressure": 738.0,
+      "temperature": 8.458,
+      "salinity": 34.991
+    },
+    {
+      "depth": 757.66,
+      "pressure": 763.0,
+      "temperature": 8.311,
+      "salinity": 34.987
+    },
+    {
+      "depth": 782.48,
+      "pressure": 788.0,
+      "temperature": 8.194,
+      "salinity": 34.981
+    },
+    {
+      "depth": 807.31,
+      "pressure": 813.0,
+      "temperature": 8.036,
+      "salinity": 34.978
+    },
+    {
+      "depth": 833.13,
+      "pressure": 839.0,
+      "temperature": 7.871,
+      "salinity": 34.973
+    },
+    {
+      "depth": 856.96,
+      "pressure": 863.0,
+      "temperature": 7.717,
+      "salinity": 34.969
+    },
+    {
+      "depth": 881.78,
+      "pressure": 888.0,
+      "temperature": 7.571,
+      "salinity": 34.964
+    },
+    {
+      "depth": 906.61,
+      "pressure": 913.0,
+      "temperature": 7.439,
+      "salinity": 34.96
+    },
+    {
+      "depth": 931.43,
+      "pressure": 938.0,
+      "temperature": 7.31,
+      "salinity": 34.956
+    },
+    {
+      "depth": 956.26,
+      "pressure": 963.0,
+      "temperature": 7.163,
+      "salinity": 34.951
+    },
+    {
+      "depth": 981.08,
+      "pressure": 988.0,
+      "temperature": 7.032,
+      "salinity": 34.946
+    },
+    {
+      "depth": 1005.91,
+      "pressure": 1013.0,
+      "temperature": 6.876,
+      "salinity": 34.94
+    },
+    {
+      "depth": 1030.73,
+      "pressure": 1038.0,
+      "temperature": 6.733,
+      "salinity": 34.934
+    },
+    {
+      "depth": 1055.56,
+      "pressure": 1063.0,
+      "temperature": 6.579,
+      "salinity": 34.929
+    },
+    {
+      "depth": 1080.38,
+      "pressure": 1088.0,
+      "temperature": 6.447,
+      "salinity": 34.923
+    },
+    {
+      "depth": 1105.21,
+      "pressure": 1113.0,
+      "temperature": 6.338,
+      "salinity": 34.919
+    },
+    {
+      "depth": 1131.03,
+      "pressure": 1139.0,
+      "temperature": 6.198,
+      "salinity": 34.914
+    },
+    {
+      "depth": 1154.86,
+      "pressure": 1163.0,
+      "temperature": 6.074,
+      "salinity": 34.91
+    },
+    {
+      "depth": 1179.68,
+      "pressure": 1188.0,
+      "temperature": 5.951,
+      "salinity": 34.905
+    },
+    {
+      "depth": 1204.51,
+      "pressure": 1213.0,
+      "temperature": 5.811,
+      "salinity": 34.9
+    },
+    {
+      "depth": 1229.33,
+      "pressure": 1238.0,
+      "temperature": 5.705,
+      "salinity": 34.896
+    },
+    {
+      "depth": 1254.16,
+      "pressure": 1263.0,
+      "temperature": 5.62,
+      "salinity": 34.893
+    },
+    {
+      "depth": 1278.98,
+      "pressure": 1288.0,
+      "temperature": 5.5,
+      "salinity": 34.888
+    },
+    {
+      "depth": 1303.81,
+      "pressure": 1313.0,
+      "temperature": 5.393,
+      "salinity": 34.884
+    },
+    {
+      "depth": 1328.63,
+      "pressure": 1338.0,
+      "temperature": 5.298,
+      "salinity": 34.88
+    },
+    {
+      "depth": 1353.46,
+      "pressure": 1363.0,
+      "temperature": 5.181,
+      "salinity": 34.876
+    },
+    {
+      "depth": 1378.28,
+      "pressure": 1388.0,
+      "temperature": 5.091,
+      "salinity": 34.873
+    },
+    {
+      "depth": 1403.11,
+      "pressure": 1413.0,
+      "temperature": 5.004,
+      "salinity": 34.869
+    },
+    {
+      "depth": 1427.93,
+      "pressure": 1438.0,
+      "temperature": 4.891,
+      "salinity": 34.865
+    },
+    {
+      "depth": 1452.76,
+      "pressure": 1463.0,
+      "temperature": 4.795,
+      "salinity": 34.861
+    },
+    {
+      "depth": 1477.58,
+      "pressure": 1488.0,
+      "temperature": 4.679,
+      "salinity": 34.857
+    },
+    {
+      "depth": 1502.41,
+      "pressure": 1513.0,
+      "temperature": 4.569,
+      "salinity": 34.852
+    },
+    {
+      "depth": 1527.23,
+      "pressure": 1538.0,
+      "temperature": 4.447,
+      "salinity": 34.848
+    },
+    {
+      "depth": 1552.06,
+      "pressure": 1563.0,
+      "temperature": 4.319,
+      "salinity": 34.843
+    },
+    {
+      "depth": 1576.88,
+      "pressure": 1588.0,
+      "temperature": 4.225,
+      "salinity": 34.839
+    },
+    {
+      "depth": 1601.71,
+      "pressure": 1613.0,
+      "temperature": 4.134,
+      "salinity": 34.836
+    },
+    {
+      "depth": 1626.53,
+      "pressure": 1638.0,
+      "temperature": 4.048,
+      "salinity": 34.832
+    },
+    {
+      "depth": 1651.36,
+      "pressure": 1663.0,
+      "temperature": 3.941,
+      "salinity": 34.828
+    },
+    {
+      "depth": 1676.18,
+      "pressure": 1688.0,
+      "temperature": 3.843,
+      "salinity": 34.824
+    },
+    {
+      "depth": 1701.01,
+      "pressure": 1713.0,
+      "temperature": 3.735,
+      "salinity": 34.819
+    },
+    {
+      "depth": 1725.83,
+      "pressure": 1738.0,
+      "temperature": 3.648,
+      "salinity": 34.816
+    },
+    {
+      "depth": 1750.66,
+      "pressure": 1763.0,
+      "temperature": 3.562,
+      "salinity": 34.812
+    },
+    {
+      "depth": 1775.48,
+      "pressure": 1788.0,
+      "temperature": 3.463,
+      "salinity": 34.808
+    },
+    {
+      "depth": 1800.31,
+      "pressure": 1813.0,
+      "temperature": 3.374,
+      "salinity": 34.804
+    },
+    {
+      "depth": 1826.13,
+      "pressure": 1839.0,
+      "temperature": 3.272,
+      "salinity": 34.8
+    },
+    {
+      "depth": 1849.96,
+      "pressure": 1863.0,
+      "temperature": 3.196,
+      "salinity": 34.797
+    },
+    {
+      "depth": 1874.78,
+      "pressure": 1888.0,
+      "temperature": 3.133,
+      "salinity": 34.795
+    },
+    {
+      "depth": 1899.61,
+      "pressure": 1913.0,
+      "temperature": 3.066,
+      "salinity": 34.792
+    },
+    {
+      "depth": 1924.43,
+      "pressure": 1938.0,
+      "temperature": 3.001,
+      "salinity": 34.789
+    },
+    {
+      "depth": 1949.26,
+      "pressure": 1963.0,
+      "temperature": 2.944,
+      "salinity": 34.787
+    },
+    {
+      "depth": 1974.08,
+      "pressure": 1988.0,
+      "temperature": 2.885,
+      "salinity": 34.784
+    },
+    {
+      "depth": 1998.91,
+      "pressure": 2013.0,
+      "temperature": 2.825,
+      "salinity": 34.781
+    }
+  ]
+}

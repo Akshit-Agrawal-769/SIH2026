@@ -1,0 +1,51 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_2902120",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          68.99703333333333,
+          12.831588333333332
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_2902120",
+        "external_id": "INCOIS_ARGO_2902120",
+        "platform_type": "argo",
+        "last_report": "2021-05-02T11:43:00+00:00",
+        "metadata": {
+          "wmo": "2902120",
+          "institution": "INCOIS",
+          "data_mode": "Authentic NetCDF (QC 1/2 verified)",
+          "profile_count": 262
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_2902084",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          88.074,
+          13.691
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_2902084",
+        "external_id": "INCOIS_ARGO_2902084",
+        "platform_type": "argo",
+        "last_report": "2014-02-27T05:50:00+00:00",
+        "metadata": {
+          "wmo": "2902084",
+          "institution": "INCOIS",
+          "data_mode": "Authentic NetCDF (QC 1/2 verified)",
+          "profile_count": 55
+        }
+      }
+    }
+  ]
+}

@@ -64,7 +64,10 @@ export async function fetchInstruments(params?: {
   if (params?.platform_type) query.set('platform_type', params.platform_type);
 
   const url = `${API_BASE}/instruments${query.toString() ? `?${query.toString()}` : ''}`;
-  const res = await fetch(url);
+  let res = await fetch(url);
+  if (!res.ok || (res.headers.get('content-type')?.includes('text/html'))) {
+    res = await fetch('/api/instruments.json');
+  }
   if (!res.ok) {
     throw new Error(`Failed to fetch instruments: ${res.statusText}`);
   }
@@ -78,7 +81,14 @@ export async function fetchInstrumentProfile(
   instrumentId: string
 ): Promise<InstrumentProfileResponse> {
   const url = `${API_BASE}/instruments/${encodeURIComponent(instrumentId)}/profile`;
-  const res = await fetch(url);
+  let res = await fetch(url);
+  if (!res.ok || (res.headers.get('content-type')?.includes('text/html'))) {
+    const cleanId = instrumentId.replace('INCOIS_ARGO_', '');
+    res = await fetch(`/api/profiles/${encodeURIComponent(instrumentId)}.json`);
+    if (!res.ok) {
+      res = await fetch(`/api/profiles/${encodeURIComponent(cleanId)}.json`);
+    }
+  }
   if (!res.ok) {
     throw new Error(`Failed to fetch instrument profile: ${res.statusText}`);
   }
@@ -178,7 +188,17 @@ export async function fetchOceanTile(
   }
 
   const url = `${API_BASE}/tiles/${encodeURIComponent(variable)}/${encodeURIComponent(date)}/${depth}`;
-  const res = await fetch(url);
+  let res = await fetch(url);
+  if (!res.ok || (res.headers.get('content-type')?.includes('text/html'))) {
+    // Try static direct tile path
+    const fallbackUrl = `/tiles/${encodeURIComponent(variable)}/${encodeURIComponent(date)}/${depth}.bin`;
+    res = await fetch(fallbackUrl);
+    if (!res.ok) {
+      const altKey = depth === 0 ? '0.5' : String(Math.round(depth));
+      const altUrl = `/tiles/${encodeURIComponent(variable)}/${encodeURIComponent(date)}/${altKey}.bin`;
+      res = await fetch(altUrl);
+    }
+  }
   if (!res.ok) {
     throw new Error(`Failed to fetch ocean tile: ${res.statusText}`);
   }

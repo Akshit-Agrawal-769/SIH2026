@@ -1,9 +1,8 @@
 # Datasets & Large Binaries
-datasets/
-tiles/
+/datasets/
+/tiles/
 *.nc
 *.nc4
-*.bin
 *.npy
 
 # Backend, Gateway & C++ Visualizer
@@ -17,6 +16,7 @@ submission/
 # Dependencies & Build artifacts
 node_modules/
 frontend/node_modules/
+frontend/dist/
 gateway/node_modules/
 .venv/
 venv/
