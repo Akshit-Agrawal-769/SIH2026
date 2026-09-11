@@ -10,8 +10,7 @@
 
 Watch the full end-to-end working demonstration of the platform:
 
-- **YouTube Demonstration Link:** `https://youtu.be/INCOIS_3D_OCEAN_DEMO_2026` *(Replace with your team's live video URL before submission)*
-- **Alternative Google Drive Link:** `https://drive.google.com/file/d/1_INCOIS_3D_OCEAN_DEMO_VIDEO/view?usp=sharing`
+- **YouTube Demonstration Link:** 'https://youtu.be/7Gc3l8hrdHI?si=rjLgtKtbXWsbWunQ' *
 
 > **Note:** The video is accessible publicly without requiring permissions or sign-in.
 

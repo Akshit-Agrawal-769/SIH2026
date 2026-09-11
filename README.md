@@ -14,14 +14,14 @@ Developed for the **Smart India Hackathon 2026 (SIH 2026)**.
 - **Organization:** Ministry of Earth Sciences (MoES) — Indian National Centre for Ocean Information Services (INCOIS)
 - **Category:** Software
 - **Theme:** Disaster Management / Smart Ocean & Climate
-- **Team Name:** *(Add Team Name)*
+- **Team Name:** Null Pointers
 - **Team Members:**
-  - Member 1 (Team Leader)
-  - Member 2
-  - Member 3
-  - Member 4
-  - Member 5
-  - Member 6
+  - Akshit Agrawal (Team Leader)
+  - Aveeral Jain
+  - Shreyansh Rastogi
+  - Uddip Jain
+  - Aayura Shankar Upadhyay
+  - Indrina Gupta
 
 ---
 
