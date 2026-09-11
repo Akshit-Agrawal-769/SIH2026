@@ -10,9 +10,10 @@
 
 Watch the full end-to-end working demonstration of the platform:
 
+- **Live Production URL:** [https://incois-ocean-3d.vercel.app](https://incois-ocean-3d.vercel.app)
 - **YouTube Demonstration Link:** 'https://youtu.be/7Gc3l8hrdHI?si=rjLgtKtbXWsbWunQ' *
 
-> **Note:** The video is accessible publicly without requiring permissions or sign-in.
+> **Note:** Both the live production web app and the demonstration video are accessible publicly without requiring permissions or sign-in.
 
 ---
 

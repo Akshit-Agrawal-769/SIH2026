@@ -1,0 +1,30 @@
+# Datasets & Large Binaries
+datasets/
+tiles/
+*.nc
+*.nc4
+*.bin
+*.npy
+
+# Backend, Gateway & C++ Visualizer
+data-service/
+gateway/
+cpp_visualizer/
+infra/
+docs/
+submission/
+
+# Dependencies & Build artifacts
+node_modules/
+frontend/node_modules/
+gateway/node_modules/
+.venv/
+venv/
+__pycache__/
+*.py
+
+# Test Caches & Logs
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
