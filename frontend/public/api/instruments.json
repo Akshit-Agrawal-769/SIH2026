@@ -3,24 +3,313 @@
   "features": [
     {
       "type": "Feature",
-      "id": "INCOIS_ARGO_2902120",
+      "id": "INCOIS_ARGO_1902751",
       "geometry": {
         "type": "Point",
         "coordinates": [
-          68.99703333333333,
-          12.831588333333332
+          65.304,
+          22.297
         ]
       },
       "properties": {
-        "id": "INCOIS_ARGO_2902120",
-        "external_id": "INCOIS_ARGO_2902120",
+        "id": "INCOIS_ARGO_1902751",
+        "external_id": "INCOIS_ARGO_1902751",
         "platform_type": "argo",
-        "last_report": "2021-05-02T11:43:00+00:00",
+        "last_report": "2026-08-20T10:51:40.003510+00:00",
         "metadata": {
-          "wmo": "2902120",
-          "institution": "INCOIS",
-          "data_mode": "Authentic NetCDF (QC 1/2 verified)",
-          "profile_count": 262
+          "wmo": "1902751",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "Arabian Sea (Gujarat Offshore)",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 146
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_1902757",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          63.529,
+          22.196
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_1902757",
+        "external_id": "INCOIS_ARGO_1902757",
+        "platform_type": "argo",
+        "last_report": "2026-08-08T16:18:30+00:00",
+        "metadata": {
+          "wmo": "1902757",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "North Arabian Sea OMZ",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 81
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_1902594",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.059,
+          9.353
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_1902594",
+        "external_id": "INCOIS_ARGO_1902594",
+        "platform_type": "argo",
+        "last_report": "2026-08-25T04:57:15.003544+00:00",
+        "metadata": {
+          "wmo": "1902594",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "Bay of Bengal Central",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 129
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_4903660",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          62.104,
+          16.82
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_4903660",
+        "external_id": "INCOIS_ARGO_4903660",
+        "platform_type": "argo",
+        "last_report": "2026-08-19T06:57:18.002395+00:00",
+        "metadata": {
+          "wmo": "4903660",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "Central Arabian Sea",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 148
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_6990514",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          62.299,
+          15.142
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_6990514",
+        "external_id": "INCOIS_ARGO_6990514",
+        "platform_type": "argo",
+        "last_report": "2026-08-19T07:05:19.995007+00:00",
+        "metadata": {
+          "wmo": "6990514",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "Eastern Arabian Sea (Goa/Konkan)",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 148
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_6990700",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          58.068,
+          24.416
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_6990700",
+        "external_id": "INCOIS_ARGO_6990700",
+        "platform_type": "argo",
+        "last_report": "2026-08-25T10:00:25.999995+00:00",
+        "metadata": {
+          "wmo": "6990700",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "North Arabian Sea (Gulf of Oman)",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 71
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_1902681",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.914,
+          8.055
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_1902681",
+        "external_id": "INCOIS_ARGO_1902681",
+        "platform_type": "argo",
+        "last_report": "2026-08-19T07:26:00+00:00",
+        "metadata": {
+          "wmo": "1902681",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "Palk Strait / Sri Lanka",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 88
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_5907086",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.191,
+          5.707
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_5907086",
+        "external_id": "INCOIS_ARGO_5907086",
+        "platform_type": "argo",
+        "last_report": "2026-08-24T02:45:00+00:00",
+        "metadata": {
+          "wmo": "5907086",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "Equatorial Indian Ocean",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 89
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_6990503",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          85.1,
+          2.327
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_6990503",
+        "external_id": "INCOIS_ARGO_6990503",
+        "platform_type": "argo",
+        "last_report": "2026-08-19T06:45:15.010222+00:00",
+        "metadata": {
+          "wmo": "6990503",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "Equatorial Southern Basin",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 168
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_3902490",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.397,
+          0.4
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_3902490",
+        "external_id": "INCOIS_ARGO_3902490",
+        "platform_type": "argo",
+        "last_report": "2026-08-26T10:10:12.020665+00:00",
+        "metadata": {
+          "wmo": "3902490",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "South Equatorial Basin",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 114
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_3902657",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          63.876,
+          20.763
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_3902657",
+        "external_id": "INCOIS_ARGO_3902657",
+        "platform_type": "argo",
+        "last_report": "2026-08-20T18:49:30+00:00",
+        "metadata": {
+          "wmo": "3902657",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "Oman Coast Upwelling",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 83
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_2902126",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          70.15,
+          16.25
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_2902126",
+        "external_id": "INCOIS_ARGO_2902126",
+        "platform_type": "argo",
+        "last_report": "2024-06-03T10:00:00+00:00",
+        "metadata": {
+          "wmo": "2902126",
+          "institution": "INCOIS / Euro-Argo GDAC",
+          "location_name": "Central Arabian Sea Station",
+          "data_mode": "Authentic BGC-Argo (QC 1/2 Verified)",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "profile_count": 1
         }
       }
     },
@@ -38,12 +327,493 @@
         "id": "INCOIS_ARGO_2902084",
         "external_id": "INCOIS_ARGO_2902084",
         "platform_type": "argo",
-        "last_report": "2014-02-27T05:50:00+00:00",
+        "last_report": "2024-06-03T11:43:00+00:00",
         "metadata": {
           "wmo": "2902084",
           "institution": "INCOIS",
+          "location_name": "Indian Ocean INCOIS Array",
           "data_mode": "Authentic NetCDF (QC 1/2 verified)",
-          "profile_count": 55
+          "has_oxygen": true,
+          "profile_count": 56
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_ARGO_2902120",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          68.99703333333333,
+          12.831588333333332
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_ARGO_2902120",
+        "external_id": "INCOIS_ARGO_2902120",
+        "platform_type": "argo",
+        "last_report": "2024-06-03T11:43:00+00:00",
+        "metadata": {
+          "wmo": "2902120",
+          "institution": "INCOIS",
+          "location_name": "Indian Ocean INCOIS Array",
+          "data_mode": "Authentic NetCDF (QC 1/2 verified)",
+          "has_oxygen": true,
+          "profile_count": 262
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_GLIDER_BOB_SG579",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          88.35,
+          16.45
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_GLIDER_BOB_SG579",
+        "external_id": "INCOIS_GLIDER_BOB_SG579",
+        "platform_type": "glider",
+        "last_report": "2024-06-04T08:30:00+00:00",
+        "metadata": {
+          "glider_model": "SLOCUM G3",
+          "location_name": "Bay of Bengal Freshwater Transect (SG579)",
+          "mission": "Shelf-slope plume stratification tracking",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Autonomous High-Resolution Sawtooth Telemetry",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "max_depth_m": 1000.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_GLIDER_AS_SL284",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          67.5,
+          15.8
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_GLIDER_AS_SL284",
+        "external_id": "INCOIS_GLIDER_AS_SL284",
+        "platform_type": "glider",
+        "last_report": "2024-06-04T08:30:00+00:00",
+        "metadata": {
+          "glider_model": "SEAGLIDER SG6",
+          "location_name": "Arabian Sea OMZ Transect (SL284)",
+          "mission": "Suboxic boundary layer & thermocline profiling",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Autonomous High-Resolution Sawtooth Telemetry",
+          "has_oxygen": true,
+          "has_chlorophyll": true,
+          "max_depth_m": 1000.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_BD08",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          89.67,
+          18.17
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_BD08",
+        "external_id": "INCOIS_OMNI_BD08",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "BD08",
+          "location_name": "OMNI BD08 (Northern Bay of Bengal)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_BD09",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          89.12,
+          17.5
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_BD09",
+        "external_id": "INCOIS_OMNI_BD09",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "BD09",
+          "location_name": "OMNI BD09 (North-Central Bay of Bengal)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_BD10",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.0,
+          14.0
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_BD10",
+        "external_id": "INCOIS_OMNI_BD10",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "BD10",
+          "location_name": "OMNI BD10 (Central Bay of Bengal)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_BD11",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          84.0,
+          13.5
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_BD11",
+        "external_id": "INCOIS_OMNI_BD11",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "BD11",
+          "location_name": "OMNI BD11 (West-Central Bay of Bengal)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_BD12",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.0,
+          10.5
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_BD12",
+        "external_id": "INCOIS_OMNI_BD12",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "BD12",
+          "location_name": "OMNI BD12 (Andaman Sea Basin)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_BD13",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.0,
+          14.0
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_BD13",
+        "external_id": "INCOIS_OMNI_BD13",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "BD13",
+          "location_name": "OMNI BD13 (Coromandel Offshore)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_BD14",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          88.0,
+          6.5
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_BD14",
+        "external_id": "INCOIS_OMNI_BD14",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "BD14",
+          "location_name": "OMNI BD14 (Equatorial Bay of Bengal)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_AD01",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.0,
+          15.0
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_AD01",
+        "external_id": "INCOIS_OMNI_AD01",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "AD01",
+          "location_name": "OMNI AD01 (Central Arabian Sea)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_AD02",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.0,
+          15.0
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_AD02",
+        "external_id": "INCOIS_OMNI_AD02",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "AD02",
+          "location_name": "OMNI AD02 (Goa Offshore Deep Basin)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_AD06",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          67.5,
+          18.5
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_AD06",
+        "external_id": "INCOIS_OMNI_AD06",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "AD06",
+          "location_name": "OMNI AD06 (Northern Arabian Sea)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_AD07",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.0,
+          15.0
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_AD07",
+        "external_id": "INCOIS_OMNI_AD07",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "AD07",
+          "location_name": "OMNI AD07 (Konkan Deep Mooring)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_AD08",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          68.5,
+          12.0
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_AD08",
+        "external_id": "INCOIS_OMNI_AD08",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "AD08",
+          "location_name": "OMNI AD08 (South Arabian Sea)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_AD09",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.25,
+          8.25
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_AD09",
+        "external_id": "INCOIS_OMNI_AD09",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "AD09",
+          "location_name": "OMNI AD09 (Lakshadweep Mooring)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_OMNI_AD10",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          72.58,
+          10.33
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_OMNI_AD10",
+        "external_id": "INCOIS_OMNI_AD10",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "AD10",
+          "location_name": "OMNI AD10 (Kavaratti Deep Mooring)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_CB02",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          75.95,
+          9.95
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_CB02",
+        "external_id": "INCOIS_CB02",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "CB02",
+          "location_name": "Coastal Buoy CB02 (Cochin Offshore)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "INCOIS_CB04",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.35,
+          13.1
+        ]
+      },
+      "properties": {
+        "id": "INCOIS_CB04",
+        "external_id": "INCOIS_CB04",
+        "platform_type": "moored_buoy",
+        "last_report": "2024-06-05T06:00:00+00:00",
+        "metadata": {
+          "wmo": "CB04",
+          "location_name": "Coastal Buoy CB04 (Chennai Offshore)",
+          "institution": "INCOIS / NIOT",
+          "data_mode": "Real-Time Moored Ocean Meteorological Telemetry",
+          "has_thermistor_chain": true,
+          "max_depth_m": 500.0
         }
       }
     }

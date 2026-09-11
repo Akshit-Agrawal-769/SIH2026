@@ -1,0 +1,346 @@
+{
+  "instrument_id": "INCOIS_ARGO_6990503",
+  "external_id": "INCOIS_ARGO_6990503",
+  "platform_type": "argo",
+  "profile_id": "INCOIS_ARGO_6990503_prof_latest",
+  "timestamp": "2026-08-19T06:45:15.010222+00:00",
+  "latitude": 2.327,
+  "longitude": 85.1,
+  "metadata": {
+    "wmo": "6990503",
+    "institution": "INCOIS / Euro-Argo GDAC",
+    "location_name": "Equatorial Southern Basin",
+    "data_mode": "Authentic BGC NetCDF",
+    "qc_passed": true
+  },
+  "measurements": [
+    {
+      "depth": 0.1,
+      "pressure": 0.1,
+      "temperature": 29.14,
+      "salinity": 34.02,
+      "oxygen": 4.194,
+      "chlorophyll": 0.236
+    },
+    {
+      "depth": 5.0,
+      "pressure": 5.0,
+      "temperature": 28.98,
+      "salinity": 34.06,
+      "oxygen": 4.422,
+      "chlorophyll": 0.051
+    },
+    {
+      "depth": 13.2,
+      "pressure": 13.3,
+      "temperature": 28.9,
+      "salinity": 34.06,
+      "oxygen": 4.366,
+      "chlorophyll": 0.073
+    },
+    {
+      "depth": 37.2,
+      "pressure": 37.4,
+      "temperature": 28.87,
+      "salinity": 34.09,
+      "oxygen": 4.163,
+      "chlorophyll": 0.073
+    },
+    {
+      "depth": 54.9,
+      "pressure": 55.3,
+      "temperature": 28.75,
+      "salinity": 34.17,
+      "oxygen": 3.768,
+      "chlorophyll": 0.08
+    },
+    {
+      "depth": 63.4,
+      "pressure": 63.8,
+      "temperature": 27.96,
+      "salinity": 34.6,
+      "oxygen": 3.12,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 75.1,
+      "pressure": 75.6,
+      "temperature": 26.0,
+      "salinity": 35.0,
+      "oxygen": 2.792,
+      "chlorophyll": 0.073
+    },
+    {
+      "depth": 91.4,
+      "pressure": 92.0,
+      "temperature": 24.43,
+      "salinity": 34.82,
+      "oxygen": 0.986,
+      "chlorophyll": 0.058
+    },
+    {
+      "depth": 98.7,
+      "pressure": 99.4,
+      "temperature": 20.44,
+      "salinity": 34.84,
+      "oxygen": 2.136,
+      "chlorophyll": 0.058
+    },
+    {
+      "depth": 113.9,
+      "pressure": 114.7,
+      "temperature": 16.78,
+      "salinity": 34.93,
+      "oxygen": 0.76,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 135.7,
+      "pressure": 136.6,
+      "temperature": 15.57,
+      "salinity": 35.1,
+      "oxygen": 0.859,
+      "chlorophyll": 0.051
+    },
+    {
+      "depth": 156.2,
+      "pressure": 157.3,
+      "temperature": 14.74,
+      "salinity": 35.09,
+      "oxygen": 0.863,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 178.4,
+      "pressure": 179.6,
+      "temperature": 13.99,
+      "salinity": 35.11,
+      "oxygen": 1.167,
+      "chlorophyll": 0.073
+    },
+    {
+      "depth": 199.4,
+      "pressure": 200.8,
+      "temperature": 13.43,
+      "salinity": 35.1,
+      "oxygen": 0.741,
+      "chlorophyll": 0.044
+    },
+    {
+      "depth": 221.4,
+      "pressure": 222.9,
+      "temperature": 13.0,
+      "salinity": 35.1,
+      "oxygen": 0.818,
+      "chlorophyll": 0.01
+    },
+    {
+      "depth": 244.0,
+      "pressure": 245.7,
+      "temperature": 12.56,
+      "salinity": 35.08,
+      "oxygen": 1.452,
+      "chlorophyll": 0.044
+    },
+    {
+      "depth": 267.1,
+      "pressure": 269.0,
+      "temperature": 12.0,
+      "salinity": 35.05,
+      "oxygen": 0.97,
+      "chlorophyll": 0.01
+    },
+    {
+      "depth": 288.7,
+      "pressure": 290.7,
+      "temperature": 11.74,
+      "salinity": 35.04,
+      "oxygen": 1.414,
+      "chlorophyll": 0.058
+    },
+    {
+      "depth": 313.6,
+      "pressure": 315.8,
+      "temperature": 11.49,
+      "salinity": 35.04,
+      "oxygen": 1.093,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 343.2,
+      "pressure": 345.6,
+      "temperature": 11.24,
+      "salinity": 35.03,
+      "oxygen": 1.154,
+      "chlorophyll": 0.058
+    },
+    {
+      "depth": 373.5,
+      "pressure": 376.1,
+      "temperature": 11.06,
+      "salinity": 35.03,
+      "oxygen": 1.2,
+      "chlorophyll": 0.058
+    },
+    {
+      "depth": 403.1,
+      "pressure": 405.9,
+      "temperature": 10.85,
+      "salinity": 35.03,
+      "oxygen": 1.23,
+      "chlorophyll": 0.051
+    },
+    {
+      "depth": 432.1,
+      "pressure": 435.1,
+      "temperature": 10.51,
+      "salinity": 35.03,
+      "oxygen": 1.249,
+      "chlorophyll": 0.01
+    },
+    {
+      "depth": 461.8,
+      "pressure": 465.0,
+      "temperature": 10.26,
+      "salinity": 35.03,
+      "oxygen": 1.249,
+      "chlorophyll": 0.058
+    },
+    {
+      "depth": 494.4,
+      "pressure": 497.9,
+      "temperature": 9.9,
+      "salinity": 35.02,
+      "oxygen": 1.232,
+      "chlorophyll": 0.058
+    },
+    {
+      "depth": 524.1,
+      "pressure": 527.8,
+      "temperature": 9.61,
+      "salinity": 35.02,
+      "oxygen": 1.199,
+      "chlorophyll": 0.051
+    },
+    {
+      "depth": 553.2,
+      "pressure": 557.1,
+      "temperature": 9.26,
+      "salinity": 35.01,
+      "oxygen": 1.153,
+      "chlorophyll": 0.051
+    },
+    {
+      "depth": 581.2,
+      "pressure": 585.3,
+      "temperature": 8.96,
+      "salinity": 35.01,
+      "oxygen": 1.095,
+      "chlorophyll": 0.01
+    },
+    {
+      "depth": 609.1,
+      "pressure": 613.4,
+      "temperature": 8.6,
+      "salinity": 35.0,
+      "oxygen": 1.026,
+      "chlorophyll": 0.044
+    },
+    {
+      "depth": 639.6,
+      "pressure": 644.1,
+      "temperature": 8.32,
+      "salinity": 34.98,
+      "oxygen": 0.936,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 670.9,
+      "pressure": 675.6,
+      "temperature": 8.2,
+      "salinity": 34.97,
+      "oxygen": 0.829,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 702.6,
+      "pressure": 707.5,
+      "temperature": 8.07,
+      "salinity": 34.97,
+      "oxygen": 0.712,
+      "chlorophyll": 0.051
+    },
+    {
+      "depth": 730.2,
+      "pressure": 735.3,
+      "temperature": 8.02,
+      "salinity": 34.97,
+      "oxygen": 0.606,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 761.7,
+      "pressure": 767.0,
+      "temperature": 7.96,
+      "salinity": 34.97,
+      "oxygen": 1.357,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 790.2,
+      "pressure": 795.7,
+      "temperature": 7.91,
+      "salinity": 34.97,
+      "oxygen": 1.447,
+      "chlorophyll": 0.051
+    },
+    {
+      "depth": 819.5,
+      "pressure": 825.2,
+      "temperature": 7.78,
+      "salinity": 34.96,
+      "oxygen": 1.542,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 852.1,
+      "pressure": 858.1,
+      "temperature": 7.73,
+      "salinity": 34.96,
+      "oxygen": 1.645,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 886.8,
+      "pressure": 893.0,
+      "temperature": 7.68,
+      "salinity": 34.96,
+      "oxygen": 1.754,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 917.9,
+      "pressure": 924.3,
+      "temperature": 7.58,
+      "salinity": 34.97,
+      "oxygen": 0.874,
+      "chlorophyll": 0.066
+    },
+    {
+      "depth": 947.0,
+      "pressure": 953.6,
+      "temperature": 7.43,
+      "salinity": 34.98,
+      "oxygen": 1.952,
+      "chlorophyll": 0.058
+    },
+    {
+      "depth": 978.0,
+      "pressure": 984.9,
+      "temperature": 7.05,
+      "salinity": 34.95,
+      "oxygen": 2.067,
+      "chlorophyll": 0.01
+    }
+  ]
+}

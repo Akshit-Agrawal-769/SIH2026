@@ -98,7 +98,7 @@ export const SCIENCE_TOURS: ScienceTour[] = [
         variable: 'currents',
         depth: 0.5,
         activeLayers: ['currents', 'temperature'],
-        time: '2024-06-07',
+        time: '2024-06-05',
         isPlaying: false
       },
       {

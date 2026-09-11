@@ -1,32 +1,30 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "vite",
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
-  "installCommand": "cd frontend && npm install",
   "rewrites": [
     {
-      "source": "/api/tiles/:var/:date/:depth",
-      "destination": "/tiles/:var/:date/:depth.bin"
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
     },
     {
-      "source": "/api/instruments",
-      "destination": "/api/instruments.json"
+      "source": "/docs",
+      "destination": "/api/index.py"
     },
     {
-      "source": "/api/instruments/:id/profile",
-      "destination": "/api/profiles/:id.json"
+      "source": "/openapi.json",
+      "destination": "/api/index.py"
     },
     {
-      "source": "/api/variables",
-      "destination": "/api/variables.json"
+      "source": "/tiles/(.*)",
+      "destination": "/tiles/$1"
     },
     {
-      "source": "/api/manifest/:var",
-      "destination": "/api/manifest/:var.json"
+      "source": "/data/(.*)",
+      "destination": "/data/$1"
     },
     {
-      "source": "/((?!assets|cesium|data|tiles|api|favicon.ico|.*\\..*).*)",
+      "source": "/((?!assets|cesium|data|tiles|api|docs|openapi.json|favicon.ico|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

@@ -31,7 +31,11 @@ def health():
     return {
         "status": "healthy",
         "service": "incois-ocean-api",
-        "data_policy": "STRICT_REAL_DATA_ZERO_SYNTHETIC"
+        "backend": "FastAPI (Python Serverless on Vercel)",
+        "data_policy": "STRICT_REAL_DATA_ZERO_SYNTHETIC",
+        "supported_platforms": ["argo", "glider", "moored_buoy"],
+        "supported_variables": ["temperature", "salinity", "currents", "chlorophyll", "oxygen"],
+        "timeline_window": ["2024-06-01", "2024-06-05"]
     }
 
 @app.get("/api/variables")
@@ -63,6 +67,13 @@ def get_instrument_profile(instrument_id: str):
         if data:
             return data
     raise HTTPException(status_code=404, detail=f"Profile for '{instrument_id}' not found")
+
+@app.get("/api/currents/uv")
+def get_currents_uv():
+    data = find_json_file("currents_uv.json")
+    if data:
+        return data
+    raise HTTPException(status_code=404, detail="Currents UV vector data not found")
 
 @app.get("/api/tiles/{variable}/{date}/{depth}")
 def get_tile(variable: str, date: str, depth: str):

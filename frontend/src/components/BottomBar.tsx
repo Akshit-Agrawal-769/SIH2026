@@ -4,10 +4,16 @@ import { fetchOceanTile } from '../api/client';
 import { Play, Pause, FastForward, Rewind, Clock, Layers } from 'lucide-react';
 
 const DEPTH_LEVELS = [
-  0.5, 5.0, 15.0, 30.0, 50.0, 75.0, 100.0, 150.0, 200.0, 300.0, 500.0, 800.0, 1000.0, 1500.0, 2000.0
+  0.5, 10.0, 50.0, 100.0, 500.0, 1000.0
 ];
 
-const TIMESTEPS = Array.from({ length: 14 }, (_, i) => `2024-06-${String(i + 1).padStart(2, '0')}`);
+const TIMESTEPS = [
+  '2024-06-01',
+  '2024-06-02',
+  '2024-06-03',
+  '2024-06-04',
+  '2024-06-05'
+];
 
 export const BottomBar: React.FC = () => {
   const {
@@ -144,7 +150,7 @@ export const BottomBar: React.FC = () => {
               {isPlaying && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />}
               {isPlaying ? 'ANIMATING 4D CYCLE' : 'TIMELINE SCRUBBER'}
             </span>
-            <span className="text-slate-400">June 01 – June 14, 2024</span>
+            <span className="text-slate-400">June 01 – June 05, 2024 (5-Day Cycle)</span>
           </div>
           <input
             type="range"

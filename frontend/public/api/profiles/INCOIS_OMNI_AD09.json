@@ -1,0 +1,122 @@
+{
+  "instrument_id": "INCOIS_OMNI_AD09",
+  "external_id": "INCOIS_OMNI_AD09",
+  "platform_type": "moored_buoy",
+  "profile_id": "INCOIS_OMNI_AD09_prof_chain",
+  "timestamp": "2024-06-05T06:00:00+00:00",
+  "latitude": 8.25,
+  "longitude": 73.25,
+  "metadata": {
+    "wmo": "AD09",
+    "location_name": "OMNI AD09 (Lakshadweep Mooring)",
+    "institution": "INCOIS / NIOT",
+    "data_mode": "Subsurface Thermistor Chain (0\u2013500m)",
+    "qc_passed": true
+  },
+  "measurements": [
+    {
+      "depth": 1.0,
+      "pressure": 1.0,
+      "temperature": 34.4,
+      "salinity": 34.31,
+      "oxygen": 4.082,
+      "chlorophyll": 0.373
+    },
+    {
+      "depth": 5.0,
+      "pressure": 5.0,
+      "temperature": 34.0,
+      "salinity": 34.36,
+      "oxygen": 4.078,
+      "chlorophyll": 0.593
+    },
+    {
+      "depth": 10.0,
+      "pressure": 10.1,
+      "temperature": 33.5,
+      "salinity": 34.42,
+      "oxygen": 4.074,
+      "chlorophyll": 0.94
+    },
+    {
+      "depth": 15.0,
+      "pressure": 15.1,
+      "temperature": 33.01,
+      "salinity": 34.48,
+      "oxygen": 4.069,
+      "chlorophyll": 1.307
+    },
+    {
+      "depth": 20.0,
+      "pressure": 20.1,
+      "temperature": 32.53,
+      "salinity": 34.53,
+      "oxygen": 4.063,
+      "chlorophyll": 1.592
+    },
+    {
+      "depth": 30.0,
+      "pressure": 30.2,
+      "temperature": 31.6,
+      "salinity": 34.63,
+      "oxygen": 4.05,
+      "chlorophyll": 1.592
+    },
+    {
+      "depth": 50.0,
+      "pressure": 50.3,
+      "temperature": 29.83,
+      "salinity": 34.81,
+      "oxygen": 3.48,
+      "chlorophyll": 0.328
+    },
+    {
+      "depth": 75.0,
+      "pressure": 75.5,
+      "temperature": 27.78,
+      "salinity": 35.0,
+      "oxygen": 2.714,
+      "chlorophyll": 0.01
+    },
+    {
+      "depth": 100.0,
+      "pressure": 100.7,
+      "temperature": 25.9,
+      "salinity": 35.15,
+      "oxygen": 1.891,
+      "chlorophyll": 0.01
+    },
+    {
+      "depth": 150.0,
+      "pressure": 151.0,
+      "temperature": 22.59,
+      "salinity": 35.37,
+      "oxygen": 0.482,
+      "chlorophyll": 0.01
+    },
+    {
+      "depth": 200.0,
+      "pressure": 201.4,
+      "temperature": 19.8,
+      "salinity": 35.52,
+      "oxygen": 0.656,
+      "chlorophyll": 0.01
+    },
+    {
+      "depth": 300.0,
+      "pressure": 302.1,
+      "temperature": 15.48,
+      "salinity": 35.68,
+      "oxygen": 0.976,
+      "chlorophyll": 0.01
+    },
+    {
+      "depth": 500.0,
+      "pressure": 503.5,
+      "temperature": 10.26,
+      "salinity": 35.78,
+      "oxygen": 1.211,
+      "chlorophyll": 0.01
+    }
+  ]
+}

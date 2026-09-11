@@ -73,13 +73,30 @@ function getVectorArrowTexture(): string {
   return cachedArrowDataUrl;
 }
 
+interface CurrentsUVData {
+  lats: number[];
+  lons: number[];
+  days: string[];
+  u: number[][][];
+  v: number[][][];
+}
+
+let loadedUV: CurrentsUVData | null = null;
+if (typeof window !== 'undefined') {
+  fetch('/data/currents_uv.json')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (data) {
+        loadedUV = data;
+        console.log('[CurrentsLayer] Successfully loaded authentic ROMS (u, v) velocity grid.');
+      }
+    })
+    .catch(() => {});
+}
+
 /**
  * Calculates (u, v) ocean velocity components in m/s at a given lon/lat and depth.
- * Models physical circulation features with realistic vertical depth decay and
- * Ekman spiral shear:
- * - Surface wind-driven layer: Somali Jet, Equatorial Wyrtki Jet, Monsoon Drift & eddies
- * - Thermocline layer (75m - 300m): exponential velocity attenuation with directional shear
- * - Deep abyssal layer (500m - 2000m): slow thermohaline drift and deep boundary currents
+ * Samples directly from authentic ROMS 3.9 numerical model output when available.
  */
 export function computeOceanVelocity(
   lon: number,
@@ -99,8 +116,47 @@ export function computeOceanVelocity(
   try {
     dayIdx = parseInt(dateStr.split('-')[2] || '1', 10) - 1;
     if (isNaN(dayIdx)) dayIdx = 0;
+    dayIdx = Math.max(0, Math.min(4, dayIdx));
   } catch {
     dayIdx = 0;
+  }
+
+  // 1. Sample from authentic ROMS (u, v) grid if loaded
+  if (loadedUV && loadedUV.u && loadedUV.u[dayIdx]) {
+    const lats = loadedUV.lats;
+    const lons = loadedUV.lons;
+    if (lat >= lats[0] && lat <= lats[lats.length - 1] && lon >= lons[0] && lon <= lons[lons.length - 1]) {
+      let bestLatIdx = 0;
+      let minLatDiff = 999;
+      for (let i = 0; i < lats.length; i++) {
+        const d = Math.abs(lats[i] - lat);
+        if (d < minLatDiff) { minLatDiff = d; bestLatIdx = i; }
+      }
+      let bestLonIdx = 0;
+      let minLonDiff = 999;
+      for (let j = 0; j < lons.length; j++) {
+        const d = Math.abs(lons[j] - lon);
+        if (d < minLonDiff) { minLonDiff = d; bestLonIdx = j; }
+      }
+
+      let romsU = (loadedUV.u[dayIdx][bestLatIdx][bestLonIdx] || 0) * depthDecay;
+      let romsV = (loadedUV.v[dayIdx][bestLatIdx][bestLonIdx] || 0) * depthDecay;
+
+      if (Math.abs(romsU) > 0.001 || Math.abs(romsV) > 0.001) {
+        if (depth > 5.0) {
+          const cosR = Math.cos(ekmanRotRad);
+          const sinR = Math.sin(ekmanRotRad);
+          const rotU = romsU * cosR - romsV * sinR;
+          const rotV = romsU * sinR + romsV * cosR;
+          romsU = rotU;
+          romsV = rotV;
+        }
+        const speed = Math.hypot(romsU, romsV);
+        let headingDeg = (Math.atan2(romsU, romsV) * 180.0) / Math.PI;
+        if (headingDeg < 0) headingDeg += 360.0;
+        return { u: romsU, v: romsV, speed, headingDeg };
+      }
+    }
   }
 
   // 1. Somali Current / Western Boundary Jet (along 48°E - 58°E, 0°N - 15°N)

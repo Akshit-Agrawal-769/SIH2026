@@ -10,7 +10,14 @@
 
 Watch the full end-to-end working demonstration of the platform:
 
-- **Live Production URL:** [https://incois-ocean-3d.vercel.app](https://incois-ocean-3d.vercel.app)
+- **Live Production URL:** 
+🚀 Main Website (3D Digital Twin):
+👉 https://incois-ocean-3d.vercel.app
+
+⚙️ Backend Links (To show your teammates):
+Interactive FastAPI Swagger Docs: https://incois-ocean-3d.vercel.app/docs
+Live Backend Health API: https://incois-ocean-3d.vercel.app/api/health
+Real Instruments API: https://incois-ocean-3d.vercel.app/api/instruments
 - **YouTube Demonstration Link:** 'https://youtu.be/7Gc3l8hrdHI?si=rjLgtKtbXWsbWunQ' *
 
 > **Note:** Both the live production web app and the demonstration video are accessible publicly without requiring permissions or sign-in.

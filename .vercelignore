@@ -20,8 +20,13 @@ frontend/dist/
 gateway/node_modules/
 .venv/
 venv/
-__pycache__/
-*.py
+# Python scripts except api/
+scripts/
+check_system.py
+start_dev.sh
+start_dev.ps1
+!api/
+!api/**
 
 # Test Caches & Logs
 .pytest_cache/
