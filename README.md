@@ -185,11 +185,6 @@ A video demonstration of the working 3D visualizer is documented in [submission/
 
 Store and view screenshots in [assets/screenshots/](assets/screenshots/):
 
-| View | Screenshot | Description |
-|---|---|---|
-| **Cesium 3D Globe** | [View](assets/screenshots/01-cesium-3d-globe.png) | Indian Ocean SST colormap with current vector streamlines and Argo float markers |
-| **3D Volumetric Studio** | [View](assets/screenshots/02-volumetric-cube-studio.png) | Three.js water column cube with laser depth slicing and stratification planes |
-| **Argo CTD Inspector** | [View](assets/screenshots/03-argo-profile-inspector.png) | Vertical CTD sounding curves (temperature & salinity down to 2000m) |
 
 See [assets/screenshots/README.md](assets/screenshots/README.md) for full descriptions.
 
