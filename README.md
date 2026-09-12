@@ -5,10 +5,10 @@ A web-based, browser-native 3D interactive ocean visualization platform ("Digita
 Developed for the **Smart India Hackathon 2026 (SIH 2026)**.
 
 > 🌐 **Live Production Link:** 
-🚀 Main Website (3D Digital Twin):
-👉 https://incois-ocean-3d.vercel.app
+ Main Website:
+ https://incois-ocean-3d.vercel.app
 
-⚙️ Backend Links (To show your teammates):
+⚙️ Backend Links:
 Interactive FastAPI Swagger Docs: https://incois-ocean-3d.vercel.app/docs
 Live Backend Health API: https://incois-ocean-3d.vercel.app/api/health
 Real Instruments API: https://incois-ocean-3d.vercel.app/api/instruments
