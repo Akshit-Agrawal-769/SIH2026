@@ -14,7 +14,8 @@ import {
   Check,
   MapPin,
   Loader2,
-  Box
+  Box,
+  Home
 } from 'lucide-react';
 import * as Cesium from 'cesium';
 import { flyToCoordinates } from '../globe/cameraUtils';
@@ -164,12 +165,16 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
   return (
     <header className="absolute top-0 left-0 right-0 h-14 bg-ocean-dark/90 backdrop-blur-md border-b border-ocean-border z-30 flex items-center justify-between px-4 gap-3">
       {/* Brand & Title */}
-      <div className="flex items-center gap-2.5 shrink-0 select-none">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20 shrink-0">
+      <div
+        onClick={() => setMode('home')}
+        className="flex items-center gap-2.5 shrink-0 select-none cursor-pointer group"
+        title="Go to Home"
+      >
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20 shrink-0 group-hover:scale-105 transition-transform">
           <Compass className="w-5 h-5 text-white" />
         </div>
         <div className="flex flex-col justify-center">
-          <h1 className="font-bold text-sm tracking-wide text-white flex items-center gap-1.5 whitespace-nowrap leading-tight">
+          <h1 className="font-bold text-sm tracking-wide text-white flex items-center gap-1.5 whitespace-nowrap leading-tight group-hover:text-cyan-300 transition-colors">
             INCOIS <span className="text-ocean-accent font-semibold">3D Ocean Platform</span>
           </h1>
           <p className="text-[10px] text-ocean-muted tracking-tight whitespace-nowrap leading-tight hidden sm:block">
@@ -351,8 +356,19 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
           <RotateCcw className="w-4 h-4" />
         </button>
 
-        {/* Operational vs Outreach Mode Switch */}
+        {/* Home vs Operational vs Outreach Mode Switch */}
         <div className="flex items-center bg-ocean-panel p-1 rounded-lg border border-ocean-border text-xs">
+          <button
+            onClick={() => setMode('home')}
+            className={`px-2.5 py-1 rounded-md flex items-center gap-1.5 transition ${
+              mode === 'home'
+                ? 'bg-cyan-500 text-black font-semibold'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Home className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Home</span>
+          </button>
           <button
             onClick={() => setMode('operational')}
             className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition ${

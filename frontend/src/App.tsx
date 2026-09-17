@@ -12,49 +12,62 @@ import { OutreachTourOverlay } from './components/OutreachTourOverlay';
 import { OceanWaterCubeModal } from './components/OceanWaterCubeModal';
 import { GlobeClickWaterBlockCallout } from './components/GlobeClickWaterBlockCallout';
 import { useOceanStore } from './store/useOceanStore';
+import DotGlobeHeroDemo from './components/ui/demo';
 
 export const App: React.FC = () => {
   const [viewer, setViewer] = useState<Cesium.Viewer | null>(null);
-  const { mode, showLeftPanel, showRightPanel, showBottomBar } = useOceanStore();
+  const { mode, setMode, showLeftPanel, showRightPanel, showBottomBar } = useOceanStore();
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-ocean-dark font-sans select-none">
-      {/* 3D Cesium Globe Container */}
-      <CesiumViewer onViewerReady={setViewer} />
-
       {/* Top Navigation & Status */}
       <TopBar viewer={viewer} />
 
-      {/* Mode-dependent Sidebars */}
-      {mode === 'operational' && (
+      {/* Home Landing Hero View */}
+      {mode === 'home' ? (
+        <div className="pt-14 h-full w-full">
+          <DotGlobeHeroDemo
+            onStartExploring={() => setMode('operational')}
+            onViewDemo={() => setMode('outreach')}
+          />
+        </div>
+      ) : (
         <>
-          {showLeftPanel && <LeftPanel />}
-          {showRightPanel && <RightPanel />}
-          {showBottomBar && <BottomBar />}
+          {/* 3D Cesium Globe Container */}
+          <CesiumViewer onViewerReady={setViewer} />
+
+          {/* Mode-dependent Sidebars */}
+          {mode === 'operational' && (
+            <>
+              {showLeftPanel && <LeftPanel />}
+              {showRightPanel && <RightPanel />}
+              {showBottomBar && <BottomBar />}
+            </>
+          )}
+
+          {/* Public Outreach Story Tour Overlay */}
+          {mode === 'outreach' && (
+            <OutreachTourOverlay viewer={viewer} />
+          )}
+
+          {/* Scientific Colorbar Legend (floating only when Right Panel is collapsed) */}
+          {mode === 'operational' && !showRightPanel && (
+            <ColorbarLegend />
+          )}
+
+          {/* Real-time Cursor Hover HUD Readout */}
+          <OceanHoverHUD />
+
+          {/* Floating In-situ Instrument Depth Profile Visualizer */}
+          <InstrumentProfileModal />
+
+          {/* Interactive 3D Volumetric Water Column Cube Studio */}
+          <OceanWaterCubeModal />
+
+          {/* Floating Callout when Clicking Ocean on Globe */}
+          <GlobeClickWaterBlockCallout />
         </>
       )}
-
-      {/* Public Outreach Story Tour Overlay */}
-      {mode === 'outreach' && (
-        <OutreachTourOverlay viewer={viewer} />
-      )}
-
-      {/* Scientific Colorbar Legend (floating only when Right Panel is collapsed) */}
-      {mode === 'operational' && !showRightPanel && (
-        <ColorbarLegend />
-      )}
-
-      {/* Real-time Cursor Hover HUD Readout */}
-      <OceanHoverHUD />
-
-      {/* Floating In-situ Instrument Depth Profile Visualizer */}
-      <InstrumentProfileModal />
-
-      {/* Interactive 3D Volumetric Water Column Cube Studio */}
-      <OceanWaterCubeModal />
-
-      {/* Floating Callout when Clicking Ocean on Globe */}
-      <GlobeClickWaterBlockCallout />
     </main>
   );
 };

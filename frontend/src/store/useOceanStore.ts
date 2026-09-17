@@ -2,8 +2,8 @@ import { create } from 'zustand';
 
 export interface OceanState {
   // Mode
-  mode: 'operational' | 'outreach';
-  setMode: (mode: 'operational' | 'outreach') => void;
+  mode: 'home' | 'operational' | 'outreach';
+  setMode: (mode: 'home' | 'operational' | 'outreach') => void;
 
   // Active layer toggles
   activeLayers: string[];
@@ -113,7 +113,7 @@ export interface HoveredOceanInfo {
 }
 
 export const useOceanStore = create<OceanState>((set) => ({
-  mode: 'operational',
+  mode: 'home',
   setMode: (mode) => set({ mode }),
 
   activeLayers: ['temperature', 'currents', 'argo', 'glider', 'moored_buoy', 'india_eez'],
