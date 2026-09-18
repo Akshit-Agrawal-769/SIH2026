@@ -16,7 +16,31 @@ import DotGlobeHeroDemo from './components/ui/demo';
 
 export const App: React.FC = () => {
   const [viewer, setViewer] = useState<Cesium.Viewer | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const { mode, setMode, showLeftPanel, showRightPanel, showBottomBar } = useOceanStore();
+
+  React.useEffect(() => {
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'password' })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
+        setAuthReady(true);
+      })
+      .catch(err => {
+        console.error('Failed to auto-login', err);
+        setAuthReady(true);
+      });
+  }, []);
+
+  if (!authReady) {
+    return <div className="flex items-center justify-center w-screen h-screen bg-ocean-dark text-white">Initializing Gateway Session...</div>;
+  }
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-ocean-dark font-sans select-none">

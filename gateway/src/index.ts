@@ -58,6 +58,14 @@ app.post('/api/auth/login', express.json(), (req: Request, res: Response) => {
   return res.status(401).json({ error: 'Invalid credentials' });
 });
 
+// Skip proxy for static fallback files
+app.use('/api', (req: Request, res: Response, next: express.NextFunction) => {
+  if (req.path.endsWith('.json') || req.path.endsWith('.bin')) {
+    return next('route');
+  }
+  next();
+});
+
 // Proxy /api routes to Python data-service
 app.use(
   '/api',
