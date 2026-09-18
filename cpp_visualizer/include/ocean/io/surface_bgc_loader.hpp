@@ -22,9 +22,9 @@ struct ROMSGridMetadata {
 /**
  * @brief Streaming loader for INCOIS-BIO-ROMS 2D surface fields over 480 time steps.
  */
-class ROMSLoader {
+class SurfaceBGCLoader {
 public:
-    explicit ROMSLoader(const std::string& filepath);
+    explicit SurfaceBGCLoader(const std::string& filepath);
 
     const ROMSGridMetadata& metadata() const noexcept { return meta_; }
 

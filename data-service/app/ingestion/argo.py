@@ -38,7 +38,7 @@ class ArgoIngestionAdapter(IngestionAdapter):
             os.path.join(os.getcwd(), "datasets", "argo"),
             os.path.join(os.path.dirname(__file__), "..", "..", "..", "datasets", "argo"),
             os.path.abspath("datasets/argo"),
-            "D:/OneDrive/Desktop/sih/datasets/argo"
+            os.path.join(os.getenv("DATASETS_DIR", "datasets"), "argo")
         ]
 
         argo_files = []

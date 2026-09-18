@@ -3,6 +3,7 @@ import http from 'http';
 import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { WebSocketServer, WebSocket } from 'ws';
 
@@ -27,9 +28,27 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+const requireAuth = (req: Request, res: Response, next: express.NextFunction) => {
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({ error: 'Server configuration error: JWT_SECRET missing' });
+  }
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+};
+
 // Proxy /api routes to Python data-service
 app.use(
   '/api',
+  requireAuth,
   createProxyMiddleware({
     target: DATA_SERVICE_URL,
     changeOrigin: true,
@@ -53,7 +72,33 @@ app.use(
 );
 
 // WebSocket server for real-time sensor updates
-const wss = new WebSocketServer({ server, path: '/ws/live' });
+const wss = new WebSocketServer({ 
+  server, 
+  path: '/ws/live',
+  verifyClient: (info, done) => {
+    if (!process.env.JWT_SECRET) {
+      return done(false, 500, 'Server configuration error: JWT_SECRET missing');
+    }
+    let token = '';
+    const authHeader = info.req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else {
+      const url = new URL(info.req.url || '', `http://${info.req.headers.host}`);
+      token = url.searchParams.get('token') || '';
+    }
+    
+    if (!token) {
+      return done(false, 401, 'Unauthorized');
+    }
+    try {
+      jwt.verify(token, process.env.JWT_SECRET);
+      done(true);
+    } catch {
+      done(false, 401, 'Unauthorized');
+    }
+  }
+});
 
 wss.on('connection', (ws: WebSocket) => {
   console.log('[WebSocket] Client connected');

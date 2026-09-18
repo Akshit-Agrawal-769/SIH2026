@@ -26,7 +26,7 @@ add_library(ocean_core STATIC
     src/geo/spatial_filter.cpp
     src/io/netcdf_wrapper.cpp
     src/io/cmems_loader.cpp
-    src/io/roms_loader.cpp
+    src/io/surface_bgc_loader.cpp
     src/io/argo_loader.cpp
     src/io/coriolis_loader.cpp
     src/data/volume_buffer.cpp
