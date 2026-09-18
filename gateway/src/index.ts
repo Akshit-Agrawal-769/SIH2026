@@ -45,6 +45,19 @@ const requireAuth = (req: Request, res: Response, next: express.NextFunction) =>
   }
 };
 
+app.post('/api/auth/login', express.json(), (req: Request, res: Response) => {
+  const { username, password } = req.body;
+  // Basic hardcoded logic for demonstration. In production, this would use a database.
+  if (username === 'admin' && password === 'password') {
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ error: 'Server misconfigured' });
+    }
+    const token = jwt.sign({ username }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    return res.json({ token });
+  }
+  return res.status(401).json({ error: 'Invalid credentials' });
+});
+
 // Proxy /api routes to Python data-service
 app.use(
   '/api',

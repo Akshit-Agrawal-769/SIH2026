@@ -29,6 +29,14 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
+      - name: Build C++ Visualizer
+        run: |
+          sudo apt-get update && sudo apt-get install -y cmake build-essential
+          cd cpp_visualizer
+          mkdir build && cd build
+          cmake ..
+          make
+
       - name: Install Python Dependencies and Run Tests
         run: |
           cd data-service

@@ -124,7 +124,7 @@ def download_tile_from_minio(variable: str, date_str: str, depth: float) -> Opti
         os.path.join(os.path.dirname(__file__), "..", "..", "..", "tiles", variable, date_str, f"{depth}.bin"),
         os.path.join(os.path.dirname(__file__), "..", "..", "tiles", variable, date_str, f"{depth}.bin"),
         os.path.abspath(f"tiles/{variable}/{date_str}/{depth}.bin"),
-        f"D:/OneDrive/Desktop/sih/tiles/{variable}/{date_str}/{depth}.bin"
+        os.path.join(os.getenv("TILES_DIR", "tiles"), variable, date_str, f"{depth}.bin")
     ]
     for p in search_paths:
         if os.path.exists(p):
