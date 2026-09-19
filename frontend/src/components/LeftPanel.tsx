@@ -225,7 +225,7 @@ export const LeftPanel: React.FC = () => {
         </button>
         {isDriftModeActive && (
           <p className="text-[9px] text-amber-400/80 mt-1.5 text-center leading-tight">
-            Click anywhere on the ocean to drop a particle and project its 48-hour forward drift trajectory.
+            Click anywhere on the ocean to drop a particle and project its 14-day forward drift trajectory.
           </p>
         )}
       </div>

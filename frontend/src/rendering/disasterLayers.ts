@@ -52,6 +52,31 @@ export async function createDisasterLayers(viewer: Cesium.Viewer): Promise<Disas
     const imgData = ctx.createImageData(width, height);
     const data = imgData.data;
 
+    // Pass 1: Calculate Mean and StdDev
+    let sum = 0;
+    let count = 0;
+    for (let i = 0; i < tile.values.length; i++) {
+      const val = tile.values[i];
+      if (!isNaN(val)) {
+        sum += val;
+        count++;
+      }
+    }
+
+    if (count === 0) return canvas;
+
+    const mean = sum / count;
+    let varianceSum = 0;
+    for (let i = 0; i < tile.values.length; i++) {
+      const val = tile.values[i];
+      if (!isNaN(val)) {
+        varianceSum += Math.pow(val - mean, 2);
+      }
+    }
+    const stdDev = Math.sqrt(varianceSum / count);
+    const threshold = mean + 1.5 * stdDev;
+
+    // Pass 2: Render Statistical Anomaly
     for (let y = 0; y < height; y++) {
       const srcY = height - 1 - y;
       for (let x = 0; x < width; x++) {
@@ -59,17 +84,14 @@ export async function createDisasterLayers(viewer: Cesium.Viewer): Promise<Disas
         const targetIdx = (y * width + x) * 4;
         const val = tile.values[srcIdx];
 
-        if (isNaN(val) || val <= 28.2) {
-          data[targetIdx] = 0;
-          data[targetIdx + 1] = 0;
-          data[targetIdx + 2] = 0;
+        if (isNaN(val) || val <= threshold) {
           data[targetIdx + 3] = 0;
         } else {
-          // Stark, high-opacity neon red (no muddy blending)
-          data[targetIdx] = 255;
-          data[targetIdx + 1] = 20;
-          data[targetIdx + 2] = 50;
-          data[targetIdx + 3] = 220;
+          // Statistical anomaly (Z-score > 1.5) -> Glowing Red
+          data[targetIdx] = 255; 
+          data[targetIdx + 1] = 20; 
+          data[targetIdx + 2] = 50; 
+          data[targetIdx + 3] = 200; 
         }
       }
     }
@@ -88,70 +110,74 @@ export async function createDisasterLayers(viewer: Cesium.Viewer): Promise<Disas
     const imgData = ctx.createImageData(width, height);
     const data = imgData.data;
 
-    // Grid resolution
     const dx = 65.0 / (width - 1);
     const dy = 35.0 / (height - 1);
+
+    // Pass 1: Calculate curl and track maxCurl
+    let maxCurl = 0;
+    const curlArray = new Float32Array(width * height);
+    curlArray.fill(0);
 
     for (let y = 0; y < height; y++) {
       const srcY = height - 1 - y;
       const lat = -10.0 + (srcY * dy);
+      
       for (let x = 0; x < width; x++) {
         const srcIdx = srcY * width + x;
-        const targetIdx = (y * width + x) * 4;
         const lon = 35.0 + (x * dx);
         const sst = tile.values[srcIdx];
 
-        if (isNaN(sst) || sst <= 26.5 || isLand(lon, lat)) {
-          data[targetIdx + 3] = 0;
+        if (isNaN(sst) || isLand(lon, lat)) {
           continue;
         }
 
-        // Compute vorticity via finite difference (dv/dx - du/dy)
-        // Note: Very simplified pseudo-vorticity index based on currents
         const vRight = computeOceanVelocity(lon + dx, lat, 0.5, currentDate);
         const vLeft = computeOceanVelocity(lon - dx, lat, 0.5, currentDate);
         const vUp = computeOceanVelocity(lon, lat + dy, 0.5, currentDate);
         const vDown = computeOceanVelocity(lon, lat - dy, 0.5, currentDate);
 
         if (!vRight.isAvailable || !vLeft.isAvailable || !vUp.isAvailable || !vDown.isAvailable) {
-          data[targetIdx + 3] = 0;
           continue;
         }
 
-        // Cyclonic vorticity threshold (Northern hemisphere: counter-clockwise positive)
         const dv_dx = ((vRight.v || 0) - (vLeft.v || 0)) / (2 * dx);
         const du_dy = ((vUp.u || 0) - (vDown.u || 0)) / (2 * dy);
         const vorticity = dv_dx - du_dy;
 
-        // Arbitrary threshold for significant cyclonic spin
-        const cyclonicScore = lat >= 0 ? vorticity : -vorticity; // southern hemisphere cyclonic is clockwise
-
-        // Lowered threshold to catch micro-vortices in raw NetCDF data
-        if (cyclonicScore > 0.002) {
-          data[targetIdx] = 245; 
-          data[targetIdx + 1] = 158; 
-          data[targetIdx + 2] = 11; 
-          // Massive multiplier to force visibility
-          data[targetIdx + 3] = Math.min(255, 50 + cyclonicScore * 15000);
-        } else {
-          data[targetIdx + 3] = 0;
+        const cyclonicScore = lat >= 0 ? vorticity : -vorticity;
+        
+        if (cyclonicScore > 0) {
+           curlArray[srcIdx] = cyclonicScore;
+           if (cyclonicScore > maxCurl) {
+             maxCurl = cyclonicScore;
+           }
         }
       }
     }
 
-    // Apply interpolation/blur to smooth out the maze artifacts
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = width;
-    tempCanvas.height = height;
-    const tempCtx = tempCanvas.getContext('2d');
-    if (tempCtx) {
-      tempCtx.putImageData(imgData, 0, 0);
-      ctx.filter = 'blur(10px)';
-      ctx.drawImage(tempCanvas, 0, 0);
-    } else {
-      ctx.putImageData(imgData, 0, 0);
-    }
+    const curlThreshold = maxCurl * 0.85;
 
+    // Pass 2: Render Top 15% Curl
+    for (let y = 0; y < height; y++) {
+      const srcY = height - 1 - y;
+      for (let x = 0; x < width; x++) {
+        const srcIdx = srcY * width + x;
+        const targetIdx = (y * width + x) * 4;
+        const score = curlArray[srcIdx];
+
+        if (score === 0 || score <= curlThreshold || maxCurl === 0) {
+          data[targetIdx + 3] = 0;
+        } else {
+          // Top 15% rotational intensity -> Solid Amber
+          data[targetIdx] = 245; 
+          data[targetIdx + 1] = 158; 
+          data[targetIdx + 2] = 11; 
+          data[targetIdx + 3] = 200; 
+        }
+      }
+    }
+    
+    ctx.putImageData(imgData, 0, 0);
     return canvas;
   }
 
