@@ -59,17 +59,17 @@ export async function createDisasterLayers(viewer: Cesium.Viewer): Promise<Disas
         const targetIdx = (y * width + x) * 4;
         const val = tile.values[srcIdx];
 
-        if (isNaN(val) || val <= 29.0) {
+        if (isNaN(val) || val <= 28.2) {
           data[targetIdx] = 0;
           data[targetIdx + 1] = 0;
           data[targetIdx + 2] = 0;
           data[targetIdx + 3] = 0;
         } else {
-          // Heatwave threshold exceeded (SST > 29.0°C) -> Glowing Red
-          data[targetIdx] = 239; // ef
-          data[targetIdx + 1] = 68; // 44
-          data[targetIdx + 2] = 68; // 44
-          data[targetIdx + 3] = 160;
+          // Stark, high-opacity neon red (no muddy blending)
+          data[targetIdx] = 255;
+          data[targetIdx + 1] = 20;
+          data[targetIdx + 2] = 50;
+          data[targetIdx + 3] = 220;
         }
       }
     }
@@ -126,12 +126,13 @@ export async function createDisasterLayers(viewer: Cesium.Viewer): Promise<Disas
         // Arbitrary threshold for significant cyclonic spin
         const cyclonicScore = lat >= 0 ? vorticity : -vorticity; // southern hemisphere cyclonic is clockwise
 
-        if (cyclonicScore > 0.05) {
-          // Cyclogenesis Threat Level met -> Amber Warning
-          data[targetIdx] = 245; // f5
-          data[targetIdx + 1] = 158; // 9e
-          data[targetIdx + 2] = 11; // 0b
-          data[targetIdx + 3] = Math.min(220, 100 + cyclonicScore * 500);
+        // Lowered threshold to catch micro-vortices in raw NetCDF data
+        if (cyclonicScore > 0.002) {
+          data[targetIdx] = 245; 
+          data[targetIdx + 1] = 158; 
+          data[targetIdx + 2] = 11; 
+          // Massive multiplier to force visibility
+          data[targetIdx + 3] = Math.min(255, 50 + cyclonicScore * 15000);
         } else {
           data[targetIdx + 3] = 0;
         }
@@ -228,7 +229,8 @@ export async function createDisasterLayers(viewer: Cesium.Viewer): Promise<Disas
       const dt = 3600; 
       const earthRadius = 6371000;
 
-      for (let hour = 0; hour <= 48; hour++) {
+      // Increased to 14 days (336 hours) for demo visibility
+      for (let hour = 0; hour <= 336; hour++) {
         positions.push(Cesium.Cartesian3.fromDegrees(currentLon, currentLat, 10));
         
         const vel = computeOceanVelocity(currentLon, currentLat, 0.5, currentDate);
@@ -249,8 +251,8 @@ export async function createDisasterLayers(viewer: Cesium.Viewer): Promise<Disas
           positions: positions,
           width: 8,
           material: new Cesium.PolylineGlowMaterialProperty({
-            glowPower: 0.2,
-            taperPower: 0.5,
+            glowPower: 0.25,
+            taperPower: 0.2,
             color: Cesium.Color.CYAN
           }),
           clampToGround: true
