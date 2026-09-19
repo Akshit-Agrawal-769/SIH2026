@@ -64,7 +64,7 @@ export const ColorbarLegend: React.FC = () => {
         return {
           title: 'Ocean Current Velocity',
           unit: 'm/s',
-          icon: <Wind className="w-3.5 h-3.5 text-lime-400" />,
+          icon: <Wind className="w-3.5 h-3.5 text-emerald-400" />,
           defaultMin: 0.0,
           defaultMax: 2.2
         };
@@ -73,7 +73,7 @@ export const ColorbarLegend: React.FC = () => {
         return {
           title: 'Ocean Potential Temperature',
           unit: '°C',
-          icon: <Thermometer className="w-3.5 h-3.5 text-red-400" />,
+          icon: <Thermometer className="w-3.5 h-3.5 text-emerald-400" />,
           defaultMin: colorRange ? colorRange[0] : 20.0,
           defaultMax: colorRange ? colorRange[1] : 32.0
         };
@@ -85,13 +85,11 @@ export const ColorbarLegend: React.FC = () => {
   const maxVal = colorRange ? colorRange[1] : meta.defaultMax;
   const delta = maxVal - minVal > 0.0001 ? maxVal - minVal : 1.0;
 
-  // Calculate position of current hovered value on the colorbar
   let hoverPct: number | null = null;
   if (hoveredOceanInfo && hoveredOceanInfo.value !== null) {
     hoverPct = Math.max(0, Math.min(100, ((hoveredOceanInfo.value - minVal) / delta) * 100));
   }
 
-  // Generate 5 tick mark values
   const ticks = [
     minVal,
     minVal + delta * 0.25,
@@ -101,23 +99,23 @@ export const ColorbarLegend: React.FC = () => {
   ];
 
   return (
-    <div className="absolute bottom-24 right-4 bg-ocean-panel/92 backdrop-blur-md border border-ocean-border rounded-xl p-3 shadow-2xl z-20 w-80 select-none">
+    <div className="fixed bottom-24 right-5 glass-panel rounded-2xl p-4 shadow-2xl z-20 w-80 select-none border border-white/10">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
           {meta.icon}
           <span>{meta.title}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[9px] font-mono uppercase px-1 py-0.5 rounded bg-ocean-dark border border-ocean-border text-slate-400">
+          <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400">
             {scaleType}
           </span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-ocean-dark border border-ocean-border text-cyan-400">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-semibold">
             {depthLevel === 0.5 ? 'Surface (0m)' : `${depthLevel}m`}
           </span>
           <button
             onClick={() => setIsDismissed(true)}
-            className="p-0.5 rounded hover:bg-white/10 text-slate-400 hover:text-white transition ml-1"
+            className="p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition ml-1"
             title="Dismiss legend"
           >
             <X className="w-3.5 h-3.5" />
@@ -126,17 +124,17 @@ export const ColorbarLegend: React.FC = () => {
       </div>
 
       {/* Live Sampled Value Banner */}
-      <div className="bg-ocean-dark/80 rounded-lg px-2.5 py-1.5 mb-2.5 border border-ocean-border/60 flex items-center justify-between">
+      <div className="bg-black/40 rounded-xl px-2.5 py-2 mb-2.5 border border-white/5 flex items-center justify-between">
         <span className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">
-          {hoveredOceanInfo ? 'Sampled at Cursor' : 'Calibrated Scale Range'}
+          {hoveredOceanInfo ? 'Sampled at Cursor' : 'Scale Range'}
         </span>
         <div className="text-right">
           {hoveredOceanInfo ? (
-            <span className="font-mono text-sm font-bold text-cyan-300">
+            <span className="font-mono text-sm font-bold text-emerald-300">
               {hoveredOceanInfo.value.toFixed(1)} {hoveredOceanInfo.unit}
             </span>
           ) : (
-            <span className="font-mono text-xs text-slate-300">
+            <span className="font-mono text-xs text-white font-semibold">
               {minVal.toFixed(1)} — {maxVal.toFixed(1)} {meta.unit}
             </span>
           )}
@@ -145,7 +143,6 @@ export const ColorbarLegend: React.FC = () => {
 
       {/* Colorbar with Interactive Needle */}
       <div className="relative mb-2">
-        {/* Animated needle / indicator */}
         {hoverPct !== null && (
           <div
             className="absolute -top-1.5 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-white z-10 transition-all duration-75"
@@ -161,7 +158,7 @@ export const ColorbarLegend: React.FC = () => {
       {/* Ticks and scale labels */}
       <div className="flex justify-between text-[9px] font-mono text-slate-400">
         {ticks.map((t, idx) => (
-          <span key={idx} className={idx === 0 || idx === ticks.length - 1 ? 'font-bold text-slate-300' : ''}>
+          <span key={idx} className={idx === 0 || idx === ticks.length - 1 ? 'font-bold text-white' : ''}>
             {t.toFixed(1)}
             {idx === ticks.length - 1 ? meta.unit : ''}
           </span>
@@ -170,7 +167,7 @@ export const ColorbarLegend: React.FC = () => {
 
       {/* Water Mass Thermal Reference Labels */}
       {selectedVariable === 'temperature' && (
-        <div className="flex justify-between text-[8px] font-mono mt-1.5 pt-1.5 border-t border-ocean-border/40">
+        <div className="flex justify-between text-[8px] font-mono mt-2 pt-2 border-t border-white/10">
           <span className="text-cyan-400 font-semibold">Cold Upwell</span>
           <span className="text-emerald-400 font-semibold">Frontal / Eddies</span>
           <span className="text-amber-400 font-semibold">Warm Pool</span>

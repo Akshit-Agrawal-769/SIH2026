@@ -40,7 +40,7 @@ bool is_roms_variable(CanonicalVar var) noexcept {
 
 QueryInterface::QueryInterface(
     std::shared_ptr<CMEMSLoader> cmems,
-    std::shared_ptr<ROMSLoader> roms,
+    std::shared_ptr<SurfaceBGCLoader> roms,
     std::shared_ptr<PointCloudBuffer> in_situ_points
 )
     : cmems_(std::move(cmems)),

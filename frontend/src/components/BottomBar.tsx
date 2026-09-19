@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useOceanStore } from '../store/useOceanStore';
 import { fetchOceanTile } from '../api/client';
-import { Play, Pause, FastForward, Rewind, Clock, Layers } from 'lucide-react';
+import { Play, Pause, FastForward, Rewind, Layers, ChevronUp, ChevronDown } from 'lucide-react';
 
 const DEPTH_LEVELS = [
   0.5, 10.0, 50.0, 100.0, 500.0, 1000.0
@@ -13,6 +13,14 @@ const TIMESTEPS = [
   '2024-06-03',
   '2024-06-04',
   '2024-06-05'
+];
+
+const HOUR_MARKERS = [
+  '00:00',
+  '06:00',
+  '12:00',
+  '18:00',
+  '24:00'
 ];
 
 export const BottomBar: React.FC = () => {
@@ -28,11 +36,12 @@ export const BottomBar: React.FC = () => {
     selectedVariable
   } = useOceanStore();
 
+  const [showDepthMenu, setShowDepthMenu] = useState(false);
+
   // 1. Animation playback loop
   useEffect(() => {
     if (!isPlaying) return;
 
-    // 1x = 1000ms, 2x = 500ms, 4x = 250ms
     const intervalMs = Math.max(200, Math.round(1000 / (playbackSpeed || 1.0)));
     const timer = setInterval(() => {
       const cur = useOceanStore.getState().currentTime;
@@ -77,81 +86,84 @@ export const BottomBar: React.FC = () => {
   };
 
   const currentDayIndex = TIMESTEPS.indexOf(currentTime);
-  const displayDayNum = currentDayIndex >= 0 ? currentDayIndex + 1 : 1;
+  const progressPct = currentDayIndex >= 0 ? (currentDayIndex / (TIMESTEPS.length - 1)) * 100 : 0;
+
+  const formatDateDisplay = (dateStr: string) => {
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const month = monthNames[parseInt(parts[1], 10) - 1] || 'Jun';
+        return `${month} ${parts[2]}, ${parts[0]} 12:00 UTC`;
+      }
+    } catch {
+      // fallback
+    }
+    return `${dateStr} 12:00 UTC`;
+  };
 
   return (
-    <footer className="absolute bottom-4 left-4 right-4 h-16 bg-ocean-panel/90 backdrop-blur-md border border-ocean-border rounded-xl px-4 z-20 shadow-2xl flex items-center justify-between gap-6">
-      {/* Depth-Slice Navigation */}
-      <div className="flex items-center gap-3 flex-1 max-w-md">
-        <div className="flex items-center gap-1.5 text-xs text-slate-300 font-medium whitespace-nowrap">
-          <Layers className="w-4 h-4 text-cyan-400" />
-          Depth Slice:
-          <span className="font-mono text-ocean-accent ml-1 font-bold">
-            {depthLevel === 0.5 ? 'Surface (0m)' : `${depthLevel}m`}
-          </span>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max={DEPTH_LEVELS.length - 1}
-          step="1"
-          value={DEPTH_LEVELS.indexOf(depthLevel) !== -1 ? DEPTH_LEVELS.indexOf(depthLevel) : 0}
-          onChange={(e) => setDepthLevel(DEPTH_LEVELS[parseInt(e.target.value, 10)])}
-          className="w-full accent-ocean-accent cursor-pointer"
-        />
-      </div>
+    <footer className="fixed bottom-5 left-1/2 -translate-x-1/2 z-20 w-[92%] max-w-4xl glass-panel rounded-2xl px-5 py-3 shadow-2xl flex items-center justify-between gap-6 select-none transition-all">
+      {/* Left Group: Play Button & Timestamp Readout */}
+      <div className="flex items-center gap-3 shrink-0">
+        {/* Play/Pause Circular Button */}
+        <button
+          onClick={() => setIsPlaying(!isPlaying)}
+          title={isPlaying ? 'Pause Simulation' : 'Play Simulation'}
+          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${
+            isPlaying
+              ? 'bg-emerald-500 text-slate-950 glow-green'
+              : 'glass-pill text-white hover:bg-white/10 hover:border-white/20'
+          }`}
+        >
+          {isPlaying ? (
+            <Pause className="w-4 h-4 fill-current" />
+          ) : (
+            <Play className="w-4 h-4 fill-current ml-0.5" />
+          )}
+        </button>
 
-      {/* Time Navigation & Animation Controls */}
-      <div className="flex items-center gap-3 flex-1 justify-end">
         {/* Step Backward */}
         <button
           onClick={handlePrevStep}
-          title="Step Backward (Previous Day)"
-          className="p-2 rounded-lg bg-ocean-dark border border-ocean-border hover:border-ocean-accent text-slate-300 hover:text-white transition"
+          title="Previous Timestep"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition"
         >
-          <Rewind className="w-4 h-4" />
+          <Rewind className="w-3.5 h-3.5" />
         </button>
 
-        {/* Play/Pause Button */}
-        <button
-          onClick={() => setIsPlaying(!isPlaying)}
-          title={isPlaying ? 'Pause Timeline' : 'Play 14-Day Simulation'}
-          className={`p-2 rounded-lg font-semibold transition flex items-center justify-center shadow-lg ${
-            isPlaying
-              ? 'bg-amber-400 hover:bg-amber-300 text-black shadow-amber-400/20'
-              : 'bg-cyan-500 hover:bg-cyan-400 text-black shadow-cyan-500/20'
-          }`}
-        >
-          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
-        </button>
+        {/* Timestamp Readout */}
+        <div className="flex flex-col">
+          <span className="text-xs font-semibold text-white tracking-tight font-mono whitespace-nowrap">
+            {formatDateDisplay(currentTime)}
+          </span>
+          <span className="text-[9px] font-mono text-emerald-400 leading-none">
+            {isPlaying ? 'ANIMATING • REAL-TIME' : 'OPERATIONAL ANALYSIS'}
+          </span>
+        </div>
 
         {/* Step Forward */}
         <button
           onClick={handleNextStep}
-          title="Step Forward (Next Day)"
-          className="p-2 rounded-lg bg-ocean-dark border border-ocean-border hover:border-ocean-accent text-slate-300 hover:text-white transition"
+          title="Next Timestep"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition"
         >
-          <FastForward className="w-4 h-4" />
+          <FastForward className="w-3.5 h-3.5" />
         </button>
+      </div>
 
-        {/* Speed toggle button (1x -> 2x -> 4x) */}
-        <button
-          onClick={handleCycleSpeed}
-          title="Toggle Playback Speed (1x, 2x, 4x)"
-          className="px-2.5 py-1.5 rounded-lg bg-ocean-dark border border-ocean-border hover:border-cyan-400/50 text-xs font-mono text-cyan-300 hover:text-white transition"
-        >
-          {playbackSpeed}x
-        </button>
-
-        {/* Timestep Scrubber */}
-        <div className="flex flex-col gap-1 flex-1 max-w-sm">
-          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 px-0.5">
-            <span className="flex items-center gap-1 text-cyan-400">
-              {isPlaying && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />}
-              {isPlaying ? 'ANIMATING 4D CYCLE' : 'TIMELINE SCRUBBER'}
-            </span>
-            <span className="text-slate-400">June 01 – June 05, 2024 (5-Day Cycle)</span>
+      {/* Center: Timeline Scrubber with Hour Markers (from reference image) */}
+      <div className="flex flex-col gap-1.5 flex-1 max-w-lg min-w-0">
+        <div className="relative flex items-center w-full">
+          {/* Track background */}
+          <div className="w-full h-1.5 rounded-full bg-white/10 relative overflow-hidden">
+            <div
+              className="h-full bg-emerald-400 rounded-full glow-green transition-all duration-200"
+              style={{ width: `${progressPct}%` }}
+            />
           </div>
+
+          {/* Draggable Scrubber input overlay */}
           <input
             type="range"
             min="0"
@@ -159,24 +171,83 @@ export const BottomBar: React.FC = () => {
             step="1"
             value={currentDayIndex !== -1 ? currentDayIndex : 0}
             onChange={(e) => setCurrentTime(TIMESTEPS[parseInt(e.target.value, 10)])}
-            className="w-full accent-ocean-accent cursor-pointer h-1.5 bg-slate-700/60 rounded-lg appearance-none"
+            className="absolute inset-0 w-full opacity-0 cursor-pointer h-full z-10"
+          />
+
+          {/* Interactive Thumb Dot */}
+          <div
+            className="absolute w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-[#0b0f17] glow-green pointer-events-none shadow-md -translate-x-1/2 transition-all duration-200"
+            style={{ left: `${progressPct}%` }}
           />
         </div>
 
-        {/* Time & Day Readout */}
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border whitespace-nowrap transition-colors ${
-          isPlaying ? 'bg-cyan-950/40 border-cyan-500/50 shadow-lg shadow-cyan-500/10' : 'bg-ocean-dark border-ocean-border'
-        }`}>
-          <Clock className={`w-3.5 h-3.5 ${isPlaying ? 'text-amber-400 animate-spin' : 'text-cyan-400'}`} style={{ animationDuration: '4s' }} />
-          <span className="font-mono text-xs font-semibold text-white tracking-wider">
-            Day {String(displayDayNum).padStart(2, '0')}/14
-          </span>
-          <span className="text-slate-500 text-xs">•</span>
-          <span className="font-mono text-xs text-cyan-300">
-            {currentTime}
-          </span>
+        {/* Hour Markers (00:00, 06:00, 12:00, 18:00, 24:00) */}
+        <div className="flex justify-between text-[10px] font-mono text-slate-400 px-0.5">
+          {HOUR_MARKERS.map((hour, idx) => (
+            <span
+              key={hour}
+              className={`transition-colors ${
+                idx === 2 ? 'text-emerald-400 font-bold' : 'hover:text-slate-200'
+              }`}
+            >
+              {hour}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Right Group: Playback Speed & Depth Slice Selector */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        {/* Playback speed toggle (1x, 2x, 4x) */}
+        <button
+          onClick={handleCycleSpeed}
+          title="Change Playback Speed"
+          className="px-2.5 py-1 rounded-lg glass-pill text-[11px] font-mono text-emerald-400 hover:text-white transition shadow-sm"
+        >
+          {playbackSpeed}x
+        </button>
+
+        {/* Depth Slice Pill */}
+        <div className="relative">
+          <button
+            onClick={() => setShowDepthMenu(!showDepthMenu)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-pill text-xs text-slate-200 hover:text-white transition shadow-sm"
+            title="Select Ocean Depth Slice"
+          >
+            <Layers className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="font-mono text-xs font-semibold text-emerald-300">
+              {depthLevel === 0.5 ? '0m' : `${depthLevel}m`}
+            </span>
+            {showDepthMenu ? <ChevronDown className="w-3 h-3 text-slate-400" /> : <ChevronUp className="w-3 h-3 text-slate-400" />}
+          </button>
+
+          {/* Depth Dropdown Menu */}
+          {showDepthMenu && (
+            <div className="absolute right-0 bottom-full mb-2 w-36 glass-panel rounded-2xl p-1.5 shadow-2xl z-30 space-y-1 text-xs animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-2 py-1 text-[9px] font-mono uppercase text-slate-400">
+                Depth Layer
+              </div>
+              {DEPTH_LEVELS.map((depth) => (
+                <button
+                  key={depth}
+                  onClick={() => {
+                    setDepthLevel(depth);
+                    setShowDepthMenu(false);
+                  }}
+                  className={`w-full text-left px-2.5 py-1.5 rounded-xl font-mono text-xs transition ${
+                    depthLevel === depth
+                      ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40'
+                      : 'text-slate-300 hover:bg-white/5'
+                  }`}
+                >
+                  {depth === 0.5 ? 'Surface (0m)' : `${depth}m`}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </footer>
   );
 };
+

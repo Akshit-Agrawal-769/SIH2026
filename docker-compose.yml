@@ -108,6 +108,7 @@ services:
       PORT: 4000
       NODE_ENV: development
       DATA_SERVICE_URL: http://data-service:8000
+      JWT_SECRET: your_secure_secret_here
     ports:
       - "4000:4000"
     depends_on:

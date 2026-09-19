@@ -41,12 +41,14 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         ocean: {
-          dark: '#030b14',
-          panel: '#071524',
-          border: '#102a45',
-          accent: '#00e5ff',
-          muted: '#527999',
-          glow: 'rgba(0, 229, 255, 0.2)'
+          dark: '#0b0f17',
+          panel: 'rgba(20, 25, 35, 0.6)',
+          glass: 'rgba(20, 25, 35, 0.6)',
+          border: 'rgba(255, 255, 255, 0.1)',
+          accent: '#22c55e',
+          cyan: '#00e5ff',
+          muted: '#94a3b8',
+          glow: 'rgba(34, 197, 94, 0.25)'
         }
       },
       fontFamily: {

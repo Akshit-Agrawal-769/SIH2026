@@ -1,7 +1,7 @@
 #include "ocean/common/types.hpp"
 #include "ocean/common/constants.hpp"
 #include "ocean/io/cmems_loader.hpp"
-#include "ocean/io/roms_loader.hpp"
+#include "ocean/io/surface_bgc_loader.hpp"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
     // 2. Process INCOIS-BIO-ROMS authentic variables (chlorophyll)
     if (fs::exists(roms_path)) {
         std::cout << "\n[2/2] Loading INCOIS-BIO-ROMS Authentic NetCDF: " << roms_path << "...\n";
-        ocean::ROMSLoader roms(roms_path);
+        ocean::SurfaceBGCLoader roms(roms_path);
         const auto& meta = roms.metadata();
         uint16_t w = static_cast<uint16_t>(meta.lon_count);
         uint16_t h = static_cast<uint16_t>(meta.lat_count);

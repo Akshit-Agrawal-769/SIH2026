@@ -57,7 +57,7 @@ class CopernicusIngestionAdapter(IngestionAdapter):
             os.path.join(os.getcwd(), "tiles"),
             os.path.join(os.path.dirname(__file__), "..", "..", "..", "tiles"),
             os.path.abspath("tiles"),
-            "D:/OneDrive/Desktop/sih/tiles"
+            os.getenv("TILES_DIR", "tiles")
         ]
         base_tile_dir = next((d for d in tile_dirs if os.path.exists(d)), "tiles")
 

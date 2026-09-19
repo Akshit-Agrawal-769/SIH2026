@@ -1,4 +1,4 @@
-#include "ocean/io/roms_loader.hpp"
+#include "ocean/io/surface_bgc_loader.hpp"
 #include "ocean/common/missing.hpp"
 #include "ocean/common/audit_logger.hpp"
 #include "ocean/geo/spatial_filter.hpp"
@@ -31,12 +31,12 @@ constexpr double kRomsEpochOffsetSeconds = 317520000.0;
 
 } // anonymous namespace
 
-ROMSLoader::ROMSLoader(const std::string& filepath)
+SurfaceBGCLoader::SurfaceBGCLoader(const std::string& filepath)
     : file_(std::make_unique<NetCDFFile>(filepath)) {
     parse_grid();
 }
 
-void ROMSLoader::parse_grid() {
+void SurfaceBGCLoader::parse_grid() {
     std::vector<float> lats = file_->read_var_1d_float("LAT");
     std::vector<float> lons = file_->read_var_1d_float("LON");
     std::vector<double> times_days = file_->read_var_1d_double("TIME");
@@ -70,7 +70,7 @@ void ROMSLoader::parse_grid() {
     }
 }
 
-std::vector<float> ROMSLoader::read_surface_slice(
+std::vector<float> SurfaceBGCLoader::read_surface_slice(
     CanonicalVar var,
     size_t time_idx,
     uint32_t stride_lat,
@@ -130,7 +130,7 @@ std::vector<float> ROMSLoader::read_surface_slice(
     return buffer;
 }
 
-std::vector<float> ROMSLoader::read_point_timeseries(
+std::vector<float> SurfaceBGCLoader::read_point_timeseries(
     CanonicalVar var,
     size_t lat_idx,
     size_t lon_idx

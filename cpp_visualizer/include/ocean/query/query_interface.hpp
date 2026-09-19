@@ -2,7 +2,7 @@
 
 #include "ocean/common/types.hpp"
 #include "ocean/io/cmems_loader.hpp"
-#include "ocean/io/roms_loader.hpp"
+#include "ocean/io/surface_bgc_loader.hpp"
 #include "ocean/data/point_cloud.hpp"
 #include <optional>
 #include <vector>
@@ -35,7 +35,7 @@ class QueryInterface {
 public:
     QueryInterface(
         std::shared_ptr<CMEMSLoader> cmems,
-        std::shared_ptr<ROMSLoader> roms,
+        std::shared_ptr<SurfaceBGCLoader> roms,
         std::shared_ptr<PointCloudBuffer> in_situ_points
     );
 
@@ -85,7 +85,7 @@ public:
 
 private:
     std::shared_ptr<CMEMSLoader> cmems_;
-    std::shared_ptr<ROMSLoader> roms_;
+    std::shared_ptr<SurfaceBGCLoader> roms_;
     std::shared_ptr<PointCloudBuffer> in_situ_;
 };
 

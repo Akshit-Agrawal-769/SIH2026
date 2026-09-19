@@ -650,20 +650,20 @@ export const OceanWaterCubeModal: React.FC = () => {
     : null;
 
   return (
-    <div className={`fixed z-50 transition-all duration-300 flex flex-col bg-ocean-dark/95 backdrop-blur-2xl border border-cyan-500/40 shadow-2xl overflow-hidden ${
+    <div className={`fixed z-50 transition-all duration-300 flex flex-col glass-panel shadow-2xl overflow-hidden border border-white/15 ${
       isFullscreen
         ? 'inset-2 rounded-2xl'
         : 'right-6 top-16 bottom-16 w-[940px] max-w-[calc(100vw-3rem)] rounded-2xl'
     }`}>
       {/* 1. Studio Header */}
-      <div className="p-3.5 border-b border-ocean-border/80 flex items-center justify-between bg-ocean-panel/80">
+      <div className="p-3.5 border-b border-white/10 flex items-center justify-between bg-black/40">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-gradient-to-tr from-cyan-500/30 to-blue-600/30 border border-cyan-400 text-cyan-300 shadow-md shadow-cyan-500/20">
-            <Box className="w-5 h-5 animate-pulse text-cyan-300" />
+          <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 shadow-md">
+            <Box className="w-5 h-5 animate-pulse text-emerald-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/40">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/40">
                 3D Volumetric Ocean Block Studio
               </span>
               <span className="text-[10px] text-slate-400 font-mono">
@@ -672,7 +672,7 @@ export const OceanWaterCubeModal: React.FC = () => {
             </div>
             <h2 className="text-sm font-bold text-white tracking-wide mt-0.5 flex items-center gap-2">
               <span>{activeWaterBlockTarget.name || 'Ocean Water Column'}</span>
-              <span className="text-xs font-mono text-cyan-400 font-normal">
+              <span className="text-xs font-mono text-emerald-400 font-normal">
                 ({activeWaterBlockTarget.lat.toFixed(2)}°N, {activeWaterBlockTarget.lon.toFixed(2)}°E)
               </span>
             </h2>
@@ -685,18 +685,18 @@ export const OceanWaterCubeModal: React.FC = () => {
             onClick={() => setIsAutoRotating(!isAutoRotating)}
             className={`p-1.5 rounded-lg border text-xs font-mono flex items-center gap-1 transition ${
               isAutoRotating
-                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                : 'text-slate-400 hover:text-white border-ocean-border hover:bg-white/5'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                : 'text-slate-400 hover:text-white border-white/10 hover:bg-white/5'
             }`}
             title="Toggle continuous 3D auto-rotation"
           >
-            {isAutoRotating ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            {isAutoRotating ? <Pause className="w-3.5 h-3.5 text-emerald-400" /> : <Play className="w-3.5 h-3.5 text-emerald-400" />}
             <span className="hidden sm:inline text-[10px]">Auto-Orbit</span>
           </button>
 
           <button
             onClick={handleResetCamera}
-            className="p-1.5 rounded-lg border border-ocean-border hover:border-ocean-accent text-slate-400 hover:text-white transition"
+            className="p-1.5 rounded-lg border border-white/10 hover:border-emerald-400 text-slate-400 hover:text-white transition"
             title="Reset 3D camera angle"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -704,7 +704,7 @@ export const OceanWaterCubeModal: React.FC = () => {
 
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 rounded-lg border border-ocean-border hover:border-ocean-accent text-slate-400 hover:text-white transition"
+            className="p-1.5 rounded-lg border border-white/10 hover:border-emerald-400 text-slate-400 hover:text-white transition"
             title={isFullscreen ? 'Exit Fullscreen' : 'Expand Fullscreen'}
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -740,15 +740,15 @@ export const OceanWaterCubeModal: React.FC = () => {
         </div>
 
         {/* Right Side: Oceanographic Telemetry & Physical Stratification */}
-        <div className="w-full md:w-72 border-t md:border-t-0 md:border-l border-ocean-border/80 bg-ocean-dark/70 backdrop-blur-md p-3.5 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar">
+        <div className="w-full md:w-72 border-t md:border-t-0 md:border-l border-white/10 bg-black/40 backdrop-blur-md p-3.5 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar">
           {/* 1. ROMS / CMEMS Gridded Numerical Model Volume */}
-          <div className="bg-ocean-panel/80 p-3 rounded-xl border border-cyan-500/40 space-y-2 shadow-sm">
+          <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 shadow-sm">
             <div className="flex items-center justify-between text-xs font-bold text-slate-200">
-              <span className="flex items-center gap-1.5 text-cyan-300">
-                <Database className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="flex items-center gap-1.5 text-emerald-400">
+                <Database className="w-3.5 h-3.5 text-emerald-400" />
                 ROMS/CMEMS Gridded Model
               </span>
-              <span className="font-mono text-cyan-300 px-1.5 py-0.5 rounded bg-cyan-500/20 text-[10px]">
+              <span className="font-mono text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500/20 text-[10px]">
                 {sliceDepth <= 0.5 ? '0.0m Surface' : `${sliceDepth}m Subsurface`}
               </span>
             </div>
@@ -790,7 +790,7 @@ export const OceanWaterCubeModal: React.FC = () => {
           </div>
 
           {/* 2. Autonomous In-Situ Argo CTD Profiler Observations */}
-          <div className="bg-ocean-panel/80 p-3 rounded-xl border border-emerald-500/40 space-y-2 shadow-sm">
+          <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 shadow-sm">
             <div className="flex items-center justify-between text-xs font-bold text-slate-200">
               <span className="flex items-center gap-1.5 text-emerald-300">
                 <Radio className="w-3.5 h-3.5 text-emerald-400" />
@@ -911,7 +911,7 @@ export const OceanWaterCubeModal: React.FC = () => {
           </div>
 
           {/* 3D Visual Feature Toggles */}
-          <div className="pt-2 border-t border-ocean-border/60 space-y-2">
+          <div className="pt-2 border-t border-white/10 space-y-2">
             <span className="text-[10px] font-mono uppercase text-slate-400 font-bold tracking-wider">
               3D Cube Overlays
             </span>
@@ -942,7 +942,7 @@ export const OceanWaterCubeModal: React.FC = () => {
       </div>
 
       {/* 3. Bottom Controls: Variable Tabs + Interactive Depth Slider */}
-      <div className="p-3 border-t border-ocean-border/80 bg-ocean-panel/90 flex flex-col gap-2.5">
+      <div className="p-3 border-t border-white/10 bg-black/40 flex flex-col gap-2.5">
         {/* Variable Switcher Tabs */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
@@ -951,7 +951,7 @@ export const OceanWaterCubeModal: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
                 activeVar === 'temperature'
                   ? 'bg-red-500/20 text-red-300 border border-red-500/50 shadow-sm'
-                  : 'text-slate-400 hover:text-white bg-ocean-dark/60 border border-ocean-border/40'
+                  : 'text-slate-400 hover:text-white glass-pill'
               }`}
             >
               <Waves className="w-3.5 h-3.5 text-red-400" />
@@ -963,7 +963,7 @@ export const OceanWaterCubeModal: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
                 activeVar === 'salinity'
                   ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-sm'
-                  : 'text-slate-400 hover:text-white bg-ocean-dark/60 border border-ocean-border/40'
+                  : 'text-slate-400 hover:text-white glass-pill'
               }`}
             >
               <Droplets className="w-3.5 h-3.5 text-cyan-400" />
@@ -975,7 +975,7 @@ export const OceanWaterCubeModal: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
                 activeVar === 'currents'
                   ? 'bg-lime-500/20 text-lime-300 border border-lime-500/50 shadow-sm'
-                  : 'text-slate-400 hover:text-white bg-ocean-dark/60 border border-ocean-border/40'
+                  : 'text-slate-400 hover:text-white glass-pill'
               }`}
             >
               <Wind className="w-3.5 h-3.5 text-lime-400" />
@@ -987,7 +987,7 @@ export const OceanWaterCubeModal: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
                 activeVar === 'chlorophyll'
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm'
-                  : 'text-slate-400 hover:text-white bg-ocean-dark/60 border border-ocean-border/40'
+                  : 'text-slate-400 hover:text-white glass-pill'
               }`}
             >
               <Activity className="w-3.5 h-3.5 text-emerald-400" />

@@ -5,7 +5,7 @@
 #include "ocean/geo/enu_transform.hpp"
 #include "ocean/geo/spatial_filter.hpp"
 #include "ocean/io/cmems_loader.hpp"
-#include "ocean/io/roms_loader.hpp"
+#include "ocean/io/surface_bgc_loader.hpp"
 #include "ocean/io/argo_loader.hpp"
 #include "ocean/io/coriolis_loader.hpp"
 #include "ocean/data/volume_buffer.hpp"
@@ -66,10 +66,10 @@ int main() {
 
     // 2. INCOIS-BIO-ROMS 2D Surface 480-Month Time Series Ingestion
     std::string roms_path = "datasets/INCOIS-BIO-ROMS.nc";
-    std::shared_ptr<ocean::ROMSLoader> roms;
+    std::shared_ptr<ocean::SurfaceBGCLoader> roms;
     if (fs::exists(roms_path)) {
         std::cout << "\n[2/4] Ingesting INCOIS-BIO-ROMS Primary Surface Time Series (" << roms_path << ")...\n";
-        roms = std::make_shared<ocean::ROMSLoader>(roms_path);
+        roms = std::make_shared<ocean::SurfaceBGCLoader>(roms_path);
         const auto& meta = roms->metadata();
         std::cout << "      Clamped grid: " << meta.lat_count << " x " << meta.lon_count
                   << " across " << meta.time_steps << " monthly steps (1980 - 2019)\n";
