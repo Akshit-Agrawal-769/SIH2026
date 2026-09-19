@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 215 70% 5%;
+    --background: 222 47% 11%;
     --foreground: 210 40% 98%;
-    --card: 215 60% 8%;
+    --card: 222 47% 11%;
     --card-foreground: 210 40% 98%;
-    --popover: 215 60% 8%;
+    --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
-    --primary: 187 100% 50%;
+    --primary: 152 69% 53%; /* vibrant emerald green */
     --primary-foreground: 215 70% 5%;
-    --secondary: 215 40% 16%;
+    --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 215 30% 18%;
+    --muted: 215 25% 27%;
     --muted-foreground: 215 20% 65%;
-    --accent: 215 50% 16%;
+    --accent: 217 33% 17%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62% 30%;
     --destructive-foreground: 210 40% 98%;
-    --border: 215 40% 18%;
-    --input: 215 40% 18%;
-    --ring: 187 100% 50%;
-    --radius: 0.75rem;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 152 69% 53%;
+    --radius: 1rem;
   }
 }
 
@@ -33,34 +33,81 @@ html, body, #root {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background-color: #030b14;
+  background-color: #0b0f17;
+  color: #f8fafc;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Frosted-Glass Mission Dashboard Utility Classes */
+.glass-panel {
+  background: rgba(20, 25, 35, 0.6);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+}
+
+.glass-pill {
+  background: rgba(20, 25, 35, 0.65);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+}
+
+.glass-card-subtle {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-card-subtle:hover {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.glow-green {
+  filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.45));
+}
+
+.glow-cyan {
+  filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.4));
 }
 
 /* Cesium Viewer customization */
 .cesium-viewer {
   width: 100%;
   height: 100%;
+  background: transparent !important;
 }
 
 .cesium-viewer-bottom {
-  display: none !important; /* Hide default Cesium credit banner for clean UI, handled in info modal */
+  display: none !important; /* Hide default Cesium credit banner for clean UI */
 }
 
-/* Custom scrollbars */
+.cesium-widget canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Custom modern scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #071524;
+  background: rgba(11, 15, 23, 0.4);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e3a5a;
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #00e5ff;
+  background: rgba(34, 197, 94, 0.5);
 }

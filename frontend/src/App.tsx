@@ -39,17 +39,32 @@ export const App: React.FC = () => {
   }, []);
 
   if (!authReady) {
-    return <div className="flex items-center justify-center w-screen h-screen bg-ocean-dark text-white">Initializing Gateway Session...</div>;
+    return (
+      <div className="flex items-center justify-center w-screen h-screen bg-[#0b0f17] text-white font-mono text-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+          <span>Initializing Oceanix Gateway Session...</span>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <main className="relative w-screen h-screen overflow-hidden bg-ocean-dark font-sans select-none">
-      {/* Top Navigation & Status */}
+    <main className="relative w-screen h-screen overflow-hidden bg-[#0b0f17] font-sans select-none">
+      {/* Ambient background lighting & soft room glow behind the 3D globe */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-slate-800/20 rounded-full blur-[120px]" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-500/[0.04] rounded-full blur-[140px]" />
+        <div className="absolute -bottom-40 -right-40 w-[700px] h-[700px] bg-slate-700/20 rounded-full blur-[140px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-transparent to-slate-950/80" />
+      </div>
+
+      {/* Top Navigation & Status Bar */}
       <TopBar viewer={viewer} />
 
       {/* Home Landing Hero View */}
       {mode === 'home' ? (
-        <div className="pt-14 h-full w-full">
+        <div className="pt-16 h-full w-full relative z-10">
           <DotGlobeHeroDemo
             onStartExploring={() => setMode('operational')}
             onViewDemo={() => setMode('outreach')}

@@ -96,8 +96,8 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     });
 
     // Dark space & deep ocean styling
-    viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#020b14');
-    viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#01050a');
+    viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0b101b');
+    viewer.scene.backgroundColor = Cesium.Color.TRANSPARENT;
 
     // Restore camera from URL state if provided, or default to Full Globe view
     if (initialUrlState.camera) {

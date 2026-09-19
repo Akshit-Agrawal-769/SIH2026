@@ -119,11 +119,11 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
   if (!activeTour) {
     return (
       <div className="absolute inset-0 pointer-events-none flex flex-col justify-end p-6 z-20">
-        <div className="pointer-events-auto max-w-5xl mx-auto w-full bg-ocean-panel/92 backdrop-blur-xl border border-cyan-500/30 rounded-2xl p-6 shadow-2xl">
+        <div className="pointer-events-auto max-w-5xl mx-auto w-full glass-panel rounded-2xl p-6 shadow-2xl border border-white/15">
           {/* Header */}
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-ocean-border/60">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+              <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
                 <BookOpen className="w-5 h-5" />
               </div>
               <div>
@@ -131,7 +131,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
                   <h2 className="text-base font-black text-white tracking-wide">
                     Indian Ocean Science Tours
                   </h2>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/40">
                     Public Outreach Mode
                   </span>
                 </div>
@@ -143,9 +143,9 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
 
             <button
               onClick={() => setMode('operational')}
-              className="px-3 py-1.5 rounded-lg bg-ocean-dark hover:bg-slate-800 border border-ocean-border text-xs text-slate-300 hover:text-white transition flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-full glass-pill border border-white/10 text-xs text-slate-300 hover:text-white transition flex items-center gap-1.5"
             >
-              <Layers className="w-3.5 h-3.5 text-cyan-400" />
+              <Layers className="w-3.5 h-3.5 text-emerald-400" />
               <span>Return to Operational</span>
             </button>
           </div>
@@ -156,19 +156,19 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
               <div
                 key={tour.id}
                 onClick={() => handleStartTour(tour)}
-                className="group relative bg-ocean-dark/70 hover:bg-ocean-dark/95 border border-ocean-border hover:border-cyan-400/60 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-cyan-500/10 flex flex-col justify-between"
+                className="group relative glass-card-subtle hover:bg-white/10 border border-white/10 hover:border-emerald-400/50 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-emerald-500/10 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                    <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
                       {tour.category}
                     </span>
-                    <span className="text-[10px] font-mono text-cyan-400 flex items-center gap-1">
+                    <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       {tour.duration}
                     </span>
                   </div>
-                  <h3 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors leading-snug mb-1">
+                  <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors leading-snug mb-1">
                     {tour.title}
                   </h3>
                   <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed mb-3">
@@ -176,7 +176,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
                   </p>
                 </div>
 
-                <div className="pt-2 border-t border-ocean-border/40 flex items-center justify-between text-xs font-semibold text-cyan-400 group-hover:translate-x-0.5 transition-transform">
+                <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs font-semibold text-emerald-400 group-hover:translate-x-0.5 transition-transform">
                   <span>Start Story Tour</span>
                   <ArrowRight className="w-4 h-4" />
                 </div>
@@ -194,12 +194,12 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
 
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-end p-6 z-20">
-      <div className="pointer-events-auto max-w-2xl mx-auto w-full bg-ocean-dark/95 backdrop-blur-xl border border-cyan-500/40 rounded-2xl p-5 shadow-2xl shadow-cyan-950/60 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
+      <div className="pointer-events-auto max-w-2xl mx-auto w-full glass-panel rounded-2xl p-5 shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 border border-white/15">
         {/* Tour Header & Progress */}
-        <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-ocean-border/60">
+        <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">
               {activeTour.title}
             </span>
           </div>
@@ -216,9 +216,9 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
                   }}
                   className={`h-1.5 rounded-full transition-all ${
                     idx === currentStepIndex
-                      ? 'w-6 bg-cyan-400'
+                      ? 'w-6 bg-emerald-400'
                       : idx < currentStepIndex
-                      ? 'w-2.5 bg-cyan-700'
+                      ? 'w-2.5 bg-emerald-700'
                       : 'w-2 bg-slate-700'
                   }`}
                   title={`Jump to Step ${idx + 1}`}
@@ -234,7 +234,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
             <button
               onClick={handleExitTour}
               title="Close Tour"
-              className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+              className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition"
             >
               <X className="w-4 h-4" />
             </button>
@@ -247,7 +247,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
             <h3 className="text-base font-black text-white tracking-tight">
               {step.title}
             </h3>
-            <span className="text-xs text-ocean-muted font-medium">
+            <span className="text-xs text-slate-400 font-medium">
               — {step.subtitle}
             </span>
           </div>
@@ -261,9 +261,9 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
             {step.keyInsights.map((insight, idx) => (
               <span
                 key={idx}
-                className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-cyan-950/60 border border-cyan-500/30 text-cyan-200 flex items-center gap-1"
+                className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-emerald-300 flex items-center gap-1.5"
               >
-                <CheckCircle2 className="w-2.5 h-2.5 text-cyan-400" />
+                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
                 {insight}
               </span>
             ))}
@@ -271,15 +271,15 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
         </div>
 
         {/* Navigation & Controls */}
-        <div className="flex items-center justify-between pt-3 border-t border-ocean-border/60">
+        <div className="flex items-center justify-between pt-3 border-t border-white/10">
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrevStep}
               disabled={currentStepIndex === 0}
-              className={`p-2 rounded-lg border text-xs font-semibold flex items-center gap-1 transition ${
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition ${
                 currentStepIndex === 0
                   ? 'opacity-40 cursor-not-allowed border-transparent text-slate-600'
-                  : 'bg-ocean-panel border-ocean-border hover:border-cyan-400 text-slate-300 hover:text-white'
+                  : 'glass-pill border border-white/10 hover:border-emerald-400 text-slate-300 hover:text-white'
               }`}
             >
               <ChevronLeft className="w-4 h-4" />
@@ -289,10 +289,10 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
             <button
               onClick={() => setIsAutoAdvancing(!isAutoAdvancing)}
               title={isAutoAdvancing ? 'Pause Auto-Tour' : 'Enable Auto-Advance (12s)'}
-              className={`p-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition ${
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition ${
                 isAutoAdvancing
-                  ? 'bg-amber-400/20 border-amber-400 text-amber-300'
-                  : 'bg-ocean-panel border-ocean-border text-slate-400 hover:text-white'
+                  ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                  : 'glass-pill border border-white/10 text-slate-400 hover:text-white'
               }`}
             >
               {isAutoAdvancing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -302,7 +302,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
 
           <button
             onClick={handleNextStep}
-            className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs shadow-lg shadow-cyan-500/20 transition flex items-center gap-1.5"
+            className="px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center gap-1.5 active:scale-95"
           >
             <span>{isLastStep ? 'Complete Tour' : 'Next Chapter'}</span>
             <ChevronRight className="w-4 h-4" />
