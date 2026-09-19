@@ -9,6 +9,7 @@ import { createDepthSliceLayer, DepthSliceLayerManager } from '../rendering/dept
 import { createCurrentsLayer, CurrentsLayerManager, computeOceanVelocity } from '../layers/currentsLayer';
 import { createVolumetricBlockLayer, VolumetricBlockManager } from '../rendering/volumetricBlockLayer';
 import { createGraticuleLayer, GraticuleLayerManager } from '../rendering/graticuleLayer';
+import { createDisasterLayers, DisasterLayersManager } from '../rendering/disasterLayers';
 
 interface CesiumViewerProps {
   onViewerReady?: (viewer: Cesium.Viewer) => void;
@@ -23,9 +24,11 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
   const currentsManagerRef = useRef<CurrentsLayerManager | null>(null);
   const volumetricBlockManagerRef = useRef<VolumetricBlockManager | null>(null);
   const graticuleManagerRef = useRef<GraticuleLayerManager | null>(null);
+  const disasterManagerRef = useRef<DisasterLayersManager | null>(null);
 
   const {
     activeLayers,
+        isDriftModeActive,
     depthLevel,
     currentTime,
     selectedVariable,
@@ -229,6 +232,15 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       const lon = Cesium.Math.toDegrees(cartographic.longitude);
       const lat = Cesium.Math.toDegrees(cartographic.latitude);
 
+      const storeState = useOceanStore.getState();
+      if (storeState.isDriftModeActive) {
+        storeState.setDriftSimulationCoordinates({ lon: parseFloat(lon.toFixed(2)), lat: parseFloat(lat.toFixed(2)) });
+        if (disasterManagerRef.current) {
+          disasterManagerRef.current.simulateDrift(lon, lat);
+        }
+        return;
+      }
+
       // Determine basin name
       let basinName = 'Indian Ocean';
       if (lon >= 52 && lon <= 78 && lat >= 8 && lat <= 26) {
@@ -277,6 +289,13 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     });
 
     // 7. Initialize NOAA-style Cartographic Graticules Layer
+    createDisasterLayers(viewer).then(manager => {
+      disasterManagerRef.current = manager;
+      manager.updateTime(initStore.currentTime);
+      manager.updateVisibility(initStore.activeLayers);
+    });
+
+    // 8. Initialize NOAA-style Cartographic Graticules Layer
     const graticuleManager = createGraticuleLayer(viewer);
     graticuleManagerRef.current = graticuleManager;
     graticuleManager.setVisible(initStore.isGraticuleEnabled);
@@ -308,6 +327,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       currentsManagerRef.current?.destroy();
       volumetricBlockManagerRef.current?.destroy();
       graticuleManagerRef.current?.destroy();
+      disasterManagerRef.current?.destroy();
       if (viewerRef.current && !viewerRef.current.isDestroyed()) {
         viewerRef.current.destroy();
         viewerRef.current = null;
@@ -357,9 +377,18 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
         isVisible: is3DVolumeBlockEnabled
       });
     }
+    
     if (graticuleManagerRef.current) {
       graticuleManagerRef.current.setVisible(isGraticuleEnabled);
     }
+    if (disasterManagerRef.current) {
+      disasterManagerRef.current.updateTime(currentTime);
+      disasterManagerRef.current.updateVisibility(activeLayers);
+      if (!isDriftModeActive) {
+        disasterManagerRef.current.clearDrift();
+      }
+    }
+
     if (viewerRef.current) {
       const camState = serializeCameraState(viewerRef.current);
       syncStateToUrl(camState, useOceanStore.getState());

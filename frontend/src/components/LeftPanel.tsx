@@ -20,6 +20,8 @@ export const LeftPanel: React.FC = () => {
     selectedVariable,
     setSelectedVariable,
     is3DVolumeBlockEnabled,
+    isDriftModeActive,
+    setIsDriftModeActive,
     toggle3DVolumeBlock,
     openWaterBlock
   } = useOceanStore();
@@ -60,7 +62,8 @@ export const LeftPanel: React.FC = () => {
     { key: 'model_field', title: '3D Ocean Model Volumes' },
     { key: 'vector_field', title: 'Hydrodynamic Circulation' },
     { key: 'observation', title: 'In-Situ Observation Platforms' },
-    { key: 'boundary', title: 'Maritime Jurisdictions' }
+    { key: 'boundary', title: 'Maritime Jurisdictions' },
+    { key: 'disaster', title: 'Disaster Early Warning' }
   ];
 
   return (
@@ -206,7 +209,28 @@ export const LeftPanel: React.FC = () => {
         })}
       </div>
 
-      <div className="mt-1 pt-2 border-t border-white/10 text-[9px] text-slate-400 leading-tight">
+
+      {/* Spill Drift Simulation */}
+      <div className="pt-3 border-t border-white/10 mt-2">
+        <button
+          onClick={() => setIsDriftModeActive(!isDriftModeActive)}
+          className={`w-full p-2.5 rounded-xl border transition-all flex items-center justify-center gap-2 font-medium text-xs ${
+            isDriftModeActive
+              ? 'bg-amber-500/20 border-amber-400/50 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+              : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+          }`}
+        >
+          <Compass className="w-4 h-4" />
+          {isDriftModeActive ? 'Cancel Drift Simulation' : 'Simulate Spill Drift'}
+        </button>
+        {isDriftModeActive && (
+          <p className="text-[9px] text-amber-400/80 mt-1.5 text-center leading-tight">
+            Click anywhere on the ocean to drop a particle and project its 14-day forward drift trajectory.
+          </p>
+        )}
+      </div>
+
+      <div className="mt-2 pt-2 border-t border-white/10 text-[9px] text-slate-400 leading-tight">
         Zero-touch plugin architecture: new sensors and models registered via <code className="text-emerald-400 font-mono">registerLayer()</code> populate automatically.
       </div>
     </aside>
