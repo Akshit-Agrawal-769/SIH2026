@@ -40,7 +40,7 @@ export const OceanHoverHUD: React.FC = () => {
 
   return (
     <div
-      className="fixed pointer-events-none z-50 bg-ocean-dark/94 backdrop-blur-md border border-cyan-500/40 rounded-xl p-3 shadow-2xl shadow-cyan-950/50 min-w-[200px] flex flex-col gap-1.5 transition-all duration-75"
+      className="fixed pointer-events-none z-50 glass-panel rounded-2xl p-3.5 shadow-2xl min-w-[210px] flex flex-col gap-1.5 transition-all duration-75"
       style={{ left: hudLeft, top: hudTop }}
     >
       {/* Variable & Depth Tag */}
@@ -49,7 +49,7 @@ export const OceanHoverHUD: React.FC = () => {
           {styleMeta.icon}
           <span>{variable}</span>
         </div>
-        <span className="font-mono text-cyan-400">
+        <span className="font-mono text-emerald-400">
           {depth === 0.5 ? '0m (Surface)' : `${depth}m`}
         </span>
       </div>
@@ -65,9 +65,9 @@ export const OceanHoverHUD: React.FC = () => {
       </div>
 
       {/* Geolocation & Basin info */}
-      <div className="pt-1.5 border-t border-ocean-border/60 flex flex-col gap-0.5 text-[10px] text-slate-400">
+      <div className="pt-1.5 border-t border-white/10 flex flex-col gap-0.5 text-[10px] text-slate-400">
         <div className="flex items-center gap-1 font-mono text-slate-300">
-          <Compass className="w-3 h-3 text-cyan-500" />
+          <Compass className="w-3 h-3 text-emerald-400" />
           <span>{Math.abs(lat).toFixed(2)}°{lat >= 0 ? 'N' : 'S'}, {Math.abs(lon).toFixed(2)}°{lon >= 0 ? 'E' : 'W'}</span>
         </div>
         <div className="text-[9.5px] text-slate-400 font-medium">
@@ -77,15 +77,15 @@ export const OceanHoverHUD: React.FC = () => {
 
       {/* Ocean Current Telemetry if available */}
       {currentSpeed !== undefined && (
-        <div className="pt-1.5 border-t border-cyan-500/20 flex items-center justify-between text-[10px] font-mono">
-          <div className="flex items-center gap-1 text-cyan-300">
-            <Wind className="w-3 h-3 text-cyan-400" />
+        <div className="pt-1.5 border-t border-white/10 flex items-center justify-between text-[10px] font-mono">
+          <div className="flex items-center gap-1 text-emerald-300">
+            <Wind className="w-3 h-3 text-emerald-400" />
             <span>Current:</span>
           </div>
           <span className="font-bold text-white">
             {currentSpeed.toFixed(2)} m/s
             {currentHeading !== undefined && (
-              <span className="text-cyan-400 text-[9px] ml-1 font-normal">({currentHeading}°)</span>
+              <span className="text-emerald-400 text-[9px] ml-1 font-normal">({currentHeading}°)</span>
             )}
           </span>
         </div>

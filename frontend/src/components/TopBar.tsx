@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useOceanStore } from '../store/useOceanStore';
 import {
-  Compass,
-  RotateCcw,
-  Eye,
-  Layers,
-  Globe,
-  SlidersHorizontal,
-  PanelLeftClose,
-  PanelRightClose,
   Search,
   Share2,
   Check,
   MapPin,
   Loader2,
   Box,
-  Home
+  RotateCcw,
+  SlidersHorizontal,
+  PanelLeftClose,
+  PanelRightClose,
+  Eye,
+  Layers,
+  Home,
+  Globe,
+  Waves
 } from 'lucide-react';
 import * as Cesium from 'cesium';
 import { flyToCoordinates } from '../globe/cameraUtils';
@@ -67,6 +67,20 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [copiedToast, setCopiedToast] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Global ⌘K / Ctrl+K keyboard shortcut to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setShowDropdown(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -82,12 +96,10 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
     if (!query.trim()) {
-      setSearchResults([]);
-      setShowDropdown(false);
+      setSearchResults(REGION_PRESETS.slice(0, 6));
       return;
     }
 
-    // Filter local preset library first for instant response
     const matchedPresets = REGION_PRESETS.filter((p) =>
       p.name.toLowerCase().includes(query.toLowerCase()) ||
       p.category.toLowerCase().includes(query.toLowerCase())
@@ -102,7 +114,6 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
 
     setIsSearching(true);
     try {
-      // Query OpenStreetMap Nominatim for global locations
       const resp = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`
       );
@@ -163,62 +174,78 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
   };
 
   return (
-    <header className="absolute top-0 left-0 right-0 h-14 bg-ocean-dark/90 backdrop-blur-md border-b border-ocean-border z-30 flex items-center justify-between px-4 gap-3">
-      {/* Brand & Title */}
-      <div
-        onClick={() => setMode('home')}
-        className="flex items-center gap-2.5 shrink-0 select-none cursor-pointer group"
-        title="Go to Home"
-      >
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20 shrink-0 group-hover:scale-105 transition-transform">
-          <Compass className="w-5 h-5 text-white" />
-        </div>
-        <div className="flex flex-col justify-center">
-          <h1 className="font-bold text-sm tracking-wide text-white flex items-center gap-1.5 whitespace-nowrap leading-tight group-hover:text-cyan-300 transition-colors">
-            INCOIS <span className="text-ocean-accent font-semibold">3D Ocean Platform</span>
-          </h1>
-          <p className="text-[10px] text-ocean-muted tracking-tight whitespace-nowrap leading-tight hidden sm:block">
-            Indian Ocean Digital Twin &amp; In-Situ Observations
-          </p>
+    <header className="fixed top-3 left-4 right-4 z-30 flex items-center justify-between pointer-events-none select-none gap-3">
+      {/* Brand & Mission Badge */}
+      <div className="flex items-center gap-3 pointer-events-auto shrink-0">
+        <div
+          onClick={() => setMode('operational')}
+          className="flex items-center gap-2.5 px-3 py-1.5 rounded-full glass-pill cursor-pointer group shadow-xl transition-transform hover:scale-[1.02]"
+          title="INCOIS Indian Ocean 3D Volumetric Digital Twin"
+        >
+          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-500/30 to-teal-500/30 border border-emerald-400/40 flex items-center justify-center text-emerald-400 shadow-md">
+            <Waves className="w-3.5 h-3.5 text-emerald-400" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-xs tracking-tight text-white leading-none">
+              Oceanix
+            </span>
+            <span className="text-[8px] font-mono text-emerald-400 tracking-wider uppercase mt-0.5">
+              INCOIS TWIN
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Geocoding Location Search */}
-      <div ref={searchRef} className="relative w-44 sm:w-60 md:w-72 lg:w-80 min-w-0 shrink">
+      {/* Search Pill Input */}
+      <div ref={searchRef} className="relative w-72 sm:w-80 md:w-96 pointer-events-auto">
         <form onSubmit={handleOnlineGeocode} className="relative flex items-center">
           <input
+            ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             onFocus={() => {
-              if (searchQuery.trim()) setShowDropdown(true);
+              if (!searchQuery.trim()) {
+                setSearchResults(REGION_PRESETS.slice(0, 6));
+              }
+              setShowDropdown(true);
             }}
-            placeholder="Search location (e.g. Bay of Bengal, Kochi)..."
-            className="w-full bg-ocean-panel/80 border border-ocean-border rounded-lg pl-9 pr-8 py-1.5 text-xs text-slate-100 placeholder-ocean-muted focus:outline-none focus:border-ocean-accent transition"
+            placeholder="Search ocean data, regions, or parameters..."
+            className="w-full glass-pill text-white placeholder:text-slate-400 pl-9 pr-14 py-2 rounded-full text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400/50 transition-all shadow-xl"
           />
-          <Search className="w-4 h-4 text-ocean-muted absolute left-2.5 pointer-events-none" />
-          {isSearching ? (
-            <Loader2 className="w-4 h-4 text-ocean-accent absolute right-2.5 animate-spin" />
-          ) : null}
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
+
+          <div className="absolute right-3 flex items-center gap-1.5 pointer-events-none">
+            {isSearching ? (
+              <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+            ) : (
+              <kbd className="text-[9px] font-mono text-slate-400 bg-white/10 px-1.5 py-0.5 rounded border border-white/10">
+                ⌘K
+              </kbd>
+            )}
+          </div>
         </form>
 
         {/* Search Results Dropdown */}
         {showDropdown && searchResults.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1.5 bg-ocean-panel/95 backdrop-blur-md border border-ocean-border rounded-xl shadow-2xl overflow-hidden z-40 max-h-64 overflow-y-auto">
+          <div className="absolute top-full left-0 right-0 mt-2 glass-panel rounded-2xl overflow-hidden shadow-2xl z-40 max-h-72 overflow-y-auto p-1.5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-3 py-1 text-[10px] font-mono uppercase text-emerald-400 tracking-wider font-semibold">
+              Presets &amp; Locations
+            </div>
             {searchResults.map((loc, idx) => (
               <div
                 key={`${loc.name}-${idx}`}
                 onClick={() => selectLocation(loc)}
-                className="px-3 py-2 hover:bg-ocean-border/60 cursor-pointer flex items-center justify-between border-b border-ocean-border/40 last:border-b-0 transition"
+                className="px-3 py-2 hover:bg-white/10 rounded-xl cursor-pointer flex items-center justify-between transition-all"
               >
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-ocean-accent shrink-0" />
-                  <span className="text-xs text-slate-200 font-medium truncate max-w-[180px]">
+                <div className="flex items-center gap-2.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="text-xs text-slate-200 font-medium truncate max-w-[200px]">
                     {loc.name}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-mono text-ocean-muted uppercase px-1.5 py-0.5 rounded bg-ocean-dark/60">
+                  <span className="text-[9px] font-mono text-slate-400 uppercase px-2 py-0.5 rounded-full bg-white/5 border border-white/5">
                     {loc.category}
                   </span>
                   <button
@@ -227,10 +254,10 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
                       openWaterBlock({ lon: loc.lon, lat: loc.lat, name: `${loc.name} Water Column` });
                       setShowDropdown(false);
                     }}
-                    className="p-1 rounded bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-300 border border-cyan-500/40 text-[9px] font-mono flex items-center gap-1 transition"
-                    title="Open 3D Volumetric Water Block for this location"
+                    className="px-2 py-0.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[9px] font-mono flex items-center gap-1 transition"
+                    title="Open 3D Volumetric Water Block"
                   >
-                    <Box className="w-3 h-3 text-cyan-300" />
+                    <Box className="w-3 h-3 text-emerald-300" />
                     <span>3D Cube</span>
                   </button>
                 </div>
@@ -241,22 +268,22 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
       </div>
 
       {/* Camera Presets (Quick Access) */}
-      <div className="hidden xl:flex items-center gap-2 bg-ocean-panel/80 px-2 py-1 rounded-md border border-ocean-border">
-        <span className="text-[11px] text-ocean-muted font-mono uppercase mr-1">Camera:</span>
+      <div className="hidden xl:flex items-center gap-1.5 glass-pill px-2.5 py-1 rounded-full pointer-events-auto text-xs shadow-xl">
+        <span className="text-[10px] text-slate-400 font-mono uppercase mr-1">Camera:</span>
         <button
           onClick={handleResetHome}
-          className="px-2.5 py-1 text-xs font-medium rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/30 transition flex items-center gap-1.5"
-          title="View the entire spherical Earth"
+          className="px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 transition flex items-center gap-1"
+          title="View entire Earth globe"
         >
-          <Globe className="w-3.5 h-3.5" />
-          Entire Globe
+          <Globe className="w-3 h-3" />
+          <span>Entire Globe</span>
         </button>
         <button
           onClick={() => {
             if (!viewer) return;
             flyToCoordinates(viewer, { lon: 78.0, lat: 12.0, height: 6500000, pitch: -75.0 });
           }}
-          className="px-2 py-1 text-xs rounded hover:bg-ocean-border/60 text-slate-300 hover:text-white transition"
+          className="px-2 py-1 text-xs rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition"
         >
           Indian EEZ
         </button>
@@ -265,7 +292,7 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
             if (!viewer) return;
             flyToCoordinates(viewer, { lon: 88.0, lat: 14.5, height: 2800000, pitch: -70.0 });
           }}
-          className="px-2 py-1 text-xs rounded hover:bg-ocean-border/60 text-slate-300 hover:text-white transition"
+          className="px-2 py-1 text-xs rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition"
         >
           Bay of Bengal
         </button>
@@ -274,11 +301,11 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
             if (!viewer) return;
             flyToCoordinates(viewer, { lon: 66.0, lat: 16.0, height: 3200000, pitch: -70.0 });
           }}
-          className="px-2 py-1 text-xs rounded hover:bg-ocean-border/60 text-slate-300 hover:text-white transition"
+          className="px-2 py-1 text-xs rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition"
         >
           Arabian Sea
         </button>
-        <div className="w-[1px] h-4 bg-ocean-border/80 mx-1" />
+        <div className="w-[1px] h-3.5 bg-white/10 mx-0.5" />
         <button
           onClick={() => {
             openWaterBlock({
@@ -287,108 +314,110 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
               name: 'Indian Ocean Water Column'
             });
           }}
-          className="px-2.5 py-1 text-xs font-semibold rounded bg-gradient-to-r from-cyan-500/25 to-blue-600/30 border border-cyan-400/60 text-cyan-200 hover:from-cyan-500/40 hover:to-blue-600/50 transition flex items-center gap-1.5 shadow-md shadow-cyan-500/20"
-          title="Open 3D Volumetric Water Column Cube Viewer (0–2000m)"
+          className="px-2.5 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-emerald-500/30 to-teal-500/30 border border-emerald-400/50 text-emerald-300 hover:from-emerald-500/40 hover:to-teal-500/50 transition flex items-center gap-1 shadow-sm"
+          title="Open 3D Volumetric Water Column Cube Studio (0–2000m)"
         >
-          <Box className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+          <Box className="w-3 h-3 text-emerald-300" />
           <span>3D Ocean Cube</span>
         </button>
       </div>
 
-      {/* Right Controls: Share Link, HUD Toggles, Mode Switch */}
-      <div className="flex items-center gap-2.5 shrink-0">
+      {/* Right Controls: Share Link, HUD Toggles, Reset, Mode Switch */}
+      <div className="flex items-center gap-2 pointer-events-auto shrink-0">
         {/* Share View Permalink */}
         <button
           onClick={handleShareLink}
-          title="Copy shareable permalink of current 3D view"
-          className="p-2 rounded-md bg-ocean-panel border border-ocean-border hover:border-ocean-accent text-slate-300 hover:text-white transition flex items-center gap-1.5 text-xs"
+          title="Copy shareable permalink"
+          className="h-9 px-3 rounded-full glass-pill flex items-center gap-1.5 text-xs text-slate-300 hover:text-white transition shadow-lg"
         >
           {copiedToast ? (
             <>
-              <Check className="w-4 h-4 text-emerald-400" />
-              <span className="text-emerald-400 font-medium hidden sm:inline">Copied!</span>
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-emerald-400 font-semibold">Copied!</span>
             </>
           ) : (
             <>
-              <Share2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Share</span>
+              <Share2 className="w-3.5 h-3.5 text-slate-300" />
+              <span className="hidden sm:inline font-medium">Share</span>
             </>
           )}
         </button>
 
-        {/* Toggle HUD Panels for full-screen unobstructed view */}
-        <div className="hidden sm:flex items-center gap-1 bg-ocean-panel p-1 rounded-lg border border-ocean-border text-xs">
-          <button
-            onClick={toggleLeftPanel}
-            title={showLeftPanel ? 'Hide Layers Panel' : 'Show Layers Panel'}
-            className={`p-1.5 rounded transition ${
-              showLeftPanel ? 'text-ocean-accent bg-ocean-dark' : 'text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            <PanelLeftClose className="w-4 h-4" />
-          </button>
-          <button
-            onClick={toggleRightPanel}
-            title={showRightPanel ? 'Hide Controls Panel' : 'Show Controls Panel'}
-            className={`p-1.5 rounded transition ${
-              showRightPanel ? 'text-ocean-accent bg-ocean-dark' : 'text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            <PanelRightClose className="w-4 h-4" />
-          </button>
-          <button
-            onClick={toggleBottomBar}
-            title={showBottomBar ? 'Hide Depth/Time Bar' : 'Show Depth/Time Bar'}
-            className={`p-1.5 rounded transition ${
-              showBottomBar ? 'text-ocean-accent bg-ocean-dark' : 'text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-          </button>
-        </div>
+        {/* HUD Panels Toggles */}
+        {mode === 'operational' && (
+          <div className="hidden sm:flex items-center gap-1 glass-pill px-1.5 py-1 rounded-full text-xs shadow-lg">
+            <button
+              onClick={toggleLeftPanel}
+              title={showLeftPanel ? 'Hide Layers Panel' : 'Show Layers Panel'}
+              className={`p-1.5 rounded-full transition ${
+                showLeftPanel ? 'text-emerald-400 bg-white/10' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <PanelLeftClose className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={toggleRightPanel}
+              title={showRightPanel ? 'Hide Controls Panel' : 'Show Controls Panel'}
+              className={`p-1.5 rounded-full transition ${
+                showRightPanel ? 'text-emerald-400 bg-white/10' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <PanelRightClose className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={toggleBottomBar}
+              title={showBottomBar ? 'Hide Timeline Scrubber' : 'Show Timeline Scrubber'}
+              className={`p-1.5 rounded-full transition ${
+                showBottomBar ? 'text-emerald-400 bg-white/10' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Reset Camera Button */}
         <button
           onClick={handleResetHome}
           title="Reset to Entire Globe"
-          className="p-2 rounded-md bg-ocean-panel border border-ocean-border hover:border-ocean-accent text-slate-300 hover:text-white transition"
+          className="w-9 h-9 rounded-full glass-pill flex items-center justify-center text-slate-300 hover:text-white transition shadow-lg"
         >
-          <RotateCcw className="w-4 h-4" />
+          <RotateCcw className="w-3.5 h-3.5" />
         </button>
 
         {/* Home vs Operational vs Outreach Mode Switch */}
-        <div className="flex items-center bg-ocean-panel p-1 rounded-lg border border-ocean-border text-xs">
+        <div className="flex items-center glass-pill p-1 rounded-full text-xs shadow-lg">
           <button
             onClick={() => setMode('home')}
-            className={`px-2.5 py-1 rounded-md flex items-center gap-1.5 transition ${
+            className={`px-3 py-1 rounded-full flex items-center gap-1.5 transition ${
               mode === 'home'
-                ? 'bg-cyan-500 text-black font-semibold'
+                ? 'bg-white text-slate-900 font-semibold shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Home className="w-3.5 h-3.5" />
+            <Home className="w-3 h-3" />
             <span className="hidden md:inline">Home</span>
           </button>
           <button
             onClick={() => setMode('operational')}
-            className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition ${
+            className={`px-3 py-1 rounded-full flex items-center gap-1.5 transition ${
               mode === 'operational'
-                ? 'bg-cyan-500 text-black font-semibold'
+                ? 'bg-white text-slate-900 font-semibold shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Layers className="w-3 h-3" />
             <span className="hidden md:inline">Operational</span>
           </button>
           <button
             onClick={() => setMode('outreach')}
-            className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition ${
+            className={`px-3 py-1 rounded-full flex items-center gap-1.5 transition ${
               mode === 'outreach'
-                ? 'bg-cyan-500 text-black font-semibold'
+                ? 'bg-white text-slate-900 font-semibold shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Eye className="w-3.5 h-3.5" />
+            <Eye className="w-3 h-3" />
             <span className="hidden md:inline">Outreach</span>
           </button>
         </div>
