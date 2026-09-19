@@ -6,7 +6,9 @@ import netCDF4 as nc
 from datetime import datetime
 
 @pytest.fixture(autouse=True)
-def generate_synthetic_fixtures(monkeypatch):
+def generate_synthetic_fixtures(request, monkeypatch):
+    if "test_comparison_analytics" in request.node.nodeid:
+        return
     base_dir = os.path.dirname(os.path.abspath(__file__))
     fixtures_dir = os.path.join(base_dir, 'fixtures')
     

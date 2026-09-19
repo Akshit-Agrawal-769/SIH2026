@@ -4,8 +4,12 @@ import os
 import json
 import numpy as np
 from typing import Dict, Any, Optional
-from minio import Minio
-from minio.error import S3Error
+try:
+    from minio import Minio
+    from minio.error import S3Error
+except ImportError:
+    Minio = None
+    S3Error = None
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
@@ -14,8 +18,10 @@ MINIO_BUCKET = os.getenv("MINIO_BUCKET", "ocean-data")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
 ENABLE_MINIO = os.getenv("ENABLE_MINIO", "false").lower() == "true"
 
-def get_minio_client() -> Minio:
+def get_minio_client():
     """Returns an authenticated MinIO S3 client."""
+    if Minio is None:
+        raise RuntimeError("minio package is not installed")
     return Minio(
         MINIO_ENDPOINT,
         access_key=MINIO_ACCESS_KEY,

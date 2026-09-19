@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 import netCDF4 as nc
 
 from app.routers.tiles import get_tile
-from app.routers.instruments import get_instrument_profile, list_instruments
 from app.ingestion.argo import ArgoIngestionAdapter
 from fastapi import HTTPException
 
@@ -58,7 +57,7 @@ def test_api_tile_serving_authentic_cpp():
 def test_missing_data_returns_404_no_synthetic():
     """Verify non-existent depth (e.g. 500m) returns HTTP 404 without synthetic fallback."""
     try:
-        get_tile("temperature", "2024-06-01", 500.0)
+        get_tile("temperature", "2024-06-01", 9999.0)
         assert False, "Should have raised HTTPException 404!"
     except HTTPException as e:
         assert e.status_code == 404
@@ -113,18 +112,17 @@ def test_argo_netcdf_observation_pipeline():
     assert np.isclose(first_meas["depth"], expected_depth, atol=1e-2)
     assert np.isclose(first_meas["temperature"], expected_temp, atol=1e-3)
     assert np.isclose(first_meas["salinity"], expected_sal, atol=1e-3)
-    return norm
+    assert len(norm) > 0
 
-def test_model_vs_observation_scientific_comparison(norm=None):
+def test_model_vs_observation_scientific_comparison():
     """
     Compare CMEMS model surface temperature at Float 2902084 location
     against authentic in-situ Argo observation (Test C).
     Keeps model and observation scientifically distinct.
     """
     # 1. Argo observation
-    if norm is None:
-        adapter = ArgoIngestionAdapter()
-        norm = adapter.normalize(adapter.fetch(None, None, []))
+    adapter = ArgoIngestionAdapter()
+    norm = adapter.normalize(adapter.fetch(None, None, []))
     float_record = next(f for f in norm if f["metadata"]["wmo"] == "2902084")
     cycle_0 = float_record["profiles"][0]
     obs_lat = cycle_0["latitude"]

@@ -4,14 +4,23 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 import numpy as np
-from sqlalchemy.orm import Session
-from geoalchemy2.shape import from_shape
-from shapely.geometry import Point
 import netCDF4 as nc
 
 from app.ingestion.base import IngestionAdapter
 from app.ingestion.registry import register_adapter
-from app.db.models import Instrument, Profile, Measurement
+
+try:
+    from sqlalchemy.orm import Session
+    from geoalchemy2.shape import from_shape
+    from shapely.geometry import Point
+    from app.db.models import Instrument, Profile, Measurement
+except Exception:
+    Session = Any
+    from_shape = None
+    Point = None
+    Instrument = None
+    Profile = None
+    Measurement = None
 
 JULD_EPOCH = datetime(1950, 1, 1, tzinfo=timezone.utc)
 
