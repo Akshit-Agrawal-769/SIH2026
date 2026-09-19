@@ -29,7 +29,6 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
   const {
     activeLayers,
         isDriftModeActive,
-    driftSimulationCoordinates,
     depthLevel,
     currentTime,
     selectedVariable,
