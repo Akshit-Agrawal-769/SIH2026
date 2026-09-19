@@ -115,3 +115,174 @@ def get_tile(variable: str, date: str, depth: str):
         status_code=404,
         detail=f"No authentic oceanographic tile available for variable '{variable}' at date '{date}', depth {depth}m."
     )
+
+# ============================================================
+# CANONICAL MODEL VS. OBSERVATION & ANALYTICS SUITE
+# ============================================================
+
+try:
+    import api.analytics_engine as ae
+except ImportError:
+    import analytics_engine as ae
+
+@app.get("/api/comparison/{instrument_id}")
+def get_model_vs_obs(instrument_id: str, variable: str = "temperature", date: str = None):
+    """
+    Collocates authentic in-situ instrument profile observations with INCOIS Bio-ROMS model output.
+    Computes RMSE, MAE, Bias, Pearson r, and residual vertical depth profile.
+    Strict Zero Mock Data: returns empty state if out of domain or missing measurements.
+    """
+    result = ae.compute_model_vs_obs(instrument_id, variable, date)
+    return result
+
+@app.get("/api/analytics/timeseries")
+def get_analytics_timeseries(variable: str = "temperature", lat: float = 13.691, lon: float = 88.074, depth: float = 10.0):
+    """
+    Extracts multi-day model timeline and computes rate of change, delta, and statistics.
+    """
+    return ae.compute_timeseries(variable, lat, lon, depth)
+
+@app.get("/api/analytics/anomalies")
+def get_analytics_anomalies(variable: str = "temperature", lat: float = 13.691, lon: float = 88.074, depth: float = 10.0, date: str = "2024-06-03"):
+    """
+    Calculates authentic Z-score departure against regional ocean field baseline.
+    """
+    return ae.compute_anomalies(variable, lat, lon, depth, date)
+
+@app.get("/api/analytics/correlation")
+def get_analytics_correlation(lat: float = 13.691, lon: float = 88.074, depth: float = 10.0, date: str = "2024-06-03"):
+    """
+    Computes NxN Pearson correlation matrix across authentic physical variables in local neighborhood.
+    """
+    return ae.compute_correlation(lat, lon, depth, date)
+
+@app.get("/api/analytics/profile")
+def get_analytics_profile(lat: float = 13.691, lon: float = 88.074, variable: str = "temperature", date: str = "2024-06-03"):
+    """
+    Extracts vertical model profile and calculates Mixed Layer Depth (MLD) and thermocline gradient.
+    """
+    return ae.compute_vertical_profile_analysis(lat, lon, variable, date)
+
+# ============================================================
+# OGC WMS 1.3.0 CAPABILITIES ENDPOINT
+# ============================================================
+
+CAPABILITIES_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.opengis.net/wms http://schemas.opengis.net/wms/1.3.0/capabilities_1_3_0.xsd">
+  <Service>
+    <Name>WMS</Name>
+    <Title>INCOIS 3D Ocean Data Web Map Service</Title>
+    <Abstract>OGC WMS 1.3.0 compliant Web Map Service serving numerical oceanographic model simulation fields for the Indian Ocean basin and EEZ.</Abstract>
+    <KeywordList>
+      <Keyword>oceanography</Keyword>
+      <Keyword>INCOIS</Keyword>
+      <Keyword>temperature</Keyword>
+      <Keyword>salinity</Keyword>
+      <Keyword>currents</Keyword>
+      <Keyword>chlorophyll</Keyword>
+      <Keyword>Indian Ocean</Keyword>
+    </KeywordList>
+    <OnlineResource xlink:type="simple" xlink:href="http://localhost:8000/api/wms"/>
+    <ContactInformation>
+      <ContactPersonPrimary>
+        <ContactPerson>INCOIS Data Operations</ContactPerson>
+        <ContactOrganization>Indian National Centre for Ocean Information Services (INCOIS)</ContactOrganization>
+      </ContactPersonPrimary>
+      <ContactPosition>Ocean Data Scientist</ContactPosition>
+      <ContactAddress>
+        <AddressType>postal</AddressType>
+        <Address>Ocean Valley, Pragathi Nagar (BO), Nizampet (SO)</Address>
+        <City>Hyderabad</City>
+        <StateOrProvince>Telangana</StateOrProvince>
+        <PostCode>500090</PostCode>
+        <Country>India</Country>
+      </ContactAddress>
+      <ContactElectronicMailAddress>ocean.data@incois.gov.in</ContactElectronicMailAddress>
+    </ContactInformation>
+    <Fees>NONE</Fees>
+    <AccessConstraints>NONE. Public Scientific Data.</AccessConstraints>
+  </Service>
+  <Capability>
+    <Request>
+      <GetCapabilities>
+        <Format>text/xml</Format>
+        <DCPType>
+          <HTTP>
+            <Get><OnlineResource xlink:type="simple" xlink:href="http://localhost:8000/api/wms"/></Get>
+          </HTTP>
+        </DCPType>
+      </GetCapabilities>
+      <GetMap>
+        <Format>image/png</Format>
+        <Format>image/jpeg</Format>
+        <DCPType>
+          <HTTP>
+            <Get><OnlineResource xlink:type="simple" xlink:href="http://localhost:8000/api/wms"/></Get>
+          </HTTP>
+        </DCPType>
+      </GetMap>
+    </Request>
+    <Exception>
+      <Format>XML</Format>
+      <Format>INIMAGE</Format>
+      <Format>BLANK</Format>
+    </Exception>
+    <Layer>
+      <Title>INCOIS Ocean Model Layers</Title>
+      <CRS>EPSG:4326</CRS>
+      <CRS>CRS:84</CRS>
+      <CRS>EPSG:3857</CRS>
+      <EX_GeographicBoundingBox>
+        <westBoundLongitude>45.0</westBoundLongitude>
+        <eastBoundLongitude>100.0</eastBoundLongitude>
+        <southBoundLatitude>-15.0</southBoundLatitude>
+        <northBoundLatitude>30.0</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="EPSG:4326" minx="-15.0" miny="45.0" maxx="30.0" maxy="100.0"/>
+      <BoundingBox CRS="CRS:84" minx="45.0" miny="-15.0" maxx="100.0" maxy="30.0"/>
+
+      <Layer queryable="1">
+        <Name>temperature</Name>
+        <Title>Ocean Potential Temperature</Title>
+        <Abstract>3D numerical model potential temperature field (°C) across the Indian Ocean basin.</Abstract>
+        <Dimension name="time" default="2024-06-01" units="ISO8601">2024-06-01/2024-06-05/P1D</Dimension>
+        <Dimension name="elevation" default="0.5" units="meters">0.5,10.0,50.0,100.0,200.0,500.0,1000.0,2000.0</Dimension>
+      </Layer>
+
+      <Layer queryable="1">
+        <Name>salinity</Name>
+        <Title>Ocean Practical Salinity</Title>
+        <Abstract>3D numerical model practical salinity field (PSU).</Abstract>
+        <Dimension name="time" default="2024-06-01" units="ISO8601">2024-06-01/2024-06-05/P1D</Dimension>
+        <Dimension name="elevation" default="0.5" units="meters">0.5,10.0,50.0,100.0,200.0,500.0,1000.0,2000.0</Dimension>
+      </Layer>
+
+      <Layer queryable="1">
+        <Name>currents</Name>
+        <Title>Ocean Current Velocity</Title>
+        <Abstract>Ocean hydrodynamic horizontal current velocity magnitude (m/s).</Abstract>
+        <Dimension name="time" default="2024-06-01" units="ISO8601">2024-06-01/2024-06-05/P1D</Dimension>
+        <Dimension name="elevation" default="0.5" units="meters">0.5,10.0,50.0,100.0,200.0,500.0,1000.0,2000.0</Dimension>
+      </Layer>
+
+      <Layer queryable="1">
+        <Name>chlorophyll</Name>
+        <Title>Chlorophyll-a Concentration</Title>
+        <Abstract>Photic zone biological chlorophyll-a phytoplankton biomass (mg/m³).</Abstract>
+        <Dimension name="time" default="2024-06-01" units="ISO8601">2024-06-01/2024-06-05/P1D</Dimension>
+        <Dimension name="elevation" default="0.5" units="meters">0.5,10.0,50.0,100.0,200.0,500.0,1000.0,2000.0</Dimension>
+      </Layer>
+    </Layer>
+  </Capability>
+</WMS_Capabilities>"""
+
+@app.get("/api/wms")
+def handle_wms(service: str = "WMS", request: str = "GetCapabilities"):
+    """
+    OGC Web Map Service (WMS) 1.3.0 Capabilities Endpoint.
+    Returns authoritative XML capabilities for QGIS, ArcGIS, and OGC clients.
+    """
+    return Response(content=CAPABILITIES_XML, media_type="text/xml; charset=utf-8")

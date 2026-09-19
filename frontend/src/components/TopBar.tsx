@@ -15,7 +15,8 @@ import {
   MapPin,
   Loader2,
   Box,
-  Home
+  Home,
+  BarChart3
 } from 'lucide-react';
 import * as Cesium from 'cesium';
 import { flyToCoordinates } from '../globe/cameraUtils';
@@ -58,7 +59,8 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
     toggleRightPanel,
     showBottomBar,
     toggleBottomBar,
-    openWaterBlock
+    openWaterBlock,
+    openAnalyticsModal
   } = useOceanStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -292,6 +294,17 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
         >
           <Box className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
           <span>3D Ocean Cube</span>
+        </button>
+
+        <button
+          onClick={() => {
+            openAnalyticsModal();
+          }}
+          className="px-2.5 py-1 text-xs font-semibold rounded bg-gradient-to-r from-emerald-500/20 to-teal-600/30 border border-emerald-400/50 text-emerald-200 hover:from-emerald-500/35 hover:to-teal-600/45 transition flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
+          title="Open Scientific Ocean Analytics Studio (Trends, Stratification, Anomalies, Correlations)"
+        >
+          <BarChart3 className="w-3.5 h-3.5 text-emerald-300" />
+          <span>Ocean Analytics</span>
         </button>
       </div>
 

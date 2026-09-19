@@ -2,7 +2,7 @@ import os
 import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import variables, manifest, instruments, tiles, wms, export
+from app.routers import variables, manifest, instruments, tiles, wms, export, comparison, analytics
 from app.db.session import engine
 from sqlalchemy import text
 
@@ -28,6 +28,8 @@ app.include_router(instruments.router, prefix="/api")
 app.include_router(tiles.router, prefix="/api")
 app.include_router(wms.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
+app.include_router(comparison.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
 
 app.include_router(variables.router)
 app.include_router(manifest.router)
@@ -35,6 +37,8 @@ app.include_router(instruments.router)
 app.include_router(tiles.router)
 app.include_router(wms.router)
 app.include_router(export.router)
+app.include_router(comparison.router)
+app.include_router(analytics.router)
 
 start_time = time.time()
 

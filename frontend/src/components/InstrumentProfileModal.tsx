@@ -11,7 +11,9 @@ import {
   Activity,
   Wind,
   Loader2,
-  Box
+  Box,
+  Scale,
+  BarChart3
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -24,7 +26,13 @@ import {
 } from 'recharts';
 
 export const InstrumentProfileModal: React.FC = () => {
-  const { selectedInstrumentId, setSelectedInstrumentId, openWaterBlock } = useOceanStore();
+  const {
+    selectedInstrumentId,
+    setSelectedInstrumentId,
+    openWaterBlock,
+    openComparisonModal,
+    openAnalyticsModal
+  } = useOceanStore();
   const [profile, setProfile] = useState<InstrumentProfileResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,7 +161,7 @@ export const InstrumentProfileModal: React.FC = () => {
 
       {/* 3D Volumetric Ocean Block Trigger */}
       {profile && (
-        <div className="px-3 pt-2.5">
+        <div className="px-3 pt-2.5 space-y-2">
           <button
             onClick={() => {
               openWaterBlock({
@@ -168,6 +176,36 @@ export const InstrumentProfileModal: React.FC = () => {
           >
             <Box className="w-4 h-4 text-cyan-300 animate-pulse" />
             <span>Inspect 3D Water Block (0–2000m)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (selectedInstrumentId) {
+                openComparisonModal(selectedInstrumentId, activeTab);
+              }
+            }}
+            className="w-full py-2 px-3 bg-gradient-to-r from-amber-500/20 to-orange-600/30 hover:from-amber-500/35 hover:to-orange-600/45 text-amber-200 border border-amber-400/40 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md shadow-amber-500/10 transition active:scale-[0.98]"
+          >
+            <Scale className="w-4 h-4 text-amber-300" />
+            <span>Compare Model vs Observation</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (profile) {
+                openAnalyticsModal({
+                  lat: profile.latitude,
+                  lon: profile.longitude,
+                  depth: 10.0,
+                  variable: activeTab,
+                  name: `${meta.wmo ? `Float #${meta.wmo}` : profile.external_id}`
+                });
+              }
+            }}
+            className="w-full py-2 px-3 bg-gradient-to-r from-emerald-600/20 to-teal-600/30 hover:from-emerald-600/35 hover:to-teal-600/45 text-emerald-200 border border-emerald-400/40 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md shadow-emerald-500/10 transition active:scale-[0.98]"
+          >
+            <BarChart3 className="w-4 h-4 text-emerald-300" />
+            <span>Open in Ocean Analytics</span>
           </button>
         </div>
       )}

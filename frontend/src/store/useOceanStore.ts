@@ -86,6 +86,20 @@ export interface OceanState {
   // Globe click prompt point for ocean water block extraction
   clickedGlobePoint: { lon: number; lat: number; screenX: number; screenY: number; basin?: string } | null;
   setClickedGlobePoint: (point: { lon: number; lat: number; screenX: number; screenY: number; basin?: string } | null) => void;
+
+  // Model vs Observation comparison modal
+  isComparisonModalOpen: boolean;
+  comparisonInstrumentId: string | null;
+  comparisonVariable: string;
+  openComparisonModal: (instrumentId: string, variable?: string) => void;
+  closeComparisonModal: () => void;
+  setComparisonVariable: (variable: string) => void;
+
+  // Scientific Ocean Analytics Studio modal
+  isAnalyticsModalOpen: boolean;
+  analyticsTarget: { lat: number; lon: number; depth?: number; variable?: string; name?: string } | null;
+  openAnalyticsModal: (target?: { lat: number; lon: number; depth?: number; variable?: string; name?: string }) => void;
+  closeAnalyticsModal: () => void;
 }
 
 export interface WaterBlockTarget {
@@ -252,5 +266,36 @@ export const useOceanStore = create<OceanState>((set) => ({
 
   isGraticuleEnabled: true,
   setIsGraticuleEnabled: (isGraticuleEnabled) => set({ isGraticuleEnabled }),
-  toggleGraticule: () => set((s) => ({ isGraticuleEnabled: !s.isGraticuleEnabled }))
+  toggleGraticule: () => set((s) => ({ isGraticuleEnabled: !s.isGraticuleEnabled })),
+
+  // Model vs Observation comparison modal
+  isComparisonModalOpen: false,
+  comparisonInstrumentId: null,
+  comparisonVariable: 'temperature',
+  openComparisonModal: (instrumentId, variable = 'temperature') =>
+    set({
+      isComparisonModalOpen: true,
+      comparisonInstrumentId: instrumentId,
+      comparisonVariable: variable
+    }),
+  closeComparisonModal: () =>
+    set({
+      isComparisonModalOpen: false,
+      comparisonInstrumentId: null
+    }),
+  setComparisonVariable: (comparisonVariable) => set({ comparisonVariable }),
+
+  // Scientific Ocean Analytics Studio modal
+  isAnalyticsModalOpen: false,
+  analyticsTarget: null,
+  openAnalyticsModal: (target) =>
+    set({
+      isAnalyticsModalOpen: true,
+      analyticsTarget: target || { lat: 13.691, lon: 88.074, depth: 10.0, variable: 'temperature', name: 'Bay of Bengal Central Basin' }
+    }),
+  closeAnalyticsModal: () => set({ isAnalyticsModalOpen: false })
 }));
+
+if (typeof window !== 'undefined') {
+  (window as any).__OCEAN_STORE__ = useOceanStore;
+}

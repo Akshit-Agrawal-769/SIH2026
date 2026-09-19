@@ -82,6 +82,9 @@ services:
       MINIO_SECURE: "false"
     ports:
       - "8000:8000"
+    volumes:
+      - ./datasets:/app/datasets:ro
+      - ./tiles:/app/tiles:ro
     depends_on:
       postgres:
         condition: service_healthy

@@ -11,6 +11,8 @@ import { OceanHoverHUD } from './components/OceanHoverHUD';
 import { OutreachTourOverlay } from './components/OutreachTourOverlay';
 import { OceanWaterCubeModal } from './components/OceanWaterCubeModal';
 import { GlobeClickWaterBlockCallout } from './components/GlobeClickWaterBlockCallout';
+import { ModelObservationModal } from './components/comparison';
+import { AnalyticsModal } from './components/analytics';
 import { useOceanStore } from './store/useOceanStore';
 import DotGlobeHeroDemo from './components/ui/demo';
 
@@ -66,6 +68,12 @@ export const App: React.FC = () => {
 
           {/* Floating Callout when Clicking Ocean on Globe */}
           <GlobeClickWaterBlockCallout />
+
+          {/* Collocated Model vs Observation Ground-Truth Verification Modal */}
+          <ModelObservationModal />
+
+          {/* Scientific Ocean Analytics Studio Modal */}
+          <AnalyticsModal />
         </>
       )}
     </main>

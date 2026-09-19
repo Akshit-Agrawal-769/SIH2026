@@ -186,8 +186,10 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
           let curHeading: number | undefined;
           if (store.activeLayers.includes('currents')) {
             const vel = computeOceanVelocity(lon, lat, store.depthLevel, store.currentTime);
-            curSpeed = parseFloat(vel.speed.toFixed(2));
-            curHeading = Math.round(vel.headingDeg);
+            if (vel.isAvailable) {
+              curSpeed = parseFloat(vel.speed.toFixed(2));
+              curHeading = Math.round(vel.headingDeg);
+            }
           }
 
           store.setHoveredOceanInfo({

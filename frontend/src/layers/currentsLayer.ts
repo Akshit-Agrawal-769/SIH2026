@@ -103,10 +103,9 @@ export function computeOceanVelocity(
   lat: number,
   depth: number,
   dateStr: string = '2024-06-01'
-): { u: number; v: number; speed: number; headingDeg: number } {
+): { u: number | null; v: number | null; speed: number; headingDeg: number; isAvailable: boolean } {
   // Vertical decay curve: rapid drop across pycnocline/thermocline, slow abyssal residual
   const depthDecay = Math.exp(-depth / 140.0);
-  const abyssalFloor = 0.035 * Math.exp(-depth / 1500.0);
 
   // Directional Ekman spiral rotation with depth (up to 40° clockwise in Northern Hemisphere)
   const ekmanRotationDeg = Math.min(45.0, (depth / 200.0) * 35.0) * (lat >= 0 ? 1 : -1);
@@ -139,10 +138,13 @@ export function computeOceanVelocity(
         if (d < minLonDiff) { minLonDiff = d; bestLonIdx = j; }
       }
 
-      let romsU = (loadedUV.u[dayIdx][bestLatIdx][bestLonIdx] || 0) * depthDecay;
-      let romsV = (loadedUV.v[dayIdx][bestLatIdx][bestLonIdx] || 0) * depthDecay;
+      const rawU = loadedUV.u[dayIdx][bestLatIdx]?.[bestLonIdx];
+      const rawV = loadedUV.v[dayIdx][bestLatIdx]?.[bestLonIdx];
 
-      if (Math.abs(romsU) > 0.001 || Math.abs(romsV) > 0.001) {
+      if (rawU !== undefined && rawV !== undefined && rawU !== null && rawV !== null && !isNaN(rawU) && !isNaN(rawV)) {
+        let romsU = rawU * depthDecay;
+        let romsV = rawV * depthDecay;
+
         if (depth > 5.0) {
           const cosR = Math.cos(ekmanRotRad);
           const sinR = Math.sin(ekmanRotRad);
@@ -154,72 +156,20 @@ export function computeOceanVelocity(
         const speed = Math.hypot(romsU, romsV);
         let headingDeg = (Math.atan2(romsU, romsV) * 180.0) / Math.PI;
         if (headingDeg < 0) headingDeg += 360.0;
-        return { u: romsU, v: romsV, speed, headingDeg };
+        return { u: romsU, v: romsV, speed, headingDeg, isAvailable: true };
       }
     }
   }
 
-  // 1. Somali Current / Western Boundary Jet (along 48°E - 58°E, 0°N - 15°N)
-  // Peak surface velocity up to 2.6 m/s, rapidly decaying into intermediate depths
-  const somaliPulse = 1.0 + 0.55 * Math.sin(dayIdx * 0.45);
-  const somaliDist = Math.hypot(lon - (52.0 + dayIdx * 0.25), lat - 8.5);
-  const somaliSpeed = 2.6 * somaliPulse * Math.exp(-(somaliDist * somaliDist) / 50.0) * depthDecay;
-  const somaliAngle = 45.0 + 25.0 * Math.sin(dayIdx * 0.4);
-  const somaliRad = (somaliAngle * Math.PI) / 180.0;
-  const somaliU = somaliSpeed * Math.sin(somaliRad);
-  const somaliV = somaliSpeed * Math.cos(somaliRad);
-
-  // 2. Equatorial Wyrtki Jet (intense eastward current along 60°E - 95°E, -3°S - 3°N)
-  const eqPulse = 1.0 + 0.35 * Math.cos(dayIdx * 0.38);
-  const eqDist = Math.abs(lat - 0.5);
-  const eqLonMask = lon >= 55.0 && lon <= 96.0 ? 1.0 : 0.0;
-  const eqSpeed = 1.9 * eqPulse * Math.exp(-(eqDist * eqDist) / 8.0) * eqLonMask * depthDecay;
-  const eqU = eqSpeed * 0.95;
-  const eqV = eqSpeed * 0.35 * Math.sin((lon + dayIdx * 1.5) * 0.2);
-
-  // 3. Monsoon Drift & Swirling Rossby Eddies in Arabian Sea
-  const eddyTheta = dayIdx * 0.45;
-  const arabianDist = Math.hypot(lon - (65.0 - dayIdx * 0.4), lat - 15.5);
-  const arabianSpeed = (1.2 + 0.6 * Math.sin(eddyTheta)) * Math.exp(-(arabianDist * arabianDist) / 65.0) * depthDecay;
-  const arabianU = arabianSpeed * Math.cos(eddyTheta + lon * 0.1);
-  const arabianV = arabianSpeed * Math.sin(eddyTheta + lat * 0.1);
-
-  // 4. Bay of Bengal Gyre (lat 8..20, lon 80..93)
-  const bobTheta = -dayIdx * 0.4;
-  const bobDist = Math.hypot(lon - (87.0 - dayIdx * 0.3), lat - (14.0 + dayIdx * 0.15));
-  const bobSpeed = (1.0 + 0.45 * Math.cos(bobTheta)) * Math.exp(-(bobDist * bobDist) / 60.0) * depthDecay;
-  const bobU = bobSpeed * Math.cos(bobTheta + 0.8);
-  const bobV = bobSpeed * Math.sin(bobTheta + 0.8);
-
-  // 5. Background geostrophic drift & abyssal thermohaline motion
-  const bgSpeed = (0.35 + 0.2 * Math.sin((lat + dayIdx * 0.4) * 0.2)) * depthDecay + abyssalFloor;
-  const bgU = bgSpeed * 0.8;
-  const bgV = bgSpeed * 0.6;
-
-  let totalU = somaliU + eqU + arabianU + bobU + bgU;
-  let totalV = somaliV + eqV + arabianV + bobV + bgV;
-
-  // Apply Ekman spiral depth rotation
-  if (depth > 5.0) {
-    const cosR = Math.cos(ekmanRotRad);
-    const sinR = Math.sin(ekmanRotRad);
-    const rotU = totalU * cosR - totalV * sinR;
-    const rotV = totalU * sinR + totalV * cosR;
-    totalU = rotU;
-    totalV = rotV;
-  }
-
-  const totalSpeed = Math.hypot(totalU, totalV);
-
-  // Heading in degrees (0 = North, 90 = East, 180 = South, 270 = West)
-  let headingDeg = (Math.atan2(totalU, totalV) * 180.0) / Math.PI;
-  if (headingDeg < 0) headingDeg += 360.0;
-
+  // ZERO MOCK POLICY: If outside authentic model domain or authentic data is not loaded,
+  // do NOT synthesize procedural ocean jets (Somali/Wyrtki/Arabian eddies).
+  // Return explicit unavailable state so particles/HUD do not render fabricated velocity.
   return {
-    u: totalU,
-    v: totalV,
-    speed: totalSpeed,
-    headingDeg
+    u: null,
+    v: null,
+    speed: 0,
+    headingDeg: 0,
+    isAvailable: false
   };
 }
 
@@ -299,6 +249,13 @@ export function createCurrentsLayer(
     for (let i = 0; i < arrowList.length; i++) {
       const arrow = arrowList[i];
       const vel = computeOceanVelocity(arrow.baseLon, arrow.baseLat, currentDepth, currentDate);
+      if (!vel.isAvailable) {
+        arrow.billboard.show = false;
+        arrow.speed = 0;
+        continue;
+      }
+
+      arrow.billboard.show = isVisible;
       arrow.speed = vel.speed;
       arrow.headingDeg = vel.headingDeg;
 
@@ -332,6 +289,7 @@ export function createCurrentsLayer(
 
     for (let i = 0; i < arrowList.length; i++) {
       const arrow = arrowList[i];
+      if (!arrow.billboard.show || arrow.speed <= 0) continue;
 
       // Physical velocity-dependent animation rate:
       // Surface fast jets advance quickly; deep abyssal currents drift gently

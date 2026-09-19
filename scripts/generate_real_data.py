@@ -249,7 +249,8 @@ def main():
     JULD_EPOCH = datetime(1950, 1, 1, tzinfo=timezone.utc)
 
     # A. Ingest Coriolis BGC Floats with Real DOXY
-    coriolis_dir = "/Users/aveeraljain/Desktop/SIH project/datasets/coriolis"
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    coriolis_dir = os.environ.get("CORIOLIS_DIR", os.path.join(repo_root, "datasets", "coriolis"))
     bgc_wmos = [
         ("1902751", "Arabian Sea (Gujarat Offshore)", 22.30, 65.30),
         ("1902757", "North Arabian Sea OMZ", 20.82, 62.81),
@@ -299,7 +300,7 @@ def main():
                     for idx in range(0, n_pts, step):
                         p = press[idx]
                         t = temps[idx]
-                        s = psals[idx] if psals is not None else 35.0
+                        s = psals[idx] if psals is not None else np.nan
                         d = doxys[idx] if doxys is not None else np.nan
                         c = chlas[idx] if chlas is not None else np.nan
 
@@ -308,17 +309,10 @@ def main():
                         p_val = float(p)
                         depth_m = round(abs(p_val) * 0.993, 1)
                         temp_val = round(float(t), 2)
-                        sal_val = round(float(s), 2) if not np.isnan(s) else 35.2
+                        sal_val = round(float(s), 2) if not np.isnan(s) else None
 
-                        if not np.isnan(d) and float(d) > 0:
-                            oxy_val = round(float(d) / 44.66, 3)
-                        else:
-                            oxy_val = garcia_gordon_o2_ml_l(temp_val, sal_val, depth_m)
-
-                        if not np.isnan(c) and float(c) >= 0:
-                            chl_val = round(float(c), 3)
-                        else:
-                            chl_val = round(max(0.01, 1.8 * np.exp(-((depth_m - 35.0)**2) / 600.0)), 3) if depth_m < 150 else 0.01
+                        oxy_val = round(float(d) / 44.66, 3) if (not np.isnan(d) and float(d) > 0) else None
+                        chl_val = round(float(c), 3) if (not np.isnan(c) and float(c) >= 0) else None
 
                         measurements.append({
                             "depth": depth_m,
@@ -332,21 +326,11 @@ def main():
             except Exception as err:
                 print(f"  Note parsing {wmo}: {err}")
 
-        if len(measurements) < 8:
-            depths_std = [1.0, 5.0, 10.0, 25.0, 50.0, 75.0, 100.0, 150.0, 200.0, 300.0, 400.0, 500.0, 750.0, 1000.0, 1500.0, 2000.0]
-            for d in depths_std:
-                t_val = round(29.2 * np.exp(-d / 380.0) + 2.8, 2)
-                s_val = round(36.6 - 1.2 * np.exp(-d / 180.0), 2)
-                o_val = garcia_gordon_o2_ml_l(t_val, s_val, d)
-                c_val = round(max(0.01, 2.1 * np.exp(-((d - 30.0)**2) / 500.0)), 3) if d < 120 else 0.01
-                measurements.append({
-                    "depth": d,
-                    "pressure": round(d * 1.007, 1),
-                    "temperature": t_val,
-                    "salinity": s_val,
-                    "oxygen": o_val,
-                    "chlorophyll": c_val
-                })
+        # STRICT ZERO MOCK POLICY: If authentic NetCDF profile has insufficient levels,
+        # skip this platform completely rather than synthesizing exponential values.
+        if len(measurements) < 3:
+            print(f"  Skipping float {wmo}: insufficient authentic observation records ({len(measurements)})")
+            continue
 
         feature = {
             "type": "Feature",
