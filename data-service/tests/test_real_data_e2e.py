@@ -1,8 +1,13 @@
 import os
+import sys
 import struct
 import numpy as np
 from datetime import datetime, timezone
 import netCDF4 as nc
+
+data_service_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if data_service_dir not in sys.path:
+    sys.path.insert(0, data_service_dir)
 
 from app.routers.tiles import get_tile
 from app.ingestion.argo import ArgoIngestionAdapter
