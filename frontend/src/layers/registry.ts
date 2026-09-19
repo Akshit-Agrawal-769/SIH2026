@@ -1,6 +1,6 @@
 import * as Cesium from 'cesium';
 
-export type LayerCategory = 'model_field' | 'vector_field' | 'observation' | 'boundary';
+export type LayerCategory = 'model_field' | 'vector_field' | 'observation' | 'boundary' | 'disaster';
 
 export interface LayerDefinition {
   id: string;
@@ -148,6 +148,29 @@ const DEFAULT_LAYERS: LayerDefinition[] = [
     badge: 'Maritime Zone',
     iconName: 'layers'
   }
+
+  ,
+  // 5. Disaster Early Warning
+  {
+    id: 'heatwave',
+    name: 'Marine Heatwaves',
+    category: 'disaster',
+    description: 'Thermal anomaly detection (SST > 30.5°C)',
+    defaultVisible: false,
+    color: '#ef4444',
+    badge: 'Warning',
+    iconName: 'activity'
+  },
+  {
+    id: 'cyclogenesis',
+    name: 'Cyclogenesis Risk',
+    category: 'disaster',
+    description: 'High SST coupled with strong cyclonic vorticity',
+    defaultVisible: false,
+    color: '#f59e0b',
+    badge: 'Warning',
+    iconName: 'wind'
+  },
 ];
 
 // Initialize default layers

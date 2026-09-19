@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 
 export interface OceanState {
+  activeDisasterLayers: string[];
+  toggleDisasterLayer: (layer: string) => void;
+  isDriftModeActive: boolean;
+  setIsDriftModeActive: (active: boolean) => void;
+  driftSimulationCoordinates: { lon: number, lat: number } | null;
+  setDriftSimulationCoordinates: (coords: { lon: number, lat: number } | null) => void;
   // Mode
   mode: 'home' | 'operational' | 'outreach';
   setMode: (mode: 'home' | 'operational' | 'outreach') => void;
@@ -127,6 +133,12 @@ export interface HoveredOceanInfo {
 }
 
 export const useOceanStore = create<OceanState>((set) => ({
+  activeDisasterLayers: [],
+  toggleDisasterLayer: (layer) => set((s) => ({ activeDisasterLayers: s.activeDisasterLayers.includes(layer) ? s.activeDisasterLayers.filter(l => l !== layer) : [...s.activeDisasterLayers, layer] })),
+  isDriftModeActive: false,
+  setIsDriftModeActive: (active) => set({ isDriftModeActive: active, driftSimulationCoordinates: null }),
+  driftSimulationCoordinates: null,
+  setDriftSimulationCoordinates: (coords) => set({ driftSimulationCoordinates: coords }),
   mode: 'home',
   setMode: (mode) => set({ mode }),
 
