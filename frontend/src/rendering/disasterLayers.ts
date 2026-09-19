@@ -59,13 +59,13 @@ export async function createDisasterLayers(viewer: Cesium.Viewer): Promise<Disas
         const targetIdx = (y * width + x) * 4;
         const val = tile.values[srcIdx];
 
-        if (isNaN(val) || val <= 30.5) {
+        if (isNaN(val) || val <= 29.0) {
           data[targetIdx] = 0;
           data[targetIdx + 1] = 0;
           data[targetIdx + 2] = 0;
           data[targetIdx + 3] = 0;
         } else {
-          // Heatwave threshold exceeded (SST > 30.5°C) -> Glowing Red
+          // Heatwave threshold exceeded (SST > 29.0°C) -> Glowing Red
           data[targetIdx] = 239; // ef
           data[targetIdx + 1] = 68; // 44
           data[targetIdx + 2] = 68; // 44
@@ -137,7 +137,20 @@ export async function createDisasterLayers(viewer: Cesium.Viewer): Promise<Disas
         }
       }
     }
-    ctx.putImageData(imgData, 0, 0);
+
+    // Apply interpolation/blur to smooth out the maze artifacts
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (tempCtx) {
+      tempCtx.putImageData(imgData, 0, 0);
+      ctx.filter = 'blur(10px)';
+      ctx.drawImage(tempCanvas, 0, 0);
+    } else {
+      ctx.putImageData(imgData, 0, 0);
+    }
+
     return canvas;
   }
 
@@ -234,10 +247,11 @@ export async function createDisasterLayers(viewer: Cesium.Viewer): Promise<Disas
       driftEntity = viewer.entities.add({
         polyline: {
           positions: positions,
-          width: 5,
+          width: 8,
           material: new Cesium.PolylineGlowMaterialProperty({
-            glowPower: 0.25,
-            color: Cesium.Color.fromCssColorString('#00ffcc')
+            glowPower: 0.2,
+            taperPower: 0.5,
+            color: Cesium.Color.CYAN
           }),
           clampToGround: true
         }
