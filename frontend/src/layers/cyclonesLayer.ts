@@ -36,9 +36,9 @@ export function createCyclonesLayer(
       position: Cesium.Cartesian3.fromDegrees(cyclone.lon, cyclone.lat, 100),
       billboard: {
         image: normalIconUrl,
-        width: 24,
-        height: 24,
-        scaleByDistance: new Cesium.NearFarScalar(2.0e5, 1.05, 1.8e7, 0.45),
+        width: 40,
+        height: 40,
+        scaleByDistance: new Cesium.NearFarScalar(2.0e5, 1.15, 1.8e7, 0.55),
         verticalOrigin: Cesium.VerticalOrigin.CENTER,
         horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
         disableDepthTestDistance: Number.POSITIVE_INFINITY

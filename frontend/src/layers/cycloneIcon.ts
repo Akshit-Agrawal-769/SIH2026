@@ -1,19 +1,20 @@
 /**
- * Generates high-resolution, subtle cyclone point-of-interest marker icons
+ * Generates an unmistakable weather-map tropical cyclone / hurricane marker icon
  * on an off-screen HTML5 canvas for 3D globe billboards.
  * 
- * Design:
- * - Small, subtle spiral/dot glyph consistent in aesthetic with the telemetry markers in markerIcons.ts
- * - Soft atmospheric halo glow
- * - Dark high-contrast core disc to remain legible against deep blue ocean, bathymetry, and satellite maps
- * - High-precision Archimedean spiral glyph with center eye/dot
- * - Hover state with intensified luminescence
+ * Shape & Visual Design:
+ * - Authentic meteorological cyclone symbol: tight spiral with curved pinwheel arms
+ *   rotating counter-clockwise around a central eye (matching Indian Ocean cyclone dynamics).
+ * - Central calm eye with a bright luminous eyewall ring and central eye dot.
+ * - 2 sweeping aerodynamic curved spiral rainband arms tapering gracefully outward.
+ * - High-contrast dark outline ensuring crisp visibility over satellite imagery and depth slices.
+ * - Dynamic color gradient (vivid storm coral/crimson to electric cyan) with hover luminescence.
  */
 
 const iconCache = new Map<string, string>();
 
 export function getCycloneMarkerIconUrl(hovered = false): string {
-  const key = `cyclone_${hovered ? 'hover' : 'normal'}`;
+  const key = `cyclone_vortex_${hovered ? 'hover' : 'normal'}`;
   if (iconCache.has(key)) {
     return iconCache.get(key)!;
   }
@@ -31,108 +32,114 @@ export function getCycloneMarkerIconUrl(hovered = false): string {
   const cx = size / 2;
   const cy = size / 2;
 
-  // Storm palette: Electric Cyan with Storm Coral accents
-  const primaryColor = hovered ? '#00FFFF' : '#38BDF8';
-  const secondaryAccent = hovered ? '#FF3366' : '#FB7185';
-  const glowRgba = hovered ? 'rgba(0, 229, 255, ' : 'rgba(56, 189, 248, ';
+  // Storm palette: Vibrant cyclonic coral/amber transitioning to electric cyan
+  const coralColor = hovered ? '#FF1744' : '#FF3D71';
+  const cyanColor = hovered ? '#00FFFF' : '#38BDF8';
+  const eyeColor = hovered ? '#FFFFFF' : '#E0F2FE';
+  const glowRgba = hovered ? 'rgba(255, 23, 68, 0.45)' : 'rgba(255, 61, 113, 0.25)';
 
   ctx.clearRect(0, 0, size, size);
 
-  // 1. Soft atmospheric halo glow
-  const glowRadius = hovered ? 58 : 50;
-  const glowGrad = ctx.createRadialGradient(cx, cy, 8, cx, cy, glowRadius);
-  glowGrad.addColorStop(0, glowRgba + (hovered ? '0.60)' : '0.35)'));
-  glowGrad.addColorStop(0.5, glowRgba + (hovered ? '0.22)' : '0.12)'));
-  glowGrad.addColorStop(1, glowRgba + '0)');
+  // 1. Soft atmospheric storm glow behind the swirling vortex
+  const glowGrad = ctx.createRadialGradient(cx, cy, 6, cx, cy, 54);
+  glowGrad.addColorStop(0, glowRgba);
+  glowGrad.addColorStop(0.6, hovered ? 'rgba(0, 229, 255, 0.20)' : 'rgba(56, 189, 248, 0.10)');
+  glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
   ctx.fillStyle = glowGrad;
   ctx.beginPath();
-  ctx.arc(cx, cy, glowRadius, 0, Math.PI * 2);
+  ctx.arc(cx, cy, 54, 0, Math.PI * 2);
   ctx.fill();
 
-  // 2. Outer pulse / boundary ring
-  const outerRingRadius = hovered ? 46 : 40;
-  ctx.strokeStyle = glowRgba + (hovered ? '0.85)' : '0.50)');
-  ctx.lineWidth = hovered ? 2 : 1.5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, outerRingRadius, 0, Math.PI * 2);
-  ctx.stroke();
+  // 2. Draw 2 tapered curved spiral arms (classic weather map hurricane/cyclone symbol)
+  const eyeR = 10;
+  const numArms = 2;
+  const armSpanAngle = Math.PI * 1.35; // ~243 degrees of spiral wrap
 
-  // 3. Four subtle cardinal tick markers
-  const tickLength = hovered ? 6 : 5;
-  ctx.strokeStyle = primaryColor;
-  ctx.lineWidth = 1.5;
-  const tickDist = outerRingRadius - 1;
+  for (let armIdx = 0; armIdx < numArms; armIdx++) {
+    const baseAngle = armIdx * Math.PI;
 
-  const angles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
-  for (const a of angles) {
-    const cosA = Math.cos(a);
-    const sinA = Math.sin(a);
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(cx + cosA * tickDist, cy + sinA * tickDist);
-    ctx.lineTo(cx + cosA * (tickDist + tickLength), cy + sinA * (tickDist + tickLength));
+
+    const steps = 30;
+    // Outer edge: sweeps outward from eye wall to arm tip
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      // Counter-clockwise rotation for Northern Hemisphere tropical cyclones
+      const angle = baseAngle - t * armSpanAngle;
+      const rOuter = eyeR + t * 40;
+      const x = cx + rOuter * Math.cos(angle);
+      const y = cy + rOuter * Math.sin(angle);
+
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+
+    // Inner edge: returns from arm tip back to eye wall, tapering to create aerodynamic curved blade
+    for (let i = steps; i >= 0; i--) {
+      const t = i / steps;
+      const angle = baseAngle - t * (armSpanAngle * 0.92);
+      // Tapers smoothly from wide near the eye to a sharp tip
+      const thickness = Math.sin(t * Math.PI) * (hovered ? 13 : 11);
+      const rInner = Math.max(eyeR * 0.9, eyeR + t * 40 - thickness);
+      const x = cx + rInner * Math.cos(angle);
+      const y = cy + rInner * Math.sin(angle);
+      ctx.lineTo(x, y);
+    }
+
+    ctx.closePath();
+
+    // High-contrast dark outline for maximum legibility against ocean & terrain
+    ctx.strokeStyle = '#020b18';
+    ctx.lineWidth = hovered ? 3.5 : 3;
+    ctx.lineJoin = 'round';
     ctx.stroke();
+
+    // Vibrant linear gradient along the spiral arm
+    const armGrad = ctx.createLinearGradient(
+      cx + eyeR * Math.cos(baseAngle),
+      cy + eyeR * Math.sin(baseAngle),
+      cx + 46 * Math.cos(baseAngle - armSpanAngle),
+      cy + 46 * Math.sin(baseAngle - armSpanAngle)
+    );
+    armGrad.addColorStop(0, coralColor);
+    armGrad.addColorStop(0.55, hovered ? '#FF6D00' : '#FB7185');
+    armGrad.addColorStop(1, cyanColor);
+
+    ctx.fillStyle = armGrad;
+    ctx.fill();
+
+    // Subtle luminous inner highlight spine along the arm
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.restore();
   }
 
-  // 4. Dark Abyssal Core Disc for high contrast
-  const discRadius = hovered ? 26 : 22;
+  // 3. Central Cyclone Eye (Calm core encircled by intense eyewall)
+  // Eye outer shadow / border
   ctx.save();
-  ctx.shadowColor = primaryColor;
-  ctx.shadowBlur = hovered ? 16 : 10;
+  ctx.shadowColor = hovered ? cyanColor : coralColor;
+  ctx.shadowBlur = hovered ? 12 : 8;
+
+  // Dark calm center of the eye
   ctx.fillStyle = '#020b18';
   ctx.beginPath();
-  ctx.arc(cx, cy, discRadius, 0, Math.PI * 2);
+  ctx.arc(cx, cy, eyeR, 0, Math.PI * 2);
   ctx.fill();
-  ctx.restore();
 
-  // Core disc border
-  ctx.strokeStyle = secondaryAccent;
-  ctx.lineWidth = hovered ? 2 : 1.5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, discRadius, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // 5. Archimedean Cyclone Spiral Glyph inside core disc
-  ctx.save();
-  ctx.strokeStyle = primaryColor;
+  // Eyewall ring
+  ctx.strokeStyle = eyeColor;
   ctx.lineWidth = hovered ? 2.5 : 2;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-
-  const totalTurns = 1.75;
-  const maxAngle = totalTurns * Math.PI * 2;
-  const spiralRadiusMax = discRadius - 6;
-  const b = spiralRadiusMax / maxAngle;
-
-  for (let theta = 0.5; theta <= maxAngle; theta += 0.12) {
-    const r = b * theta;
-    const x = cx + r * Math.cos(theta);
-    const y = cy + r * Math.sin(theta);
-    if (theta === 0.5) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
-  }
   ctx.stroke();
 
-  // Second symmetrical spiral arm (classic 2-arm cyclonic vortex symbol)
-  ctx.strokeStyle = secondaryAccent;
-  ctx.beginPath();
-  for (let theta = 0.5; theta <= maxAngle; theta += 0.12) {
-    const r = b * theta;
-    const x = cx - r * Math.cos(theta);
-    const y = cy - r * Math.sin(theta);
-    if (theta === 0.5) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
-  }
-  ctx.stroke();
-
-  // 6. Central Eye / Dot Glyph
-  ctx.fillStyle = '#FFFFFF';
+  // Central eye pinpoint
+  ctx.fillStyle = cyanColor;
   ctx.beginPath();
   ctx.arc(cx, cy, hovered ? 3 : 2.5, 0, Math.PI * 2);
   ctx.fill();
