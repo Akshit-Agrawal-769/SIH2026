@@ -8,6 +8,7 @@ import { BottomBar } from './components/BottomBar';
 import { InstrumentProfileModal } from './components/InstrumentProfileModal';
 import { ColorbarLegend } from './components/ColorbarLegend';
 import { OceanHoverHUD } from './components/OceanHoverHUD';
+import { CycloneHoverTooltip } from './components/CycloneHoverTooltip';
 import { OutreachTourOverlay } from './components/OutreachTourOverlay';
 import { OceanWaterCubeModal } from './components/OceanWaterCubeModal';
 import { GlobeClickWaterBlockCallout } from './components/GlobeClickWaterBlockCallout';
@@ -115,6 +116,9 @@ export const App: React.FC = () => {
           <AnalyticsModal />
         </>
       )}
+
+      {/* Real-time Cyclone Marker Hover Tooltip Popup */}
+      <CycloneHoverTooltip />
     </main>
   );
 };
