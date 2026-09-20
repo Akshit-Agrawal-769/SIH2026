@@ -7,7 +7,7 @@ api_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".
 if api_dir not in sys.path:
     sys.path.insert(0, api_dir)
 
-import analytics_engine as ae
+from app import analytics_engine as ae
 
 router = APIRouter(prefix="/comparison", tags=["comparison"])
 
