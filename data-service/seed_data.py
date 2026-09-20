@@ -12,8 +12,25 @@ from app.ingestion.glider import GliderIngestionAdapter
 from app.ingestion.moored_buoy import MooredBuoyIngestionAdapter
 from app.ingestion.copernicus import CopernicusIngestionAdapter
 
+def fetch_datasets_from_hf():
+    try:
+        from huggingface_hub import snapshot_download
+        print("\n[0/4] Fetching datasets from Hugging Face...")
+        snapshot_download(
+            repo_id="ScaryCobra/incois",
+            repo_type="dataset",
+            local_dir=os.path.join(os.getcwd(), "datasets"),
+            allow_patterns=["argo/*", "glider/*", "moored_buoy/*", "*.json"],
+            ignore_patterns=["*.nc*"] if os.name == 'posix' else ["model/*", "INCOIS-BIO-ROMS.nc"]
+            # To be safe, we allow the small ones and ignore the huge ones explicitly.
+        )
+        print("-> Datasets fetched successfully from Hugging Face!")
+    except Exception as e:
+        print(f"-> Could not fetch from Hugging Face (might already exist or network error): {e}")
+
 def seed_all():
     print("=== INCOIS Data Service: Ingestion & Seeding ===")
+    fetch_datasets_from_hf()
 
     # Ensure tables exist
     Base.metadata.create_all(bind=engine)

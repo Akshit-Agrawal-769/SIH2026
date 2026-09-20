@@ -83,7 +83,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./datasets:/app/datasets:ro
+      - ./datasets:/app/datasets
       - ./tiles:/app/tiles:ro
     depends_on:
       postgres:
