@@ -12,8 +12,8 @@ export interface CyclonesLayerManager {
 }
 
 /**
- * Initializes and manages subtle historical cyclone point-of-interest markers
- * on the Cesium 3D ocean globe with raycasting hover interaction.
+ * Initializes and manages animated historical cyclone point-of-interest markers
+ * on the Cesium 3D ocean globe with continuous in-place spiral rotation and raycast hover interaction.
  */
 export function createCyclonesLayer(
   viewer: Cesium.Viewer,
@@ -26,9 +26,27 @@ export function createCyclonesLayer(
   const normalIconUrl = getCycloneMarkerIconUrl(false);
   const hoverIconUrl = getCycloneMarkerIconUrl(true);
 
-  // Add small marker constructs for each of the 9 static cyclones
-  for (const cyclone of CYCLONES_DATA) {
+  // 1. Continuous In-Place Cyclonic Swirl Animation (via Cesium scene preRender loop)
+  let lastTime = performance.now();
+  let baseRotation = 0;
+  // Slow subtle rotation rate: ~0.45 rad/s (~14 seconds per full 360-deg rotation)
+  const rotationSpeed = 0.45;
+
+  const onPreRender = () => {
+    const now = performance.now();
+    const dt = Math.min((now - lastTime) / 1000.0, 0.1);
+    lastTime = now;
+    baseRotation += dt * rotationSpeed;
+  };
+
+  const removePreRenderListener = viewer.scene.preRender.addEventListener(onPreRender);
+
+  // 2. Add marker constructs for each of the 9 static cyclones
+  // Size increased to 64px (~1.6x larger than previous 40px) with NearFarScalar distance scaling
+  CYCLONES_DATA.forEach((cyclone, idx) => {
     const entityId = `cyclone-${cyclone.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    // Phase offset per cyclone so the cluster does not swirl in lockstep
+    const phaseOffset = idx * (Math.PI / 4.5);
 
     const entity = viewer.entities.add({
       id: entityId,
@@ -36,12 +54,15 @@ export function createCyclonesLayer(
       position: Cesium.Cartesian3.fromDegrees(cyclone.lon, cyclone.lat, 100),
       billboard: {
         image: normalIconUrl,
-        width: 40,
-        height: 40,
-        scaleByDistance: new Cesium.NearFarScalar(2.0e5, 1.15, 1.8e7, 0.55),
+        width: 64,
+        height: 64,
+        scaleByDistance: new Cesium.NearFarScalar(2.0e5, 1.15, 1.8e7, 0.40),
         verticalOrigin: Cesium.VerticalOrigin.CENTER,
         horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        rotation: new Cesium.CallbackProperty(() => {
+          return baseRotation + phaseOffset;
+        }, false)
       },
       properties: new Cesium.PropertyBag({
         isCycloneMarker: true,
@@ -50,9 +71,9 @@ export function createCyclonesLayer(
     });
 
     entityMap.set(entityId, entity);
-  }
+  });
 
-  // Handle raycast picking on mouse move
+  // 3. Handle raycast picking on mouse move
   handler.setInputAction((movement: { endPosition: Cesium.Cartesian2 }) => {
     if (!movement.endPosition) return;
 
@@ -103,6 +124,7 @@ export function createCyclonesLayer(
 
   return {
     destroy: () => {
+      removePreRenderListener();
       handler.destroy();
       if (hoveredEntity) {
         hoveredEntity = null;
