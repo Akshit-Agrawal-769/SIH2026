@@ -16,7 +16,7 @@ https://sih-zeta-gilt.vercel.app
 - **Organization:** Ministry of Earth Sciences (MoES) — Indian National Centre for Ocean Information Services (INCOIS)
 - **Category:** Software
 - **Theme:** Disaster Management / Smart Ocean & Climate
-- **Team Name:** Null Pointers
+- **Team Name:** W.A.V.E
 - **Team Members:**
   - Akshit Agrawal (Team Leader)
   - Aveeral Jain
