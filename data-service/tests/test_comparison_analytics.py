@@ -5,14 +5,14 @@ import numpy as np
 
 # Ensure api and project root are in sys.path
 repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-api_dir = os.path.join(repo_root, "api")
+api_dir = os.path.join(repo_root, "data-service")
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 if api_dir not in sys.path:
     sys.path.insert(0, api_dir)
 
-import analytics_engine as ae
-from api.index import app
+import app.analytics_engine as ae
+from app.main import app
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
@@ -151,4 +151,5 @@ def test_fastapi_endpoints_end_to_end():
     r5 = client.get("/api/analytics/profile?lat=13.691&lon=88.074&variable=temperature")
     assert r5.status_code == 200
     assert r5.json()["available"] is True
+
 
