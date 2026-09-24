@@ -62,12 +62,12 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
     return (
       <div className="h-72 flex flex-col items-center justify-center gap-3 text-ocean-muted">
         <div className="w-8 h-8 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs font-mono">Extracting multi-day hydrodynamic timeline...</p>
+        <p className="text-xs font-mono">Extracting multi-day hydrodynamic timeseries_points...</p>
       </div>
     );
   }
 
-  if (error || !data || !data.available || !data.timeline.length) {
+  if (error || !data || !data.available || !data.timeseries_points.length) {
     return (
       <div className="h-72 flex flex-col items-center justify-center gap-2 p-6 text-center border border-dashed border-ocean-border rounded-xl">
         <AlertCircle className="w-8 h-8 text-amber-400" />
@@ -94,7 +94,7 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
           <div className="text-base font-bold text-ocean-text mt-0.5">
             {data.start_value !== undefined ? `${data.start_value} ${units}` : '—'}
           </div>
-          <div className="text-[10px] text-ocean-muted">{data.timeline[0]?.date}</div>
+          <div className="text-[10px] text-ocean-muted">{data.timeseries_points[0]?.date}</div>
         </div>
 
         <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-3">
@@ -102,7 +102,7 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
           <div className="text-base font-bold text-teal-300 mt-0.5">
             {data.end_value !== undefined ? `${data.end_value} ${units}` : '—'}
           </div>
-          <div className="text-[10px] text-ocean-muted">{data.timeline[data.timeline.length - 1]?.date}</div>
+          <div className="text-[10px] text-ocean-muted">{data.timeseries_points[data.timeseries_points.length - 1]?.date}</div>
         </div>
 
         <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-3">
@@ -134,7 +134,7 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
       {/* Chart Canvas */}
       <div className="h-64 w-full bg-ocean-bg/70 border border-ocean-border rounded-xl p-3">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data.timeline} margin={{ top: 10, right: 20, left: 0, bottom: 15 }}>
+          <AreaChart data={data.timeseries_points} margin={{ top: 10, right: 20, left: 0, bottom: 15 }}>
             <defs>
               <linearGradient id="timeSeriesGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.4} />
@@ -193,3 +193,4 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
     </div>
   );
 };
+

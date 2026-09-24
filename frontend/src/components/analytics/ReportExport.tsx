@@ -61,10 +61,10 @@ export const ReportExport: React.FC<ReportExportProps> = ({
       `Date,Value (${units})`
     ];
 
-    const timelineRows =
-      timeseriesData?.timeline?.map((t: any) => `${t.date},${t.value}`) || [];
+    const timeseriesRows =
+      timeseriesData?.timeseries_points?.map((t: any) => `${t.date},${t.value}`) || [];
 
-    const fullContent = meta.join('\n') + '\n' + timelineRows.join('\n');
+    const fullContent = meta.join('\n') + '\n' + timeseriesRows.join('\n');
     const encodedUri = encodeURI('data:text/csv;charset=utf-8,' + fullContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -147,3 +147,5 @@ export const ReportExport: React.FC<ReportExportProps> = ({
     </div>
   );
 };
+
+

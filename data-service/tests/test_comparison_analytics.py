@@ -58,7 +58,7 @@ def test_zero_mock_enforcement_missing_and_land():
     # Timeseries on land (central India 20.0°N, 78.0°E)
     res_land_ts = ae.compute_timeseries("temperature", 20.0, 78.0, 10.0)
     assert res_land_ts["available"] is False
-    assert res_land_ts["timeline"] == []
+    assert res_land_ts["timeseries_points"] == []
 
     # Anomaly on land
     res_land_anom = ae.compute_anomalies("temperature", 20.0, 78.0, 10.0)
@@ -72,7 +72,7 @@ def test_timeseries_trend_metrics():
     """Verify multi-day time series and trend slope calculations."""
     res = ae.compute_timeseries("temperature", 13.691, 88.074, depth=10.0)
     assert res["available"] is True
-    assert len(res["timeline"]) == 5
+    assert len(res["timeseries_points"]) == 5
     assert res["start_value"] is not None
     assert res["end_value"] is not None
     assert abs(res["delta"] - (res["end_value"] - res["start_value"])) < 1e-3
@@ -151,3 +151,4 @@ def test_fastapi_endpoints_end_to_end():
     r5 = client.get("/api/analytics/profile?lat=13.691&lon=88.074&variable=temperature")
     assert r5.status_code == 200
     assert r5.json()["available"] is True
+

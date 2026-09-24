@@ -39,8 +39,9 @@ export const RightPanel: React.FC = () => {
     setCurrentsSpeed,
     autoCalibrateRange,
     activeLayers,
-    currentTime,
+    
     depthLevel,
+    setDepthLevel,
     openWaterBlock,
     hoveredOceanInfo,
     isGraticuleEnabled,
@@ -79,10 +80,10 @@ export const RightPanel: React.FC = () => {
   const handleExportNetCDF = async () => {
     try {
       setIsExporting(true);
-      const downloadUrl = `/api/export/netcdf?variable=${selectedVariable}&date=${currentTime}`;
+      const downloadUrl = `/api/export/netcdf?variable=${selectedVariable}&date=2024-06-01`;
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = `INCOIS_${selectedVariable}_${currentTime}.nc`;
+      link.download = `INCOIS_${selectedVariable}_2024-06-01.nc`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -211,6 +212,37 @@ export const RightPanel: React.FC = () => {
             </button>
           </div>
         </div>
+      </div>
+
+            {/* 3.5 Depth Slice Selector */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between text-xs text-ocean-text-secondary">
+          <span className="font-medium text-[11px] flex items-center gap-1">
+            <Layers className="w-3 h-3 text-ocean-accent" />
+            Depth Slice
+          </span>
+          <span className="font-mono text-[10px] text-ocean-accent font-bold">{depthLevel === 0.5 ? '0m' : depthLevel + 'm'}</span>
+        </div>
+        <select
+          value={depthLevel}
+          onChange={(e) => setDepthLevel(parseFloat(e.target.value))}
+          className="w-full bg-black/40 border border-white/10 rounded-lg p-1 text-xs text-ocean-text-secondary"
+        >
+          <option value="0.5">Surface (0m)</option>
+          <option value="5">5m</option>
+          <option value="15">15m</option>
+          <option value="30">30m</option>
+          <option value="50">50m</option>
+          <option value="75">75m</option>
+          <option value="100">100m</option>
+          <option value="150">150m</option>
+          <option value="200">200m</option>
+          <option value="300">300m</option>
+          <option value="500">500m</option>
+          <option value="800">800m</option>
+          <option value="1000">1000m</option>
+          <option value="2000">2000m</option>
+        </select>
       </div>
 
       {/* 4. Physical Range Editor & Colormap Gradient */}
@@ -439,3 +471,6 @@ export const RightPanel: React.FC = () => {
     </aside>
   );
 };
+
+
+

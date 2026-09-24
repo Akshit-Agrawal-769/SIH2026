@@ -25,8 +25,6 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
     setSelectedVariable,
     setDepthLevel,
     setLayers,
-    setCurrentTime,
-    setIsPlaying,
     setSelectedInstrumentId
   } = useOceanStore();
 
@@ -61,10 +59,10 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
     setLayers(step.activeLayers);
 
     if (step.time) {
-      setCurrentTime(step.time);
+      
     }
     if (step.isPlaying !== undefined) {
-      setIsPlaying(step.isPlaying);
+      
     }
     if (step.selectedInstrumentId !== undefined) {
       setSelectedInstrumentId(step.selectedInstrumentId);
@@ -100,7 +98,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
   const handleExitTour = () => {
     setActiveTour(null);
     setIsAutoAdvancing(false);
-    setIsPlaying(false);
+    
     setSelectedInstrumentId(null);
   };
 
@@ -312,3 +310,4 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
     </div>
   );
 };
+

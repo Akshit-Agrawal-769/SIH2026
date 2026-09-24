@@ -64,7 +64,7 @@ export interface TimeSeriesResponse {
   std?: number;
   min?: number;
   max?: number;
-  timeline: TimeSeriesPoint[];
+  timeseries_points: TimeSeriesPoint[];
   reason?: string;
 }
 
@@ -460,3 +460,4 @@ export async function fetchVerticalProfileAnalysis(
   }
   return res.json();
 }
+

@@ -289,7 +289,7 @@ def compute_timeseries(variable: str, lat: float, lon: float, depth: float = 10.
     Computes multi-day model timeseries across authentic dates at (lat, lon, depth).
     Returns real trend slope, start/end delta, and statistics.
     """
-    timeline = []
+    timeseries_points = []
     vals = []
 
     for dt in AVAILABLE_DATES:
@@ -298,7 +298,7 @@ def compute_timeseries(variable: str, lat: float, lon: float, depth: float = 10.
             continue
         v = sample_grid(grid, lat, lon)
         if v is not None:
-            timeline.append({"date": dt, "value": round(v, 3)})
+            timeseries_points.append({"date": dt, "value": round(v, 3)})
             vals.append(v)
 
     if len(vals) < 2:
@@ -309,7 +309,7 @@ def compute_timeseries(variable: str, lat: float, lon: float, depth: float = 10.
             "lon": lon,
             "depth": depth,
             "reason": "Coordinates outside model ocean domain or tile data unavailable.",
-            "timeline": []
+            "timeseries_points": []
         }
 
     start_val = vals[0]
@@ -338,7 +338,7 @@ def compute_timeseries(variable: str, lat: float, lon: float, depth: float = 10.
         "std": round(std_val, 3),
         "min": round(min_val, 3),
         "max": round(max_val, 3),
-        "timeline": timeline
+        "timeseries_points": timeseries_points
     }
 
 def compute_anomalies(variable: str, lat: float, lon: float, depth: float = 10.0, date: str = "2024-06-03") -> Dict[str, Any]:
@@ -555,3 +555,4 @@ def compute_vertical_profile_analysis(lat: float, lon: float, variable: str = "t
         "max_gradient": round(float(max_gradient), 4),
         "gradient_unit": f"{units_map.get(variable, '')}/m"
     }
+

@@ -8,7 +8,6 @@ import {
   Loader2,
   Box,
   RotateCcw,
-  SlidersHorizontal,
   PanelLeftClose,
   PanelRightClose,
   Eye,
@@ -57,8 +56,6 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
     toggleLeftPanel,
     showRightPanel,
     toggleRightPanel,
-    showBottomBar,
-    toggleBottomBar,
     openWaterBlock,
     openAnalyticsModal
   } = useOceanStore();
@@ -377,15 +374,7 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
             >
               <PanelRightClose className="w-3.5 h-3.5" />
             </button>
-            <button
-              onClick={toggleBottomBar}
-              title={showBottomBar ? 'Hide Timeline Scrubber' : 'Show Timeline Scrubber'}
-              className={`p-1.5 rounded-full transition-all duration-[150ms] ease-nasa ${
-                showBottomBar ? 'text-ocean-accent bg-white/10' : 'text-ocean-muted hover:text-ocean-text-secondary'
-              }`}
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-            </button>
+            
           </div>
         )}
 
@@ -438,3 +427,5 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
     </header>
   );
 };
+
+

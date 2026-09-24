@@ -4,7 +4,6 @@ import { CesiumViewer } from './globe/CesiumViewer';
 import { TopBar } from './components/TopBar';
 import { LeftPanel } from './components/LeftPanel';
 import { RightPanel } from './components/RightPanel';
-import { BottomBar } from './components/BottomBar';
 import { ColorbarLegend } from './components/ColorbarLegend';
 import { OceanHoverHUD } from './components/OceanHoverHUD';
 import { CycloneHoverTooltip } from './components/CycloneHoverTooltip';
@@ -21,7 +20,7 @@ const AnalyticsModal = React.lazy(() => import('./components/analytics').then(m 
 export const App: React.FC = () => {
   const [viewer, setViewer] = useState<Cesium.Viewer | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const { mode, setMode, showLeftPanel, showRightPanel, showBottomBar } = useOceanStore();
+  const { mode, setMode, showLeftPanel, showRightPanel } = useOceanStore();
 
   React.useEffect(() => {
     fetch('/api/auth/login', {
@@ -84,7 +83,6 @@ export const App: React.FC = () => {
             <>
               {showLeftPanel && <LeftPanel />}
               {showRightPanel && <RightPanel />}
-              {showBottomBar && <BottomBar />}
             </>
           )}
 

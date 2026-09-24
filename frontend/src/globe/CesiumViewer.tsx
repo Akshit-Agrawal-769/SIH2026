@@ -29,7 +29,6 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
   const {
     activeLayers,
     depthLevel,
-    currentTime,
     selectedVariable,
     mode,
     opacity,
@@ -47,7 +46,6 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     isGraticuleEnabled,
     setLayers,
     setDepthLevel,
-    setCurrentTime,
     setSelectedVariable,
     setMode,
     setSelectedInstrumentId
@@ -61,7 +59,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
 
     if (initialUrlState.layers) setLayers(initialUrlState.layers);
     if (initialUrlState.depth !== undefined) setDepthLevel(initialUrlState.depth);
-    if (initialUrlState.time) setCurrentTime(initialUrlState.time);
+    
     if (initialUrlState.variable) setSelectedVariable(initialUrlState.variable);
     if (initialUrlState.mode) setMode(initialUrlState.mode);
 
@@ -166,7 +164,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       const state = useOceanStore.getState();
       manager.updateSlice({
         variable: state.selectedVariable,
-        date: state.currentTime,
+        date: '2024-06-01',
         depth: state.depthLevel,
         palette: state.colorPalette,
         opacity: state.opacity,
@@ -199,7 +197,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
           let curSpeed: number | undefined;
           let curHeading: number | undefined;
           if (store.activeLayers.includes('currents')) {
-            const vel = computeOceanVelocity(lon, lat, store.depthLevel, store.currentTime);
+            const vel = computeOceanVelocity(lon, lat, store.depthLevel, '2024-06-01');
             if (vel.isAvailable) {
               curSpeed = parseFloat(vel.speed.toFixed(2));
               curHeading = Math.round(vel.headingDeg);
@@ -271,7 +269,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     currentsManager.updateVisibility(initStore.activeLayers);
     currentsManager.updateDepth(initStore.depthLevel);
     currentsManager.updateArrowScale(initStore.vectorArrowScale);
-    currentsManager.updateTime(initStore.currentTime);
+    currentsManager.updateTime('2024-06-01');
     currentsManager.updateSettings({
       speed: initStore.currentsSpeed,
       arrowScale: initStore.vectorArrowScale
@@ -342,7 +340,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       currentsManagerRef.current.updateVisibility(activeLayers);
       currentsManagerRef.current.updateDepth(depthLevel);
       currentsManagerRef.current.updateArrowScale(vectorArrowScale);
-      currentsManagerRef.current.updateTime(currentTime);
+      currentsManagerRef.current.updateTime('2024-06-01');
       currentsManagerRef.current.updateSettings({
         speed: currentsSpeed,
         arrowScale: vectorArrowScale
@@ -353,7 +351,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       depthSliceManagerRef.current.setOpacity(opacity);
       depthSliceManagerRef.current.updateSlice({
         variable: selectedVariable,
-        date: currentTime,
+        date: '2024-06-01',
         depth: depthLevel,
         palette: colorPalette,
         opacity,
@@ -382,7 +380,6 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
   }, [
     activeLayers,
     depthLevel,
-    currentTime,
     selectedVariable,
     mode,
     opacity,
@@ -406,3 +403,9 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     </div>
   );
 };
+
+
+
+
+
+

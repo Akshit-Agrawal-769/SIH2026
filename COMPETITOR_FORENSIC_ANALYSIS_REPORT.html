@@ -1295,8 +1295,8 @@
 <td style="text-align:center"><strong>11</strong></td>
 <td style="text-align:left"><strong>Time navigation</strong></td>
 <td style="text-align:left">5-day daily selector (<code>2024-06-01</code> to <code>2024-06-05</code>).</td>
-<td style="text-align:left">Timeline controller scrubbing time indices.</td>
-<td style="text-align:left">&lt;code&gt;frontend/src/components/BottomBar.tsx&lt;/code&gt; vs &lt;code&gt;TimelineController.tsx&lt;/code&gt;</td>
+<td style="text-align:left">Time controller scrubbing time indices.</td>
+<td style="text-align:left">&lt;code&gt;frontend/src/components/BottomBar.tsx&lt;/code&gt; vs &lt;code&gt;TimeController.tsx&lt;/code&gt;</td>
 <td style="text-align:left">Both support time scrubbing across discrete model time steps.</td>
 <td style="text-align:left">Competitor UI has preset buttons (7d, 14d, 30d).</td>
 </tr>
@@ -2167,7 +2167,7 @@ While great for enterprise architecture, maintaining MinIO alongside Vercel stat
 </li>
 <li><strong>Add an Analytics / Trends Tab to TopBar:</strong>
 <ul>
-<li>Add a clean view featuring Recharts time-series graphs of basin-average temperature, salinity, and current speed over your 5-day timeline window.</li>
+<li>Add a clean view featuring Recharts time-series graphs of basin-average temperature, salinity, and current speed over your 5-day timeseries window.</li>
 </ul>
 </li>
 <li><strong>Fix the Hardcoded Path in <code>scripts/generate_real_data.py</code>:</strong>
@@ -2343,3 +2343,4 @@ Keep your modular React component structure.</li>
 
 </body>
 </html>
+

@@ -87,9 +87,7 @@ export function syncStateToUrl(camera: CameraState | null, store: OceanState) {
     params.set('depth', store.depthLevel.toString());
   }
 
-  if (store.currentTime) {
-    params.set('time', store.currentTime);
-  }
+  
 
   if (store.selectedVariable !== 'temperature') {
     params.set('var', store.selectedVariable);
@@ -110,3 +108,5 @@ export function getShareableLink(): string {
   if (typeof window === 'undefined') return '';
   return window.location.href;
 }
+
+

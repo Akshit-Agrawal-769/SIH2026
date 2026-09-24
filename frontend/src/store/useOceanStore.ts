@@ -24,12 +24,12 @@ export interface OceanState {
   toggle3DVolumeBlock: () => void;
 
   // Time navigation
-  currentTime: string;
-  setCurrentTime: (time: string) => void;
-  isPlaying: boolean;
-  setIsPlaying: (playing: boolean) => void;
-  playbackSpeed: number;
-  setPlaybackSpeed: (speed: number) => void;
+
+
+
+
+
+
 
   // Visual parameters
   opacity: number;
@@ -73,9 +73,9 @@ export interface OceanState {
   showRightPanel: boolean;
   setShowRightPanel: (show: boolean) => void;
   toggleRightPanel: () => void;
-  showBottomBar: boolean;
-  setShowBottomBar: (show: boolean) => void;
-  toggleBottomBar: () => void;
+
+
+
 
   // On-demand 3D Volumetric Water Column Cube Inspector
   activeWaterBlockTarget: WaterBlockTarget | null;
@@ -251,12 +251,12 @@ export const useOceanStore = create<OceanState>((set) => ({
   clickedGlobePoint: null,
   setClickedGlobePoint: (clickedGlobePoint) => set({ clickedGlobePoint }),
 
-  currentTime: '2024-06-01',
-  setCurrentTime: (currentTime) => set({ currentTime }),
-  isPlaying: false,
-  setIsPlaying: (isPlaying) => set({ isPlaying }),
-  playbackSpeed: 1.0,
-  setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
+
+
+
+
+
+
 
   opacity: 0.8,
   setOpacity: (opacity) => set({ opacity }),
@@ -278,9 +278,9 @@ export const useOceanStore = create<OceanState>((set) => ({
   setShowRightPanel: (showRightPanel) => set({ showRightPanel }),
   toggleRightPanel: () => set((s) => ({ showRightPanel: !s.showRightPanel })),
 
-  showBottomBar: true,
-  setShowBottomBar: (showBottomBar) => set({ showBottomBar }),
-  toggleBottomBar: () => set((s) => ({ showBottomBar: !s.showBottomBar })),
+
+
+
 
   isGraticuleEnabled: true,
   setIsGraticuleEnabled: (isGraticuleEnabled) => set({ isGraticuleEnabled }),
