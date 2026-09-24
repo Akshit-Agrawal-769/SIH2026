@@ -3,26 +3,26 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 152 69% 53%; /* vibrant emerald green */
-    --primary-foreground: 215 70% 5%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 215 25% 27%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 152 69% 53%;
+    :root {
+    --background: 210 18% 5%;
+    --foreground: 60 20% 95%;
+    --card: 210 16% 9%;
+    --card-foreground: 160 5% 78%;
+    --popover: 210 16% 9%;
+    --popover-foreground: 160 5% 78%;
+    --primary: 173 80% 40%;
+    --primary-foreground: 168 43% 5%;
+    --secondary: 200 11% 12%;
+    --secondary-foreground: 150 4% 85%;
+    --muted: 210 16% 9%;
+    --muted-foreground: 160 3% 53%;
+    --accent: 173 80% 40%;
+    --accent-foreground: 168 43% 5%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 16%;
+    --input: 0 0% 10%;
+    --ring: 173 80% 40%;
     --radius: 1rem;
   }
 }
@@ -33,7 +33,7 @@ html, body, #root {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background-color: #0b0f17;
+  background-color: #090b0d;
   color: #f8fafc;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -42,26 +42,26 @@ html, body, #root {
 
 /* Frosted-Glass Mission Dashboard Utility Classes */
 .glass-panel {
-  background: rgba(20, 25, 35, 0.6);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  background: theme('colors.ocean.panel');
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid theme('colors.ocean.border');
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.05);
 }
 
 .glass-pill {
-  background: rgba(20, 25, 35, 0.65);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  background: theme('colors.ocean.elevated');
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  border: 1px solid theme('colors.ocean.border');
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.05);
 }
 
 .glass-card-subtle {
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .glass-card-subtle:hover {
@@ -69,12 +69,8 @@ html, body, #root {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-.glow-green {
-  filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.45));
-}
-
-.glow-cyan {
-  filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.4));
+.glow-accent {
+  filter: drop-shadow(0 0 6px rgba(20, 184, 166, 0.45));
 }
 
 /* Cesium Viewer customization */
@@ -100,7 +96,7 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(11, 15, 23, 0.4);
+  background: rgba(18, 21, 22, 0.4);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -109,5 +105,5 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(34, 197, 94, 0.5);
+  background: rgba(20, 184, 166, 0.5);
 }

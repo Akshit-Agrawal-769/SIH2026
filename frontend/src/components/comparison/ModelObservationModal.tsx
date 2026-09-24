@@ -127,26 +127,26 @@ export const ModelObservationModal: React.FC = () => {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl max-h-[92vh] bg-ocean-panel/95 border border-ocean-border rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100">
-        {/* Header */}
-        <div className="p-4 border-b border-ocean-border/80 flex items-center justify-between bg-ocean-dark/60">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-sm animate-in fade-in duration-[300ms] ease-nasa-slow">
+      <div className="relative w-full max-w-4xl max-h-[92vh] bg-ocean-solid border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-ocean-text">
+        {/* Top Header Bar */}
+        <div className="p-4 border-b border-ocean-border/80 flex items-center justify-between bg-ocean-bg/60">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+            <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400">
               <Activity className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-500/30">
                   Model vs. Observation Validation
                 </span>
-                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                <span className="text-[10px] font-mono text-ocean-accent bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                   Zero Synthetic Data
                 </span>
               </div>
               <h2 className="text-base font-bold text-white tracking-wide mt-0.5 flex items-center gap-2">
                 <span>{data?.wmo ? `Argo Float #${data.wmo}` : comparisonInstrumentId}</span>
-                <span className="text-xs font-normal text-slate-400">
+                <span className="text-xs font-normal text-ocean-muted">
                   vs. INCOIS Bio-ROMS 3.9
                 </span>
               </h2>
@@ -157,16 +157,16 @@ export const ModelObservationModal: React.FC = () => {
             <button
               onClick={exportCSV}
               disabled={!data || !data.available || !data.depth_profiles.length}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-ocean-border/50 hover:bg-ocean-border text-slate-200 hover:text-white border border-ocean-border flex items-center gap-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-ocean-border/50 hover:bg-ocean-border text-ocean-text-secondary hover:text-white border border-ocean-border flex items-center gap-1.5 transition-all duration-[150ms] ease-nasa disabled:opacity-40 disabled:cursor-not-allowed"
               title="Download collocated metrics & profiles as CSV"
             >
-              <Download className="w-3.5 h-3.5 text-cyan-400" />
+              <Download className="w-3.5 h-3.5 text-teal-400" />
               <span>Export CSV</span>
             </button>
 
             <button
               onClick={closeComparisonModal}
-              className="p-1.5 rounded-lg hover:bg-ocean-border text-slate-400 hover:text-white transition"
+              className="p-1.5 rounded-lg hover:bg-ocean-border text-ocean-muted hover:text-white transition-all duration-[150ms] ease-nasa"
               title="Close comparison viewer"
             >
               <X className="w-5 h-5" />
@@ -175,10 +175,10 @@ export const ModelObservationModal: React.FC = () => {
         </div>
 
         {/* Sub-Header Metadata Bar */}
-        <div className="px-5 py-2.5 bg-ocean-dark/40 border-b border-ocean-border/60 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-3">
+        <div className="px-5 py-2.5 bg-ocean-bg/40 border-b border-ocean-border/60 flex flex-wrap items-center justify-between text-xs text-ocean-text-secondary gap-3">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+              <MapPin className="w-3.5 h-3.5 text-teal-400" />
               <span>
                 {data?.latitude !== undefined && data?.longitude !== undefined
                   ? `${data.latitude.toFixed(3)}°N, ${data.longitude.toFixed(3)}°E`
@@ -198,15 +198,15 @@ export const ModelObservationModal: React.FC = () => {
           </div>
 
           {/* Variable Tabs */}
-          <div className="flex items-center gap-1 bg-ocean-dark/80 p-1 rounded-lg border border-ocean-border">
+          <div className="flex items-center gap-1 bg-ocean-bg/80 p-1 rounded-lg border border-ocean-border">
             {variables.map((v) => (
               <button
                 key={v.id}
                 onClick={() => setComparisonVariable(v.id)}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition ${
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-all duration-[150ms] ease-nasa ${
                   comparisonVariable === v.id
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-sm'
+                    : 'text-ocean-muted hover:text-ocean-text-secondary'
                 }`}
               >
                 {v.label}
@@ -218,8 +218,8 @@ export const ModelObservationModal: React.FC = () => {
         {/* Modal Body Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {loading ? (
-            <div className="h-80 flex flex-col items-center justify-center gap-3 text-slate-400">
-              <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            <div className="h-80 flex flex-col items-center justify-center gap-3 text-ocean-muted">
+              <div className="w-8 h-8 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
               <p className="text-xs font-mono">Collocating Bio-ROMS model output with in-situ profile...</p>
             </div>
           ) : errorMsg ? (
@@ -228,16 +228,16 @@ export const ModelObservationModal: React.FC = () => {
               <p className="text-sm font-semibold">{errorMsg}</p>
             </div>
           ) : !data?.available ? (
-            <div className="h-80 flex flex-col items-center justify-center gap-3 text-slate-400 p-6 text-center border border-dashed border-ocean-border rounded-xl">
+            <div className="h-80 flex flex-col items-center justify-center gap-3 text-ocean-muted p-6 text-center border border-dashed border-ocean-border rounded-xl">
               <AlertCircle className="w-8 h-8 text-amber-400" />
               <div>
-                <h4 className="text-sm font-semibold text-slate-200">No Collocated Comparison Available</h4>
-                <p className="text-xs text-slate-400 mt-1 max-w-md">
+                <h4 className="text-sm font-semibold text-ocean-text-secondary">No Collocated Comparison Available</h4>
+                <p className="text-xs text-ocean-muted mt-1 max-w-md">
                   {data?.reason ||
                     `This observation platform does not measure '${comparisonVariable}' or falls outside the hydrodynamic model domain.`}
                 </p>
               </div>
-              <p className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+              <p className="text-[11px] font-mono text-ocean-accent bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
                 Zero synthetic data policy enforced: No synthetic profiles are generated.
               </p>
             </div>
@@ -245,28 +245,28 @@ export const ModelObservationModal: React.FC = () => {
             <>
               {/* Validation Metrics Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div className="bg-ocean-dark/60 border border-ocean-border rounded-xl p-3">
-                  <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-3">
+                  <div className="text-[10px] font-mono text-ocean-muted uppercase tracking-wider">
                     RMSE (Root Mean Sq)
                   </div>
-                  <div className="text-lg font-bold text-cyan-300 mt-0.5">
+                  <div className="text-lg font-bold text-teal-300 mt-0.5">
                     {data.metrics?.rmse !== undefined ? `${data.metrics.rmse} ${data.units}` : '—'}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Dispersion error</div>
+                  <div className="text-[10px] text-ocean-muted mt-0.5">Dispersion error</div>
                 </div>
 
-                <div className="bg-ocean-dark/60 border border-ocean-border rounded-xl p-3">
-                  <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-3">
+                  <div className="text-[10px] font-mono text-ocean-muted uppercase tracking-wider">
                     MAE (Mean Abs Error)
                   </div>
-                  <div className="text-lg font-bold text-cyan-300 mt-0.5">
+                  <div className="text-lg font-bold text-teal-300 mt-0.5">
                     {data.metrics?.mae !== undefined ? `${data.metrics.mae} ${data.units}` : '—'}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Absolute discrepancy</div>
+                  <div className="text-[10px] text-ocean-muted mt-0.5">Absolute discrepancy</div>
                 </div>
 
-                <div className="bg-ocean-dark/60 border border-ocean-border rounded-xl p-3">
-                  <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-3">
+                  <div className="text-[10px] font-mono text-ocean-muted uppercase tracking-wider">
                     Bias (Model - Obs)
                   </div>
                   <div
@@ -274,15 +274,15 @@ export const ModelObservationModal: React.FC = () => {
                       (data.metrics?.bias ?? 0) > 0
                         ? 'text-amber-400'
                         : (data.metrics?.bias ?? 0) < 0
-                        ? 'text-blue-400'
-                        : 'text-slate-200'
+                        ? 'text-teal-400'
+                        : 'text-ocean-text-secondary'
                     }`}
                   >
                     {data.metrics?.bias !== undefined
                       ? `${data.metrics.bias > 0 ? '+' : ''}${data.metrics.bias} ${data.units}`
                       : '—'}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
+                  <div className="text-[10px] text-ocean-muted mt-0.5">
                     {(data.metrics?.bias ?? 0) > 0
                       ? 'Model warm/high bias'
                       : (data.metrics?.bias ?? 0) < 0
@@ -291,54 +291,54 @@ export const ModelObservationModal: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-ocean-dark/60 border border-ocean-border rounded-xl p-3">
-                  <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-3">
+                  <div className="text-[10px] font-mono text-ocean-muted uppercase tracking-wider">
                     Pearson Correlation (r)
                   </div>
-                  <div className="text-lg font-bold text-emerald-400 mt-0.5">
+                  <div className="text-lg font-bold text-ocean-accent mt-0.5">
                     {data.metrics?.pearson_r !== null && data.metrics?.pearson_r !== undefined
                       ? data.metrics.pearson_r.toFixed(3)
                       : '—'}
                   </div>
-                  <div className="text-[10px] text-emerald-400/80 mt-0.5">
+                  <div className="text-[10px] text-ocean-accent/80 mt-0.5">
                     {data.metrics?.r_squared !== null && data.metrics?.r_squared !== undefined
                       ? `R² = ${data.metrics.r_squared.toFixed(3)}`
                       : 'Zero variance'}
                   </div>
                 </div>
 
-                <div className="bg-ocean-dark/60 border border-ocean-border rounded-xl p-3">
-                  <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-3">
+                  <div className="text-[10px] font-mono text-ocean-muted uppercase tracking-wider">
                     Collocated Levels (N)
                   </div>
                   <div className="text-lg font-bold text-white mt-0.5">
                     {data.metrics?.sample_count ?? 0}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Vertical CTD depths</div>
+                  <div className="text-[10px] text-ocean-muted mt-0.5">Vertical CTD depths</div>
                 </div>
               </div>
 
               {/* Chart Mode Toggle */}
               <div className="flex items-center justify-between pt-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-200">Collocated Water Column View:</span>
-                  <div className="flex items-center gap-1 bg-ocean-dark/80 p-0.5 rounded-lg border border-ocean-border">
+                  <span className="text-xs font-semibold text-ocean-text-secondary">Collocated Water Column View:</span>
+                  <div className="flex items-center gap-1 bg-ocean-bg/80 p-0.5 rounded-lg border border-ocean-border">
                     <button
                       onClick={() => setViewMode('sounding')}
-                      className={`px-3 py-1 rounded text-xs font-medium transition ${
+                      className={`px-3 py-1 rounded text-xs font-medium transition-all duration-[150ms] ease-nasa ${
                         viewMode === 'sounding'
-                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                          : 'text-slate-400 hover:text-slate-200'
+                          ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
+                          : 'text-ocean-muted hover:text-ocean-text-secondary'
                       }`}
                     >
                       Vertical Sounding (Obs vs. Model)
                     </button>
                     <button
                       onClick={() => setViewMode('residual')}
-                      className={`px-3 py-1 rounded text-xs font-medium transition ${
+                      className={`px-3 py-1 rounded text-xs font-medium transition-all duration-[150ms] ease-nasa ${
                         viewMode === 'residual'
-                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                          : 'text-slate-400 hover:text-slate-200'
+                          ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
+                          : 'text-ocean-muted hover:text-ocean-text-secondary'
                       }`}
                     >
                       Residual Depth Delta (Model - Obs)
@@ -348,18 +348,18 @@ export const ModelObservationModal: React.FC = () => {
 
                 <div className="flex items-center gap-4 text-xs font-mono">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-full bg-cyan-400 border border-cyan-200 inline-block" />
-                    <span className="text-slate-300">In-situ Observation</span>
+                    <span className="w-3 h-3 rounded-full bg-teal-400 border border-teal-200 inline-block" />
+                    <span className="text-ocean-text-secondary">In-situ Observation</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm border-2 border-dashed border-amber-400 inline-block" />
-                    <span className="text-slate-300">INCOIS Bio-ROMS</span>
+                    <span className="text-ocean-text-secondary">INCOIS Bio-ROMS</span>
                   </div>
                 </div>
               </div>
 
               {/* Chart Canvas */}
-              <div className="h-80 w-full bg-ocean-dark/70 border border-ocean-border rounded-xl p-3">
+              <div className="h-80 w-full bg-ocean-bg/70 border border-ocean-border rounded-xl p-3">
                 {viewMode === 'sounding' ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart
@@ -408,9 +408,9 @@ export const ModelObservationModal: React.FC = () => {
                         type="monotone"
                         dataKey="observation"
                         name="observation"
-                        stroke="#38bdf8"
+                        stroke="#14b8a6"
                         strokeWidth={2.2}
-                        dot={{ r: 2, fill: '#38bdf8' }}
+                        dot={{ r: 2, fill: '#14b8a6' }}
                         activeDot={{ r: 4 }}
                       />
                       <Line
@@ -466,7 +466,7 @@ export const ModelObservationModal: React.FC = () => {
                       />
                       <Bar
                         dataKey="residual"
-                        fill="#06b6d4"
+                        fill="#14b8a6"
                         opacity={0.85}
                         radius={[2, 2, 0, 0]}
                       />
@@ -476,27 +476,27 @@ export const ModelObservationModal: React.FC = () => {
               </div>
 
               {/* Scientific Provenance & Collocation Audit Card */}
-              <div className="bg-ocean-dark/40 border border-ocean-border/70 rounded-xl p-4 text-xs text-slate-300">
-                <div className="font-semibold text-slate-200 flex items-center gap-2 mb-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <div className="bg-ocean-bg/40 border border-ocean-border/70 rounded-xl p-4 text-xs text-ocean-text-secondary">
+                <div className="font-semibold text-ocean-text-secondary flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="w-4 h-4 text-ocean-accent" />
                   <span>Scientific Provenance &amp; Collocation Methodology</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-400 text-[11px] leading-relaxed">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-ocean-muted text-[11px] leading-relaxed">
                   <div>
-                    <span className="font-mono text-slate-300">Model Lineage:</span>{' '}
+                    <span className="font-mono text-ocean-text-secondary">Model Lineage:</span>{' '}
                     {data.provenance?.model_source || 'INCOIS Operational Bio-ROMS 3.9'}
                   </div>
                   <div>
-                    <span className="font-mono text-slate-300">Observation Lineage:</span>{' '}
+                    <span className="font-mono text-ocean-text-secondary">Observation Lineage:</span>{' '}
                     {data.provenance?.observation_source || 'INCOIS GDAC NetCDF'}
                   </div>
                   <div>
-                    <span className="font-mono text-slate-300">Collocation Technique:</span>{' '}
+                    <span className="font-mono text-ocean-text-secondary">Collocation Technique:</span>{' '}
                     {data.provenance?.collocation_method ||
                       'Bilinear spatial + 1D piecewise linear depth collocation'}
                   </div>
                   <div>
-                    <span className="font-mono text-slate-300">Quality Control:</span>{' '}
+                    <span className="font-mono text-ocean-text-secondary">Quality Control:</span>{' '}
                     {data.provenance?.qc_mode || 'Strict UNESCO Argo QC flags (1 & 2 only)'}
                   </div>
                 </div>
@@ -506,17 +506,17 @@ export const ModelObservationModal: React.FC = () => {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-ocean-border/80 bg-ocean-dark/60 flex items-center justify-between">
-          <div className="text-[11px] text-slate-400">
+        <div className="p-4 border-t border-ocean-border/80 bg-ocean-bg/60 flex items-center justify-between">
+          <div className="text-[11px] text-ocean-muted">
             Ground-truth verification powered by authentic INCOIS hydrodynamic archives.
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={handleOpenAnalytics}
-              className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition active:scale-[0.98]"
+              className="px-4 py-2 bg-gradient-to-r from-teal-600 to-teal-600 hover:from-teal-500 hover:to-teal-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all duration-[150ms] ease-nasa active:scale-[0.98]"
             >
-              <BarChart3 className="w-4 h-4 text-cyan-200" />
+              <BarChart3 className="w-4 h-4 text-teal-200" />
               <span>Open in Ocean Analytics Studio</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>

@@ -34,16 +34,16 @@ export const GlobeClickWaterBlockCallout: React.FC = () => {
         </div>
         <button
           onClick={() => setClickedGlobePoint(null)}
-          className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition"
+          className="p-1 text-ocean-muted hover:text-white rounded-lg hover:bg-white/10 transition"
         >
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      <div className="mt-1 flex items-center gap-2 text-[10px] font-mono text-slate-300">
+      <div className="mt-1 flex items-center gap-2 text-[10px] font-mono text-ocean-text-secondary">
         <span>{lat.toFixed(2)}°N, {lon.toFixed(2)}°E</span>
         <span className="text-emerald-400">•</span>
-        <span className="text-slate-400">0–2000m Depth</span>
+        <span className="text-ocean-muted">0–2000m Depth</span>
       </div>
 
       <button

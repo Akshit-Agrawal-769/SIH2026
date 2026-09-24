@@ -31,16 +31,16 @@ export const LeftPanel: React.FC = () => {
     switch (key) {
       case 'waves':
       case 'temperature':
-        return <Waves className="w-3.5 h-3.5 text-emerald-400" />;
+        return <Waves className="w-3.5 h-3.5 text-ocean-accent" />;
       case 'droplets':
       case 'salinity':
-        return <Droplets className="w-3.5 h-3.5 text-cyan-400" />;
+        return <Droplets className="w-3.5 h-3.5 text-teal-400" />;
       case 'wind':
       case 'currents':
-        return <Wind className="w-3.5 h-3.5 text-emerald-400" />;
+        return <Wind className="w-3.5 h-3.5 text-ocean-accent" />;
       case 'activity':
       case 'chlorophyll':
-        return <Activity className="w-3.5 h-3.5 text-emerald-400" />;
+        return <Activity className="w-3.5 h-3.5 text-ocean-accent" />;
       case 'radio':
       case 'argo':
         return <Radio className="w-3.5 h-3.5 text-amber-400" />;
@@ -48,11 +48,11 @@ export const LeftPanel: React.FC = () => {
         return <Radio className="w-3.5 h-3.5 text-fuchsia-400" />;
       case 'anchor':
       case 'moored_buoy':
-        return <Anchor className="w-3.5 h-3.5 text-emerald-400" />;
+        return <Anchor className="w-3.5 h-3.5 text-ocean-accent" />;
       case 'compass':
-        return <Compass className="w-3.5 h-3.5 text-cyan-400" />;
+        return <Compass className="w-3.5 h-3.5 text-teal-400" />;
       default:
-        return <Layers className="w-3.5 h-3.5 text-slate-400" />;
+        return <Layers className="w-3.5 h-3.5 text-ocean-muted" />;
     }
   };
 
@@ -64,14 +64,14 @@ export const LeftPanel: React.FC = () => {
   ];
 
   return (
-    <aside className="fixed left-4 top-16 w-72 max-h-[calc(100vh-120px)] overflow-y-auto glass-panel rounded-2xl p-3.5 z-20 shadow-2xl flex flex-col gap-3 select-none custom-scrollbar">
+    <aside className="fixed left-4 top-16 w-72 max-h-[calc(100vh-120px)] overflow-y-auto glass-panel rounded-xl p-3.5 z-20 shadow-2xl flex flex-col gap-3 select-none custom-scrollbar">
       {/* Panel Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-2">
-        <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-          <Layers className="w-3.5 h-3.5 text-emerald-400" />
+        <h2 className="text-[10px] font-bold text-ocean-text-muted uppercase tracking-wider flex items-center gap-1.5">
+          <Layers className="w-3.5 h-3.5 text-ocean-accent" />
           Layer Catalog
         </h2>
-        <span className="text-[10px] text-emerald-400 font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 font-semibold">
+        <span className="text-[10px] text-ocean-accent font-mono px-2 py-0.5 rounded-full bg-ocean-accent/20 border border-ocean-accent/30 font-semibold">
           {activeLayers.length} Active
         </span>
       </div>
@@ -85,10 +85,10 @@ export const LeftPanel: React.FC = () => {
           return (
             <div key={cat.key} className="space-y-1.5">
               <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider">
+                <span className="text-[10px] font-semibold text-ocean-text-secondary uppercase tracking-wider">
                   {cat.title}
                 </span>
-                <span className="text-[9px] font-mono text-slate-400">
+                <span className="text-[9px] font-mono text-ocean-muted">
                   {layersInCat.filter((l) => activeLayers.includes(l.id)).length}/{layersInCat.length}
                 </span>
               </div>
@@ -97,10 +97,10 @@ export const LeftPanel: React.FC = () => {
                 {cat.key === 'model_field' && (
                   <div
                     onClick={toggle3DVolumeBlock}
-                    className={`p-2 rounded-xl border transition-all flex items-center justify-between cursor-pointer select-none mb-1.5 ${
+                    className={`p-2 rounded-xl border transition-all duration-[150ms] ease-nasa flex items-center justify-between cursor-pointer select-none mb-1.5 ${
                       is3DVolumeBlockEnabled
-                        ? 'bg-emerald-500/20 border-emerald-400/50 text-white shadow-sm'
-                        : 'glass-card-subtle text-slate-400 hover:text-slate-200'
+                        ? 'bg-ocean-accent/20 border-ocean-accent/50 text-white shadow-sm'
+                        : 'glass-card-subtle text-ocean-muted hover:text-ocean-text-secondary'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
@@ -108,16 +108,16 @@ export const LeftPanel: React.FC = () => {
                         type="checkbox"
                         checked={is3DVolumeBlockEnabled}
                         onChange={() => {}}
-                        className="rounded bg-[#0b0f17] border-slate-600 text-emerald-400 focus:ring-0 cursor-pointer"
+                        className="rounded bg-[#0b0f17] border-neutral-600 text-ocean-accent focus:ring-0 cursor-pointer"
                       />
                       <div className="flex items-center gap-2">
-                        <Box className="w-3.5 h-3.5 text-emerald-400" />
+                        <Box className="w-3.5 h-3.5 text-ocean-accent" />
                         <div>
                           <div className="text-xs font-medium leading-none flex items-center gap-1.5">
                             <span>3D Volumetric Slab</span>
-                            <span className="text-[8px] bg-emerald-400/20 text-emerald-300 px-1 py-0.5 rounded font-mono">0-2000m</span>
+                            <span className="text-[8px] bg-ocean-accent/20 text-ocean-accent px-1 py-0.5 rounded font-mono">0-2000m</span>
                           </div>
-                          <span className="text-[8px] text-slate-400 font-mono">Depth walls &amp; strata</span>
+                          <span className="text-[8px] text-ocean-muted font-mono">Depth walls &amp; strata</span>
                         </div>
                       </div>
                     </div>
@@ -130,7 +130,7 @@ export const LeftPanel: React.FC = () => {
                           name: 'Indian Ocean Water Column'
                         });
                       }}
-                      className="text-[9px] text-emerald-300 hover:text-white px-2 py-0.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-500/40 font-mono transition"
+                      className="text-[9px] text-ocean-accent hover:text-white px-2 py-0.5 rounded-full bg-ocean-accent/20 hover:bg-ocean-accent/40 border border-ocean-accent/40 font-mono transition-all duration-[150ms] ease-nasa"
                       title="Open 3D Volumetric Water Block Studio"
                     >
                       3D View
@@ -150,10 +150,10 @@ export const LeftPanel: React.FC = () => {
                           setSelectedVariable(layer.id);
                         }
                       }}
-                      className={`p-2 rounded-xl border transition-all flex items-center justify-between cursor-pointer select-none ${
+                      className={`p-2 rounded-xl border transition-all duration-[150ms] ease-nasa flex items-center justify-between cursor-pointer select-none ${
                         isEnabled
-                          ? 'bg-white/10 border-emerald-400/40 text-white shadow-sm'
-                          : 'glass-card-subtle text-slate-400 hover:text-slate-200'
+                          ? 'bg-white/10 border-ocean-accent/40 text-white shadow-sm'
+                          : 'glass-card-subtle text-ocean-muted hover:text-ocean-text-secondary'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -161,7 +161,7 @@ export const LeftPanel: React.FC = () => {
                           type="checkbox"
                           checked={isEnabled}
                           onChange={() => {}}
-                          className="rounded bg-[#0b0f17] border-slate-600 text-emerald-400 focus:ring-0 cursor-pointer"
+                          className="rounded bg-[#0b0f17] border-neutral-600 text-ocean-accent focus:ring-0 cursor-pointer"
                         />
                         <div className="flex items-center gap-2">
                           {getIcon(layer.iconName, layer.id)}
@@ -170,7 +170,7 @@ export const LeftPanel: React.FC = () => {
                               <span>{layer.name}</span>
                             </div>
                             {layer.units && (
-                              <span className="text-[8px] text-slate-400 font-mono">{layer.units}</span>
+                              <span className="text-[8px] text-ocean-muted font-mono">{layer.units}</span>
                             )}
                           </div>
                         </div>
@@ -181,8 +181,8 @@ export const LeftPanel: React.FC = () => {
                         {layer.badge && (
                           <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-mono ${
                             isEnabled
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : 'bg-white/5 text-slate-400 border border-white/5'
+                              ? 'bg-ocean-accent/20 text-ocean-accent border border-ocean-accent/30'
+                              : 'bg-white/5 text-ocean-muted border border-white/5'
                           }`}>
                             {layer.badge}
                           </span>
@@ -190,8 +190,8 @@ export const LeftPanel: React.FC = () => {
                         {isEnabled && layer.category === 'model_field' && (
                           <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-mono ${
                             isSelectedModel
-                              ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 font-bold'
-                              : 'text-slate-400'
+                              ? 'bg-ocean-accent/30 text-ocean-accent border border-ocean-accent/40 font-bold'
+                              : 'text-ocean-muted'
                           }`}>
                             {isSelectedModel ? 'Rendered' : ''}
                           </span>
@@ -206,8 +206,8 @@ export const LeftPanel: React.FC = () => {
         })}
       </div>
 
-      <div className="mt-1 pt-2 border-t border-white/10 text-[9px] text-slate-400 leading-tight">
-        Zero-touch plugin architecture: new sensors and models registered via <code className="text-emerald-400 font-mono">registerLayer()</code> populate automatically.
+      <div className="mt-1 pt-2 border-t border-white/10 text-[9px] text-ocean-muted leading-tight">
+        Zero-touch plugin architecture: new sensors and models registered via <code className="text-ocean-accent font-mono">registerLayer()</code> populate automatically.
       </div>
     </aside>
   );

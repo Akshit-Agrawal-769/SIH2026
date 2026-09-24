@@ -6,7 +6,7 @@
  * - Argo Profiling Floats (Amber Gold with profiling buoy silhouette)
  * - Autonomous Underwater Gliders (Neon Magenta with swept-wing glider silhouette)
  * - Moored MetOcean Buoys (Neon Emerald with anchored buoy tower & tripod silhouette)
- * - Generic Sensor Extensions (Cyber Cyan beacon)
+ * - Generic Sensor Extensions (Science Teal beacon)
  */
 
 export interface MarkerIconOptions {
@@ -39,9 +39,9 @@ export function getPlatformMarkerIconUrl(type: string, hovered = false): string 
   const cy = size / 2;
 
   // Palette configuration based on platform type
-  let primaryColor = '#00E5FF'; // Cyber Cyan default
-  let accentGlow = 'rgba(0, 229, 255, ';
-  const cyberCyan = '#00E5FF';
+  let primaryColor = '#14b8a6'; // Science Teal default
+  let accentGlow = 'rgba(20, 184, 166, ';
+  const scienceTeal = '#14b8a6';
 
   if (normType === 'argo') {
     primaryColor = '#FFB300'; // Amber gold
@@ -117,7 +117,7 @@ export function getPlatformMarkerIconUrl(type: string, hovered = false): string 
   ctx.shadowColor = primaryColor;
   ctx.shadowBlur = hovered ? 18 : 12;
 
-  ctx.fillStyle = '#020b18'; // Deep abyssal navy
+  ctx.fillStyle = '#15191b'; // Deep abyssal navy
   ctx.beginPath();
   ctx.arc(cx, cy, discRadius, 0, Math.PI * 2);
   ctx.fill();
@@ -145,7 +145,7 @@ export function getPlatformMarkerIconUrl(type: string, hovered = false): string 
     ctx.fill();
 
     // Buoy Collar Striping
-    ctx.fillStyle = '#1A237E';
+    ctx.fillStyle = '#1b2022';
     ctx.fillRect(-6, -1, 12, 2.5);
 
     // Antenna Mast
@@ -208,9 +208,9 @@ export function getPlatformMarkerIconUrl(type: string, hovered = false): string 
     ctx.lineTo(-3, 2);
     ctx.fill();
 
-    // Science Payload Nose Sensor (Neon Cyan)
-    ctx.fillStyle = cyberCyan;
-    ctx.shadowColor = cyberCyan;
+    // Science Payload Nose Sensor (Neon Teal)
+    ctx.fillStyle = scienceTeal;
+    ctx.shadowColor = scienceTeal;
     ctx.shadowBlur = 7;
     ctx.beginPath();
     ctx.arc(0, -12.5, 2.2, 0, Math.PI * 2);
@@ -225,8 +225,8 @@ export function getPlatformMarkerIconUrl(type: string, hovered = false): string 
     // Circular Toroid Float
     const toroidGrad = ctx.createLinearGradient(-10, -2, 10, 8);
     toroidGrad.addColorStop(0, '#00E676');
-    toroidGrad.addColorStop(0.5, '#00B0FF');
-    toroidGrad.addColorStop(1, '#00838F');
+    toroidGrad.addColorStop(0.5, '#14b8a6');
+    toroidGrad.addColorStop(1, '#0f766e');
     ctx.fillStyle = toroidGrad;
 
     ctx.beginPath();
@@ -270,8 +270,8 @@ export function getPlatformMarkerIconUrl(type: string, hovered = false): string 
     // --- GENERIC SENSOR BEACON ---
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.fillStyle = cyberCyan;
-    ctx.shadowColor = cyberCyan;
+    ctx.fillStyle = scienceTeal;
+    ctx.shadowColor = scienceTeal;
     ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.arc(0, 0, 6, 0, Math.PI * 2);

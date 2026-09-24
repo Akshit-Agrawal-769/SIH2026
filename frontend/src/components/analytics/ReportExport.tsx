@@ -83,26 +83,26 @@ export const ReportExport: React.FC<ReportExportProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="bg-ocean-dark/60 border border-ocean-border rounded-xl p-5 space-y-4">
+      <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-5 space-y-4">
         <div>
           <h4 className="text-sm font-bold text-white flex items-center gap-2">
-            <FileText className="w-4 h-4 text-cyan-400" />
+            <FileText className="w-4 h-4 text-teal-400" />
             <span>Generate &amp; Export Scientific Ocean Brief</span>
           </h4>
-          <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+          <p className="text-xs text-ocean-muted mt-1 leading-relaxed">
             Download comprehensive physical oceanography reports containing all collocated time series, vertical stratification indices, anomaly Z-scores, and correlation tables.
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
           {/* CSV Download Card */}
-          <div className="bg-ocean-dark/80 border border-ocean-border/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
+          <div className="bg-ocean-bg/80 border border-ocean-border/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
             <div>
-              <div className="flex items-center gap-2 font-semibold text-slate-200 text-xs">
+              <div className="flex items-center gap-2 font-semibold text-ocean-text-secondary text-xs">
                 <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
                 <span>Raw Scientific Data (CSV)</span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+              <p className="text-[11px] text-ocean-muted mt-1 leading-relaxed">
                 Includes full metadata headers, layer stratification statistics, regional baseline figures, and time-series vectors.
               </p>
             </div>
@@ -116,19 +116,19 @@ export const ReportExport: React.FC<ReportExportProps> = ({
           </div>
 
           {/* Printable Brief Card */}
-          <div className="bg-ocean-dark/80 border border-ocean-border/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
+          <div className="bg-ocean-bg/80 border border-ocean-border/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
             <div>
-              <div className="flex items-center gap-2 font-semibold text-slate-200 text-xs">
-                <Printer className="w-4 h-4 text-cyan-400" />
+              <div className="flex items-center gap-2 font-semibold text-ocean-text-secondary text-xs">
+                <Printer className="w-4 h-4 text-teal-400" />
                 <span>Printable Scientific Brief</span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+              <p className="text-[11px] text-ocean-muted mt-1 leading-relaxed">
                 Formats the active studio charts and interpretations into a high-resolution, institutional print summary.
               </p>
             </div>
             <button
               onClick={handlePrint}
-              className="w-full py-2 px-3 bg-cyan-600/30 hover:bg-cyan-600/40 text-cyan-200 border border-cyan-500/40 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition"
+              className="w-full py-2 px-3 bg-teal-600/30 hover:bg-teal-600/40 text-teal-200 border border-teal-500/40 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition"
             >
               <Printer className="w-4 h-4" />
               <span>Print / Save as PDF</span>
@@ -138,7 +138,7 @@ export const ReportExport: React.FC<ReportExportProps> = ({
       </div>
 
       {/* Compliance Notice */}
-      <div className="bg-ocean-dark/30 border border-ocean-border/40 rounded-xl p-3 text-[11px] text-slate-400 flex items-center gap-2">
+      <div className="bg-ocean-bg/30 border border-ocean-border/40 rounded-xl p-3 text-[11px] text-ocean-muted flex items-center gap-2">
         <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
         <span>
           Reports conform to INCOIS National Oceanographic Data Centre and IOC/UNESCO CF-1.6 metadata standards.

@@ -129,7 +129,7 @@ export const SCIENCE_TOURS: ScienceTour[] = [
     duration: '2.5 mins',
     difficulty: 'Intermediate',
     category: 'Salinity & Water Masses',
-    thumbnailColor: 'from-emerald-500 to-cyan-600',
+    thumbnailColor: 'from-emerald-500 to-teal-600',
     summary: 'Investigate how intense evaporation from dry desert winds turns the northern Arabian Sea into a high-salinity engine, and trace the subduction of Arabian Sea High Salinity Water into the subsurface thermocline.',
     steps: [
       {
@@ -179,7 +179,7 @@ export const SCIENCE_TOURS: ScienceTour[] = [
     duration: '3 mins',
     difficulty: 'Intermediate',
     category: 'Biogeochemistry',
-    thumbnailColor: 'from-blue-600 to-indigo-800',
+    thumbnailColor: 'from-teal-600 to-teal-800',
     summary: 'Examine how massive river discharge from the Himalayas blankets the Bay of Bengal with fresh water, creating a barrier layer that traps solar heat and fuels intense tropical cyclones.',
     steps: [
       {
@@ -248,7 +248,7 @@ export const SCIENCE_TOURS: ScienceTour[] = [
     duration: '2.5 mins',
     difficulty: 'Advanced',
     category: 'Ocean Robotics',
-    thumbnailColor: 'from-cyan-500 to-blue-700',
+    thumbnailColor: 'from-teal-500 to-teal-700',
     summary: 'Track an operational INCOIS robotic Argo buoy in the Arabian Sea, explore its autonomous hydraulic buoyancy engine, and inspect high-precision vertical CTD profiles down to 2,000 meters depth.',
     steps: [
       {

@@ -16,12 +16,12 @@ export default function DotGlobeHeroDemo({
   return (
     <DotGlobeHero
       rotationSpeed={0.004}
-      className="bg-[#0b0f17] relative overflow-hidden"
+      className="bg-[#090b0d] relative overflow-hidden"
     >
       {/* Ambient background glows */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f17] via-transparent to-[#0b0f17]/40 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#090b0d] via-transparent to-[#090b0d]/40 pointer-events-none" />
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-cyan-500/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-teal-500/10 rounded-full blur-[140px] pointer-events-none" />
       
       <div className="relative z-10 text-center space-y-10 max-w-5xl mx-auto px-6 py-12">
         <motion.div
@@ -52,14 +52,14 @@ export default function DotGlobeHeroDemo({
               transition={{ duration: 1, delay: 0.3 }}
               className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.9] select-none text-white"
             >
-              <span className="block font-light text-slate-300 text-3xl md:text-5xl lg:text-6xl mb-2">
+              <span className="block font-light text-ocean-text-secondary text-3xl md:text-5xl lg:text-6xl mb-2">
                 Explore the Depths of the
               </span>
               <span className="block relative">
-                <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent font-black relative z-10">
+                <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-teal-400 bg-clip-text text-transparent font-black relative z-10">
                   Indian Ocean
                 </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 bg-clip-text text-transparent font-black blur-2xl opacity-40 scale-105">
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-teal-400 to-teal-500 bg-clip-text text-transparent font-black blur-2xl opacity-40 scale-105">
                   Indian Ocean
                 </div>
               </span>
@@ -72,10 +72,10 @@ export default function DotGlobeHeroDemo({
             transition={{ duration: 0.8, delay: 0.8 }}
             className="max-w-2xl mx-auto space-y-3"
           >
-            <p className="text-lg md:text-xl text-slate-200 leading-relaxed font-normal">
+            <p className="text-lg md:text-xl text-ocean-text-secondary leading-relaxed font-normal">
               High-resolution 4D volumetric visualization of hydrodynamic circulation, temperature, salinity, and in-situ autonomous sensor fleets.
             </p>
-            <p className="text-xs font-mono text-slate-400">
+            <p className="text-xs font-mono text-ocean-muted">
               Coupled INCOIS HYCOM, NOAA VHR SST, Argo profiling floats &amp; deep-sea glider networks.
             </p>
           </motion.div>
@@ -109,7 +109,7 @@ export default function DotGlobeHeroDemo({
               y: -2
             }}
             whileTap={{ scale: 0.98 }}
-            className="group relative inline-flex items-center gap-2.5 px-7 py-3.5 glass-pill rounded-full font-semibold text-base text-slate-200 hover:text-white hover:border-emerald-400/40 transition-all duration-300 shadow-xl"
+            className="group relative inline-flex items-center gap-2.5 px-7 py-3.5 glass-pill rounded-full font-semibold text-base text-ocean-text-secondary hover:text-white hover:border-emerald-400/40 transition-all duration-300 shadow-xl"
           >
             <Zap className="relative z-10 w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform duration-300" />
             <span className="relative z-10 tracking-wide">Public Outreach Tour</span>

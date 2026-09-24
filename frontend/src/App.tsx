@@ -1,20 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import * as Cesium from 'cesium';
 import { CesiumViewer } from './globe/CesiumViewer';
 import { TopBar } from './components/TopBar';
 import { LeftPanel } from './components/LeftPanel';
 import { RightPanel } from './components/RightPanel';
 import { BottomBar } from './components/BottomBar';
-import { InstrumentProfileModal } from './components/InstrumentProfileModal';
 import { ColorbarLegend } from './components/ColorbarLegend';
 import { OceanHoverHUD } from './components/OceanHoverHUD';
 import { OutreachTourOverlay } from './components/OutreachTourOverlay';
-import { OceanWaterCubeModal } from './components/OceanWaterCubeModal';
 import { GlobeClickWaterBlockCallout } from './components/GlobeClickWaterBlockCallout';
-import { ModelObservationModal } from './components/comparison';
-import { AnalyticsModal } from './components/analytics';
 import { useOceanStore } from './store/useOceanStore';
 import DotGlobeHeroDemo from './components/ui/demo';
+
+const InstrumentProfileModal = React.lazy(() => import('./components/InstrumentProfileModal').then(m => ({ default: m.InstrumentProfileModal })));
+const OceanWaterCubeModal = React.lazy(() => import('./components/OceanWaterCubeModal').then(m => ({ default: m.OceanWaterCubeModal })));
+const ModelObservationModal = React.lazy(() => import('./components/comparison').then(m => ({ default: m.ModelObservationModal })));
+const AnalyticsModal = React.lazy(() => import('./components/analytics').then(m => ({ default: m.AnalyticsModal })));
 
 export const App: React.FC = () => {
   const [viewer, setViewer] = useState<Cesium.Viewer | null>(null);
@@ -55,10 +56,10 @@ export const App: React.FC = () => {
     <main className="relative w-screen h-screen overflow-hidden bg-[#0b0f17] font-sans select-none">
       {/* Ambient background lighting & soft room glow behind the 3D globe */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-slate-800/20 rounded-full blur-[120px]" />
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-ocean-elevated/20 rounded-full blur-[120px]" />
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-500/[0.04] rounded-full blur-[140px]" />
-        <div className="absolute -bottom-40 -right-40 w-[700px] h-[700px] bg-slate-700/20 rounded-full blur-[140px]" />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-transparent to-slate-950/80" />
+        <div className="absolute -bottom-40 -right-40 w-[700px] h-[700px] bg-neutral-700/20 rounded-full blur-[140px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-ocean-solid/40 via-transparent to-neutral-950/80" />
       </div>
 
       {/* Top Navigation & Status Bar */}
@@ -100,19 +101,27 @@ export const App: React.FC = () => {
           <OceanHoverHUD />
 
           {/* Floating In-situ Instrument Depth Profile Visualizer */}
-          <InstrumentProfileModal />
+          <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">LOADING PROFILE DATA...</div>}>
+            <InstrumentProfileModal />
+          </Suspense>
 
           {/* Interactive 3D Volumetric Water Column Cube Studio */}
-          <OceanWaterCubeModal />
+          <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">INITIALIZING VOLUMETRIC VIEW...</div>}>
+            <OceanWaterCubeModal />
+          </Suspense>
 
           {/* Floating Callout when Clicking Ocean on Globe */}
           <GlobeClickWaterBlockCallout />
 
           {/* Collocated Model vs Observation Ground-Truth Verification Modal */}
-          <ModelObservationModal />
+          <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">LOADING COMPARISON WORKSPACE...</div>}>
+            <ModelObservationModal />
+          </Suspense>
 
           {/* Scientific Ocean Analytics Studio Modal */}
-          <AnalyticsModal />
+          <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">LOADING ANALYTICAL WORKSPACE...</div>}>
+            <AnalyticsModal />
+          </Suspense>
         </>
       )}
     </main>

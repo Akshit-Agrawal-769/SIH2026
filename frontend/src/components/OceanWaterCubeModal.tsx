@@ -139,7 +139,7 @@ export const OceanWaterCubeModal: React.FC = () => {
     });
 
     // Technical grid pattern
-    ctx.strokeStyle = 'rgba(0, 229, 255, 0.15)';
+    ctx.strokeStyle = 'rgba(20, 184, 166, 0.15)';
     ctx.lineWidth = 1;
     for (let x = 40; x < w; x += 40) {
       ctx.beginPath();
@@ -149,7 +149,7 @@ export const OceanWaterCubeModal: React.FC = () => {
     }
 
     // Outer neon border
-    ctx.strokeStyle = 'rgba(0, 229, 255, 0.85)';
+    ctx.strokeStyle = 'rgba(20, 184, 166, 0.85)';
     ctx.lineWidth = 4;
     ctx.strokeRect(0, 0, w, h);
 
@@ -171,7 +171,7 @@ export const OceanWaterCubeModal: React.FC = () => {
     ctx.fillRect(0, 0, 256, 256);
 
     // Oceanic wave ripples
-    ctx.strokeStyle = 'rgba(0, 229, 255, 0.35)';
+    ctx.strokeStyle = 'rgba(20, 184, 166, 0.35)';
     ctx.lineWidth = 1.2;
     for (let i = 0; i < 256; i += 16) {
       ctx.beginPath();
@@ -187,7 +187,7 @@ export const OceanWaterCubeModal: React.FC = () => {
     ctx.lineTo(236, 128);
     ctx.stroke();
 
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.9)';
+    ctx.fillStyle = 'rgba(20, 184, 166, 0.9)';
     ctx.font = 'bold 12px monospace';
     ctx.fillText('N ▲', 120, 24);
 
@@ -205,7 +205,7 @@ export const OceanWaterCubeModal: React.FC = () => {
     ctx.fillStyle = '#040711';
     ctx.fillRect(0, 0, 256, 256);
 
-    ctx.strokeStyle = 'rgba(0, 229, 255, 0.25)';
+    ctx.strokeStyle = 'rgba(20, 184, 166, 0.25)';
     ctx.lineWidth = 1;
     for (let i = 0; i < 256; i += 32) {
       ctx.beginPath();
@@ -650,11 +650,15 @@ export const OceanWaterCubeModal: React.FC = () => {
     : null;
 
   return (
-    <div className={`fixed z-50 transition-all duration-300 flex flex-col glass-panel shadow-2xl overflow-hidden border border-white/15 ${
-      isFullscreen
-        ? 'inset-2 rounded-2xl'
-        : 'right-6 top-16 bottom-16 w-[940px] max-w-[calc(100vw-3rem)] rounded-2xl'
-    }`}>
+    <>
+      {/* Phase 10: Deep-blue overlay fade for Cesium -> Three.js dive transition */}
+      <div className="fixed inset-0 bg-ocean-bg z-40 animate-in fade-in duration-[800ms] ease-nasa-slow opacity-85" />
+
+      <div className={`fixed z-50 transition-all duration-[800ms] ease-nasa-slow flex flex-col glass-panel shadow-2xl overflow-hidden border border-white/15 ${
+        isFullscreen
+          ? 'inset-2 rounded-2xl'
+          : 'right-6 top-16 bottom-16 w-[940px] max-w-[calc(100vw-3rem)] rounded-2xl'
+      }`}>
       {/* 1. Studio Header */}
       <div className="p-3.5 border-b border-white/10 flex items-center justify-between bg-black/40">
         <div className="flex items-center gap-3">
@@ -666,7 +670,7 @@ export const OceanWaterCubeModal: React.FC = () => {
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/40">
                 3D Volumetric Ocean Block Studio
               </span>
-              <span className="text-[10px] text-slate-400 font-mono">
+              <span className="text-[10px] text-ocean-muted font-mono">
                 [0m Surface ➔ -2000m Abyssal Floor]
               </span>
             </div>
@@ -686,7 +690,7 @@ export const OceanWaterCubeModal: React.FC = () => {
             className={`p-1.5 rounded-lg border text-xs font-mono flex items-center gap-1 transition ${
               isAutoRotating
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                : 'text-slate-400 hover:text-white border-white/10 hover:bg-white/5'
+                : 'text-ocean-muted hover:text-white border-white/10 hover:bg-white/5'
             }`}
             title="Toggle continuous 3D auto-rotation"
           >
@@ -696,7 +700,7 @@ export const OceanWaterCubeModal: React.FC = () => {
 
           <button
             onClick={handleResetCamera}
-            className="p-1.5 rounded-lg border border-white/10 hover:border-emerald-400 text-slate-400 hover:text-white transition"
+            className="p-1.5 rounded-lg border border-white/10 hover:border-emerald-400 text-ocean-muted hover:text-white transition"
             title="Reset 3D camera angle"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -704,7 +708,7 @@ export const OceanWaterCubeModal: React.FC = () => {
 
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 rounded-lg border border-white/10 hover:border-emerald-400 text-slate-400 hover:text-white transition"
+            className="p-1.5 rounded-lg border border-white/10 hover:border-emerald-400 text-ocean-muted hover:text-white transition"
             title={isFullscreen ? 'Exit Fullscreen' : 'Expand Fullscreen'}
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -712,7 +716,7 @@ export const OceanWaterCubeModal: React.FC = () => {
 
           <button
             onClick={closeWaterBlock}
-            className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-transparent hover:border-red-500/40 transition ml-1"
+            className="p-1.5 rounded-lg hover:bg-red-500/20 text-ocean-muted hover:text-red-400 border border-transparent hover:border-red-500/40 transition ml-1"
             title="Close 3D Block View"
           >
             <X className="w-4 h-4" />
@@ -727,14 +731,14 @@ export const OceanWaterCubeModal: React.FC = () => {
           <canvas ref={canvasRef} className="w-full h-full cursor-grab active:cursor-grabbing outline-none" />
 
           {/* Mouse Orbit Hint */}
-          <div className="absolute top-3 left-3 pointer-events-none bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10 text-[10px] text-slate-300 font-mono flex items-center gap-1.5 shadow-md">
-            <Compass className="w-3 h-3 text-cyan-400 animate-spin" />
+          <div className="absolute top-3 left-3 pointer-events-none bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10 text-[10px] text-ocean-text-secondary font-mono flex items-center gap-1.5 shadow-md">
+            <Compass className="w-3 h-3 text-teal-400 animate-spin" />
             <span>Drag mouse to 3D Orbit • Scroll to Zoom</span>
           </div>
 
           {/* Slicing Laser Plane Float Badge */}
-          <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-lg border border-cyan-400/60 text-xs font-mono text-cyan-300 flex items-center gap-2 shadow-lg">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+          <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-lg border border-teal-400/60 text-xs font-mono text-teal-300 flex items-center gap-2 shadow-lg">
+            <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
             <span>LASER SCAN DEPTH: <strong className="text-white font-bold">{sliceDepth}m</strong></span>
           </div>
         </div>
@@ -743,7 +747,7 @@ export const OceanWaterCubeModal: React.FC = () => {
         <div className="w-full md:w-72 border-t md:border-t-0 md:border-l border-white/10 bg-black/40 backdrop-blur-md p-3.5 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar">
           {/* 1. ROMS / CMEMS Gridded Numerical Model Volume */}
           <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 shadow-sm">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+            <div className="flex items-center justify-between text-xs font-bold text-ocean-text-secondary">
               <span className="flex items-center gap-1.5 text-emerald-400">
                 <Database className="w-3.5 h-3.5 text-emerald-400" />
                 ROMS/CMEMS Gridded Model
@@ -754,8 +758,8 @@ export const OceanWaterCubeModal: React.FC = () => {
             </div>
 
             {modelTileLoading ? (
-              <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-mono text-cyan-300 flex items-center gap-1.5 animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+              <div className="p-2 rounded-lg bg-teal-500/10 border border-teal-500/30 text-[10px] font-mono text-teal-300 flex items-center gap-1.5 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
                 <span>Loading C++ ocean_core gridded tile...</span>
               </div>
             ) : modelSampledValue !== null && modelTileData ? (
@@ -769,7 +773,7 @@ export const OceanWaterCubeModal: React.FC = () => {
                     {modelSampledValue.toFixed(4)} {activeVar === 'temperature' ? '°C' : activeVar === 'salinity' ? 'PSU' : activeVar === 'currents' ? 'm/s' : 'mg/m³'}
                   </span>
                 </div>
-                <div className="text-[9px] font-mono text-slate-400 flex items-center justify-between px-1">
+                <div className="text-[9px] font-mono text-ocean-muted flex items-center justify-between px-1">
                   <span>Grid: {modelTileData.header.width}×{modelTileData.header.height} ({modelTileData.header.width * modelTileData.header.height} cells)</span>
                   <span>Source: {activeVar === 'chlorophyll' ? 'INCOIS-BIO-ROMS' : 'CMEMS.nc'}</span>
                 </div>
@@ -780,7 +784,7 @@ export const OceanWaterCubeModal: React.FC = () => {
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
                   <span>No Gridded Model Level at {sliceDepth}m</span>
                 </div>
-                <p className="text-[9px] text-slate-300 leading-relaxed">
+                <p className="text-[9px] text-ocean-text-secondary leading-relaxed">
                   {modelTileError || (
                     <>Source NetCDF contains single surface level (<code className="text-amber-300">depth: 1</code> at 0.0m). Per strict scientific integrity policy, subsurface model levels are <strong>never fabricated or interpolated</strong>.</>
                   )}
@@ -791,7 +795,7 @@ export const OceanWaterCubeModal: React.FC = () => {
 
           {/* 2. Autonomous In-Situ Argo CTD Profiler Observations */}
           <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 shadow-sm">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+            <div className="flex items-center justify-between text-xs font-bold text-ocean-text-secondary">
               <span className="flex items-center gap-1.5 text-emerald-300">
                 <Radio className="w-3.5 h-3.5 text-emerald-400" />
                 Argo In-Situ CTD Observations
@@ -803,8 +807,8 @@ export const OceanWaterCubeModal: React.FC = () => {
 
             {/* Authentic Provenance Status */}
             {profileLoading ? (
-              <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-mono text-cyan-300 flex items-center gap-1.5 animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+              <div className="p-2 rounded-lg bg-teal-500/10 border border-teal-500/30 text-[10px] font-mono text-teal-300 flex items-center gap-1.5 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
                 <span>Querying authentic in-situ CTD profile...</span>
               </div>
             ) : authenticProfile ? (
@@ -825,30 +829,30 @@ export const OceanWaterCubeModal: React.FC = () => {
 
             <div className="space-y-1 text-xs font-mono">
               <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                <span className="text-slate-400 flex items-center gap-1 text-[11px]">
+                <span className="text-ocean-muted flex items-center gap-1 text-[11px]">
                   <Waves className="w-3 h-3 text-red-400" /> Temperature:
                 </span>
                 {tempAtDepth !== null ? (
-                  <span className="text-red-400 font-bold">{tempAtDepth.toFixed(3)} °C <span className="text-[9px] text-slate-400 font-normal">(@{closestMeas?.depth?.toFixed(1)}m)</span></span>
+                  <span className="text-red-400 font-bold">{tempAtDepth.toFixed(3)} °C <span className="text-[9px] text-ocean-muted font-normal">(@{closestMeas?.depth?.toFixed(1)}m)</span></span>
                 ) : (
-                  <span className="text-slate-500 italic text-[10px]">No authentic data</span>
+                  <span className="text-neutral-500 italic text-[10px]">No authentic data</span>
                 )}
               </div>
 
               <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                <span className="text-slate-400 flex items-center gap-1 text-[11px]">
-                  <Droplets className="w-3 h-3 text-cyan-400" /> Salinity:
+                <span className="text-ocean-muted flex items-center gap-1 text-[11px]">
+                  <Droplets className="w-3 h-3 text-teal-400" /> Salinity:
                 </span>
                 {salinityAtDepth !== null ? (
-                  <span className="text-cyan-300 font-bold">{salinityAtDepth.toFixed(3)} PSU <span className="text-[9px] text-slate-400 font-normal">(@{closestMeas?.depth?.toFixed(1)}m)</span></span>
+                  <span className="text-teal-300 font-bold">{salinityAtDepth.toFixed(3)} PSU <span className="text-[9px] text-ocean-muted font-normal">(@{closestMeas?.depth?.toFixed(1)}m)</span></span>
                 ) : (
-                  <span className="text-slate-500 italic text-[10px]">No authentic data</span>
+                  <span className="text-neutral-500 italic text-[10px]">No authentic data</span>
                 )}
               </div>
 
               {currentSpeedAtDepth !== null && (
                 <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                  <span className="text-slate-400 flex items-center gap-1 text-[11px]">
+                  <span className="text-ocean-muted flex items-center gap-1 text-[11px]">
                     <Wind className="w-3 h-3 text-lime-400" /> Current Velocity:
                   </span>
                   <span className="text-lime-400 font-bold">{currentSpeedAtDepth.toFixed(2)} m/s</span>
@@ -857,7 +861,7 @@ export const OceanWaterCubeModal: React.FC = () => {
 
               {chlAtDepth !== null && (
                 <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                  <span className="text-slate-400 flex items-center gap-1 text-[11px]">
+                  <span className="text-ocean-muted flex items-center gap-1 text-[11px]">
                     <Activity className="w-3 h-3 text-emerald-400" /> Chlorophyll-a:
                   </span>
                   <span className="text-emerald-400 font-bold">{chlAtDepth.toFixed(2)} mg/m³</span>
@@ -865,45 +869,45 @@ export const OceanWaterCubeModal: React.FC = () => {
               )}
 
               <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                <span className="text-slate-400 flex items-center gap-1 text-[11px]">
+                <span className="text-ocean-muted flex items-center gap-1 text-[11px]">
                   <Sparkles className="w-3 h-3 text-amber-400" /> Sound Speed:
                 </span>
                 {soundSpeed !== null ? (
                   <span className="text-amber-300 font-bold">{soundSpeed.toFixed(1)} m/s</span>
                 ) : (
-                  <span className="text-slate-500 italic text-[10px]">No authentic data</span>
+                  <span className="text-neutral-500 italic text-[10px]">No authentic data</span>
                 )}
               </div>
             </div>
 
-            <p className="text-[9px] text-slate-400 italic pt-1 border-t border-white/5">
+            <p className="text-[9px] text-ocean-muted italic pt-1 border-t border-white/5">
               * Scientifically Distinct: In-situ Argo CTD profiles measure authentic physical depth (0–2000m), whereas Eulerian model in cmems.nc is surface-only (0.0m).
             </p>
           </div>
 
           {/* Vertical Stratification Layers */}
           <div className="space-y-1.5">
-            <span className="text-[10px] font-mono uppercase text-slate-400 font-bold tracking-wider">
+            <span className="text-[10px] font-mono uppercase text-ocean-muted font-bold tracking-wider">
               Water Mass Stratification
             </span>
             <div className="space-y-1 text-[10px] font-mono">
               <div className={`p-1.5 rounded border transition ${
-                sliceDepth <= 50 ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 font-bold' : 'bg-black/30 border-white/5 text-slate-400'
+                sliceDepth <= 50 ? 'bg-teal-500/20 border-teal-400 text-teal-200 font-bold' : 'bg-black/30 border-white/5 text-ocean-muted'
               }`}>
                 0 – 50m: Euphotic Mixed Layer (Sunlit &amp; Warm)
               </div>
               <div className={`p-1.5 rounded border transition ${
-                sliceDepth > 50 && sliceDepth <= 200 ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold' : 'bg-black/30 border-white/5 text-slate-400'
+                sliceDepth > 50 && sliceDepth <= 200 ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold' : 'bg-black/30 border-white/5 text-ocean-muted'
               }`}>
                 50 – 200m: Thermocline Rapid Gradient
               </div>
               <div className={`p-1.5 rounded border transition ${
-                sliceDepth > 200 && sliceDepth <= 1000 ? 'bg-purple-500/20 border-purple-400 text-purple-200 font-bold' : 'bg-black/30 border-white/5 text-slate-400'
+                sliceDepth > 200 && sliceDepth <= 1000 ? 'bg-purple-500/20 border-purple-400 text-purple-200 font-bold' : 'bg-black/30 border-white/5 text-ocean-muted'
               }`}>
                 200 – 1000m: Intermediate Oxygen Minimum Layer
               </div>
               <div className={`p-1.5 rounded border transition ${
-                sliceDepth > 1000 ? 'bg-blue-500/20 border-blue-400 text-blue-200 font-bold' : 'bg-black/30 border-white/5 text-slate-400'
+                sliceDepth > 1000 ? 'bg-teal-500/20 border-teal-400 text-teal-200 font-bold' : 'bg-black/30 border-white/5 text-ocean-muted'
               }`}>
                 1000 – 2000m: Deep Abyssal Cold Water (3.2°C)
               </div>
@@ -912,7 +916,7 @@ export const OceanWaterCubeModal: React.FC = () => {
 
           {/* 3D Visual Feature Toggles */}
           <div className="pt-2 border-t border-white/10 space-y-2">
-            <span className="text-[10px] font-mono uppercase text-slate-400 font-bold tracking-wider">
+            <span className="text-[10px] font-mono uppercase text-ocean-muted font-bold tracking-wider">
               3D Cube Overlays
             </span>
             <div className="grid grid-cols-2 gap-1.5 text-xs">
@@ -920,8 +924,8 @@ export const OceanWaterCubeModal: React.FC = () => {
                 onClick={() => setShowFlowParticles(!showFlowParticles)}
                 className={`py-1 px-2 rounded-lg border text-[10px] font-mono transition ${
                   showFlowParticles
-                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50'
-                    : 'bg-black/40 text-slate-500 border-white/5 hover:text-slate-300'
+                    ? 'bg-teal-500/20 text-teal-300 border-teal-500/50'
+                    : 'bg-black/40 text-neutral-500 border-white/5 hover:text-ocean-text-secondary'
                 }`}
               >
                 🌊 Particles: {showFlowParticles ? 'ON' : 'OFF'}
@@ -931,7 +935,7 @@ export const OceanWaterCubeModal: React.FC = () => {
                 className={`py-1 px-2 rounded-lg border text-[10px] font-mono transition ${
                   showStrataPlanes
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
-                    : 'bg-black/40 text-slate-500 border-white/5 hover:text-slate-300'
+                    : 'bg-black/40 text-neutral-500 border-white/5 hover:text-ocean-text-secondary'
                 }`}
               >
                 📊 Strata: {showStrataPlanes ? 'ON' : 'OFF'}
@@ -951,7 +955,7 @@ export const OceanWaterCubeModal: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
                 activeVar === 'temperature'
                   ? 'bg-red-500/20 text-red-300 border border-red-500/50 shadow-sm'
-                  : 'text-slate-400 hover:text-white glass-pill'
+                  : 'text-ocean-muted hover:text-white glass-pill'
               }`}
             >
               <Waves className="w-3.5 h-3.5 text-red-400" />
@@ -962,11 +966,11 @@ export const OceanWaterCubeModal: React.FC = () => {
               onClick={() => setActiveVar('salinity')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
                 activeVar === 'salinity'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-sm'
-                  : 'text-slate-400 hover:text-white glass-pill'
+                  ? 'bg-teal-500/20 text-teal-300 border border-teal-500/50 shadow-sm'
+                  : 'text-ocean-muted hover:text-white glass-pill'
               }`}
             >
-              <Droplets className="w-3.5 h-3.5 text-cyan-400" />
+              <Droplets className="w-3.5 h-3.5 text-teal-400" />
               <span>Salinity</span>
             </button>
 
@@ -975,7 +979,7 @@ export const OceanWaterCubeModal: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
                 activeVar === 'currents'
                   ? 'bg-lime-500/20 text-lime-300 border border-lime-500/50 shadow-sm'
-                  : 'text-slate-400 hover:text-white glass-pill'
+                  : 'text-ocean-muted hover:text-white glass-pill'
               }`}
             >
               <Wind className="w-3.5 h-3.5 text-lime-400" />
@@ -987,7 +991,7 @@ export const OceanWaterCubeModal: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
                 activeVar === 'chlorophyll'
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm'
-                  : 'text-slate-400 hover:text-white glass-pill'
+                  : 'text-ocean-muted hover:text-white glass-pill'
               }`}
             >
               <Activity className="w-3.5 h-3.5 text-emerald-400" />
@@ -996,7 +1000,7 @@ export const OceanWaterCubeModal: React.FC = () => {
           </div>
 
           {/* Quick Depth Presets */}
-          <div className="hidden lg:flex items-center gap-1 text-[10px] font-mono text-slate-400">
+          <div className="hidden lg:flex items-center gap-1 text-[10px] font-mono text-ocean-muted">
             <span>Quick:</span>
             {[0, 50, 150, 500, 1000, 2000].map((d) => (
               <button
@@ -1004,7 +1008,7 @@ export const OceanWaterCubeModal: React.FC = () => {
                 onClick={() => setSliceDepth(d)}
                 className={`px-1.5 py-0.5 rounded border transition ${
                   sliceDepth === d
-                    ? 'bg-cyan-500/30 border-cyan-400 text-cyan-200 font-bold'
+                    ? 'bg-teal-500/30 border-teal-400 text-teal-200 font-bold'
                     : 'bg-black/30 border-white/5 hover:border-white/20'
                 }`}
               >
@@ -1016,7 +1020,7 @@ export const OceanWaterCubeModal: React.FC = () => {
 
         {/* Depth Slicing Slider */}
         <div className="flex items-center gap-3 bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">
-          <span className="text-xs font-mono text-cyan-400 flex items-center gap-1 shrink-0">
+          <span className="text-xs font-mono text-teal-400 flex items-center gap-1 shrink-0">
             <ArrowDown className="w-3.5 h-3.5" />
             3D Vertical Laser Slice:
           </span>
@@ -1027,7 +1031,7 @@ export const OceanWaterCubeModal: React.FC = () => {
             step="10"
             value={sliceDepth}
             onChange={(e) => setSliceDepth(parseFloat(e.target.value))}
-            className="flex-1 accent-cyan-400 cursor-pointer h-1.5 bg-slate-700 rounded-lg"
+            className="flex-1 accent-teal-400 cursor-pointer h-1.5 bg-neutral-700 rounded-lg"
           />
           <span className="text-xs font-mono text-white font-bold w-16 text-right">
             {sliceDepth === 0 ? '0m' : `-${sliceDepth}m`}
@@ -1035,5 +1039,6 @@ export const OceanWaterCubeModal: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };

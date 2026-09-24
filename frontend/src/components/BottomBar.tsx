@@ -103,16 +103,16 @@ export const BottomBar: React.FC = () => {
   };
 
   return (
-    <footer className="fixed bottom-5 left-1/2 -translate-x-1/2 z-20 w-[92%] max-w-4xl glass-panel rounded-2xl px-5 py-3 shadow-2xl flex items-center justify-between gap-6 select-none transition-all">
+    <footer className="fixed bottom-4 left-4 right-4 z-20 glass-panel rounded-xl px-5 py-3 shadow-2xl flex items-center justify-between gap-6 select-none transition-all duration-[150ms] ease-nasa">
       {/* Left Group: Play Button & Timestamp Readout */}
       <div className="flex items-center gap-3 shrink-0">
         {/* Play/Pause Circular Button */}
         <button
           onClick={() => setIsPlaying(!isPlaying)}
           title={isPlaying ? 'Pause Simulation' : 'Play Simulation'}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${
+          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-[150ms] ease-nasa shadow-lg active:scale-95 ${
             isPlaying
-              ? 'bg-emerald-500 text-slate-950 glow-green'
+              ? 'bg-emerald-500 text-neutral-950 glow-accent'
               : 'glass-pill text-white hover:bg-white/10 hover:border-white/20'
           }`}
         >
@@ -127,7 +127,7 @@ export const BottomBar: React.FC = () => {
         <button
           onClick={handlePrevStep}
           title="Previous Timestep"
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition"
+          className="p-1.5 rounded-lg text-ocean-muted hover:text-white hover:bg-white/5 transition-all duration-[150ms] ease-nasa"
         >
           <Rewind className="w-3.5 h-3.5" />
         </button>
@@ -137,7 +137,7 @@ export const BottomBar: React.FC = () => {
           <span className="text-xs font-semibold text-white tracking-tight font-mono whitespace-nowrap">
             {formatDateDisplay(currentTime)}
           </span>
-          <span className="text-[9px] font-mono text-emerald-400 leading-none">
+          <span className="text-[9px] font-mono text-ocean-accent leading-none">
             {isPlaying ? 'ANIMATING • REAL-TIME' : 'OPERATIONAL ANALYSIS'}
           </span>
         </div>
@@ -146,7 +146,7 @@ export const BottomBar: React.FC = () => {
         <button
           onClick={handleNextStep}
           title="Next Timestep"
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition"
+          className="p-1.5 rounded-lg text-ocean-muted hover:text-white hover:bg-white/5 transition-all duration-[150ms] ease-nasa"
         >
           <FastForward className="w-3.5 h-3.5" />
         </button>
@@ -158,7 +158,7 @@ export const BottomBar: React.FC = () => {
           {/* Track background */}
           <div className="w-full h-1.5 rounded-full bg-white/10 relative overflow-hidden">
             <div
-              className="h-full bg-emerald-400 rounded-full glow-green transition-all duration-200"
+              className="h-full bg-ocean-accent rounded-full glow-accent transition-all duration-[150ms] ease-nasa"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -176,18 +176,18 @@ export const BottomBar: React.FC = () => {
 
           {/* Interactive Thumb Dot */}
           <div
-            className="absolute w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-[#0b0f17] glow-green pointer-events-none shadow-md -translate-x-1/2 transition-all duration-200"
+            className="absolute w-3.5 h-3.5 rounded-full bg-ocean-accent border-2 border-[#0b0f17] glow-accent pointer-events-none shadow-md -translate-x-1/2 transition-all duration-[150ms] ease-nasa"
             style={{ left: `${progressPct}%` }}
           />
         </div>
 
         {/* Hour Markers (00:00, 06:00, 12:00, 18:00, 24:00) */}
-        <div className="flex justify-between text-[10px] font-mono text-slate-400 px-0.5">
+        <div className="flex justify-between text-[10px] font-mono text-ocean-muted px-0.5">
           {HOUR_MARKERS.map((hour, idx) => (
             <span
               key={hour}
-              className={`transition-colors ${
-                idx === 2 ? 'text-emerald-400 font-bold' : 'hover:text-slate-200'
+              className={`transition-colors duration-[150ms] ease-nasa ${
+                idx === 2 ? 'text-ocean-accent font-bold' : 'hover:text-ocean-text-secondary'
               }`}
             >
               {hour}
@@ -202,7 +202,7 @@ export const BottomBar: React.FC = () => {
         <button
           onClick={handleCycleSpeed}
           title="Change Playback Speed"
-          className="px-2.5 py-1 rounded-lg glass-pill text-[11px] font-mono text-emerald-400 hover:text-white transition shadow-sm"
+          className="px-2.5 py-1 rounded-lg glass-pill text-[11px] font-mono text-ocean-accent hover:text-white transition-all duration-[150ms] ease-nasa shadow-sm"
         >
           {playbackSpeed}x
         </button>
@@ -211,20 +211,20 @@ export const BottomBar: React.FC = () => {
         <div className="relative">
           <button
             onClick={() => setShowDepthMenu(!showDepthMenu)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-pill text-xs text-slate-200 hover:text-white transition shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-pill text-xs text-ocean-text-secondary hover:text-white transition-all duration-[150ms] ease-nasa shadow-sm"
             title="Select Ocean Depth Slice"
           >
-            <Layers className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="font-mono text-xs font-semibold text-emerald-300">
+            <Layers className="w-3.5 h-3.5 text-ocean-accent" />
+            <span className="font-mono text-xs font-semibold text-ocean-accent">
               {depthLevel === 0.5 ? '0m' : `${depthLevel}m`}
             </span>
-            {showDepthMenu ? <ChevronDown className="w-3 h-3 text-slate-400" /> : <ChevronUp className="w-3 h-3 text-slate-400" />}
+            {showDepthMenu ? <ChevronDown className="w-3 h-3 text-ocean-muted" /> : <ChevronUp className="w-3 h-3 text-ocean-muted" />}
           </button>
 
           {/* Depth Dropdown Menu */}
           {showDepthMenu && (
             <div className="absolute right-0 bottom-full mb-2 w-36 glass-panel rounded-2xl p-1.5 shadow-2xl z-30 space-y-1 text-xs animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-2 py-1 text-[9px] font-mono uppercase text-slate-400">
+              <div className="px-2 py-1 text-[9px] font-mono uppercase text-ocean-muted">
                 Depth Layer
               </div>
               {DEPTH_LEVELS.map((depth) => (
@@ -234,10 +234,10 @@ export const BottomBar: React.FC = () => {
                     setDepthLevel(depth);
                     setShowDepthMenu(false);
                   }}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-xl font-mono text-xs transition ${
+                  className={`w-full text-left px-2.5 py-1.5 rounded-xl font-mono text-xs transition-all duration-[150ms] ease-nasa ${
                     depthLevel === depth
-                      ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40'
-                      : 'text-slate-300 hover:bg-white/5'
+                      ? 'bg-ocean-accent/20 text-ocean-accent font-bold border border-ocean-accent/40'
+                      : 'text-ocean-text-secondary hover:bg-white/5'
                   }`}
                 >
                   {depth === 0.5 ? 'Surface (0m)' : `${depth}m`}

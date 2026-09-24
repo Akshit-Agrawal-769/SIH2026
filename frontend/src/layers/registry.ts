@@ -76,7 +76,7 @@ const DEFAULT_LAYERS: LayerDefinition[] = [
     description: 'Volumetric practical salinity and halocline stratification',
     units: 'PSU',
     defaultVisible: false,
-    color: '#00e5ff',
+    color: '#14b8a6',
     badge: '3D Voxel',
     iconName: 'droplets'
   },
@@ -144,7 +144,7 @@ const DEFAULT_LAYERS: LayerDefinition[] = [
     category: 'boundary',
     description: 'Exclusive Economic Zone maritime boundary (Arabian Sea, Bay of Bengal, Andaman Sea)',
     defaultVisible: true,
-    color: '#00e5ff',
+    color: '#14b8a6',
     badge: 'Maritime Zone',
     iconName: 'layers'
   }

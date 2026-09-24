@@ -96,7 +96,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     });
 
     // Dark space & deep ocean styling
-    viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0b101b');
+    viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#090b0d');
     viewer.scene.backgroundColor = Cesium.Color.TRANSPARENT;
 
     // Restore camera from URL state if provided, or default to Full Globe view
@@ -126,8 +126,8 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
 
     // 1. Load India Exclusive Economic Zone (EEZ) boundary polygon overlay
     Cesium.GeoJsonDataSource.load('/data/india_eez.geojson', {
-      stroke: Cesium.Color.fromCssColorString('#00e5ff'),
-      fill: Cesium.Color.fromCssColorString('rgba(0, 229, 255, 0.08)'),
+      stroke: Cesium.Color.fromCssColorString('#14b8a6'),
+      fill: Cesium.Color.fromCssColorString('rgba(20, 184, 166, 0.08)'),
       strokeWidth: 2,
       clampToGround: true
     }).then((ds) => {

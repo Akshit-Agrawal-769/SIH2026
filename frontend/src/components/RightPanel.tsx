@@ -60,10 +60,10 @@ export const RightPanel: React.FC = () => {
   ];
 
   const variables = [
-    { id: 'temperature', label: 'Temp', unit: '°C', icon: <Waves className="w-3 h-3 text-emerald-400" /> },
-    { id: 'salinity', label: 'Salinity', unit: 'PSU', icon: <Droplets className="w-3 h-3 text-cyan-400" /> },
-    { id: 'chlorophyll', label: 'Chl-a', unit: 'mg/m³', icon: <Activity className="w-3 h-3 text-emerald-400" /> },
-    { id: 'currents', label: 'Currents', unit: 'm/s', icon: <Wind className="w-3 h-3 text-emerald-400" /> }
+    { id: 'temperature', label: 'Temp', unit: '°C', icon: <Waves className="w-3 h-3 text-ocean-accent" /> },
+    { id: 'salinity', label: 'Salinity', unit: 'PSU', icon: <Droplets className="w-3 h-3 text-teal-400" /> },
+    { id: 'chlorophyll', label: 'Chl-a', unit: 'mg/m³', icon: <Activity className="w-3 h-3 text-ocean-accent" /> },
+    { id: 'currents', label: 'Currents', unit: 'm/s', icon: <Wind className="w-3 h-3 text-ocean-accent" /> }
   ];
 
   const wmsUrl = typeof window !== 'undefined'
@@ -137,30 +137,30 @@ export const RightPanel: React.FC = () => {
   ];
 
   return (
-    <aside className="fixed right-4 top-16 w-80 max-h-[calc(100vh-120px)] overflow-y-auto glass-panel rounded-2xl p-4 flex flex-col gap-4 select-none z-20 shadow-2xl custom-scrollbar">
+    <aside className="fixed right-4 top-16 w-80 max-h-[calc(100vh-120px)] overflow-y-auto glass-panel rounded-xl p-4 flex flex-col gap-4 select-none z-20 shadow-2xl custom-scrollbar">
       {/* 1. Header & Active Variable Indicator */}
       <div className="flex items-center justify-between pb-2 border-b border-white/10">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-white uppercase tracking-wider">
-          <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+        <div className="flex items-center gap-1.5 text-[10px] font-bold text-ocean-muted uppercase tracking-wider">
+          <Sliders className="w-3.5 h-3.5 text-ocean-accent" />
           <span>Visualization Controls</span>
         </div>
-        <span className="text-[10px] text-emerald-400 font-mono capitalize px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 font-semibold">
+        <span className="text-[10px] text-ocean-accent font-mono capitalize px-2 py-0.5 rounded-full bg-ocean-accent/20 border border-ocean-accent/30 font-semibold">
           {selectedVariable}
         </span>
       </div>
 
       {/* 2. Model Variable Switcher */}
       <div className="space-y-1.5">
-        <span className="text-[11px] text-slate-300 font-medium">Rendered Parameter</span>
+        <span className="text-[11px] text-ocean-text-secondary font-medium">Rendered Parameter</span>
         <div className="grid grid-cols-4 gap-1 p-1 bg-black/40 rounded-xl border border-white/5">
           {variables.map((v) => (
             <button
               key={v.id}
               onClick={() => setSelectedVariable(v.id)}
-              className={`flex flex-col items-center py-1.5 px-1 rounded-lg transition-all text-center ${
+              className={`flex flex-col items-center py-1.5 px-1 rounded-lg transition-all duration-[150ms] ease-nasa text-center ${
                 selectedVariable === v.id
-                  ? 'bg-white text-slate-900 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-ocean-solid font-bold shadow-md'
+                  : 'text-ocean-muted hover:text-white'
               }`}
             >
               <div className="mb-0.5">{v.icon}</div>
@@ -173,17 +173,17 @@ export const RightPanel: React.FC = () => {
       {/* 3. Colormap & Palette Configuration */}
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
-          <label className="text-[11px] text-slate-300 font-medium flex items-center gap-1">
-            <Palette className="w-3 h-3 text-emerald-400" />
+          <label className="text-[11px] text-ocean-text-secondary font-medium flex items-center gap-1">
+            <Palette className="w-3 h-3 text-ocean-accent" />
             Palette
           </label>
           <select
             value={colorPalette}
             onChange={(e) => setColorPalette(e.target.value)}
-            className="w-full bg-black/50 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-400"
+            className="w-full bg-black/50 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-ocean-text-secondary focus:outline-none focus:border-ocean-accent"
           >
             {palettes.map((p) => (
-              <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+              <option key={p.id} value={p.id} className="bg-ocean-solid text-white">
                 {p.name}
               </option>
             ))}
@@ -191,20 +191,20 @@ export const RightPanel: React.FC = () => {
         </div>
 
         <div className="space-y-1">
-          <span className="text-[11px] text-slate-300 font-medium">Scale Mode</span>
+          <span className="text-[11px] text-ocean-text-secondary font-medium">Scale Mode</span>
           <div className="flex bg-black/50 border border-white/10 rounded-xl p-0.5">
             <button
               onClick={() => setScaleType('linear')}
-              className={`flex-1 py-1 text-[10px] font-semibold rounded-lg transition-colors ${
-                scaleType === 'linear' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white'
+              className={`flex-1 py-1 text-[10px] font-semibold rounded-lg transition-colors duration-[150ms] ease-nasa ${
+                scaleType === 'linear' ? 'bg-white text-ocean-solid' : 'text-ocean-muted hover:text-white'
               }`}
             >
               Linear
             </button>
             <button
               onClick={() => setScaleType('log')}
-              className={`flex-1 py-1 text-[10px] font-semibold rounded-lg transition-colors ${
-                scaleType === 'log' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white'
+              className={`flex-1 py-1 text-[10px] font-semibold rounded-lg transition-colors duration-[150ms] ease-nasa ${
+                scaleType === 'log' ? 'bg-white text-ocean-solid' : 'text-ocean-muted hover:text-white'
               }`}
             >
               Log₁₀
@@ -215,14 +215,14 @@ export const RightPanel: React.FC = () => {
 
       {/* 4. Physical Range Editor & Colormap Gradient */}
       <div className="space-y-2 p-2.5 rounded-xl bg-black/40 border border-white/5">
-        <div className="flex items-center justify-between text-xs text-slate-300">
+        <div className="flex items-center justify-between text-xs text-ocean-text-secondary">
           <span className="font-medium flex items-center gap-1 text-[11px]">
-            <Sparkles className="w-3 h-3 text-emerald-400" />
+            <Sparkles className="w-3 h-3 text-ocean-accent" />
             Physical Range
           </span>
           <button
             onClick={autoCalibrateRange}
-            className="flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30 transition"
+            className="flex items-center gap-1 text-[10px] text-ocean-accent hover:text-ocean-accent bg-emerald-500/10 px-2 py-0.5 rounded-full border border-ocean-accent/30 transition-all duration-[150ms] ease-nasa"
           >
             <RotateCcw className="w-2.5 h-2.5" />
             Auto
@@ -231,23 +231,23 @@ export const RightPanel: React.FC = () => {
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <span className="text-[9px] text-slate-400 font-mono">Min Bound</span>
+            <span className="text-[9px] text-ocean-muted font-mono">Min Bound</span>
             <input
               type="number"
               step="0.1"
               value={colorRange[0]}
               onChange={(e) => setColorRange([parseFloat(e.target.value) || 0, colorRange[1]])}
-              className="w-full bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-400"
+              className="w-full bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-ocean-text-secondary focus:outline-none focus:border-ocean-accent"
             />
           </div>
           <div>
-            <span className="text-[9px] text-slate-400 font-mono">Max Bound</span>
+            <span className="text-[9px] text-ocean-muted font-mono">Max Bound</span>
             <input
               type="number"
               step="0.1"
               value={colorRange[1]}
               onChange={(e) => setColorRange([colorRange[0], parseFloat(e.target.value) || 30])}
-              className="w-full bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-400"
+              className="w-full bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-ocean-text-secondary focus:outline-none focus:border-ocean-accent"
             />
           </div>
         </div>
@@ -257,7 +257,7 @@ export const RightPanel: React.FC = () => {
           <div className="relative pt-1">
             {hoverPct !== null && (
               <div
-                className="absolute top-0 w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[6px] border-t-white z-10 transition-all duration-75"
+                className="absolute top-0 w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[6px] border-t-white z-10 transition-all duration-[150ms] ease-nasa duration-75"
                 style={{ left: `calc(${hoverPct}% - 4px)` }}
               />
             )}
@@ -266,7 +266,7 @@ export const RightPanel: React.FC = () => {
               style={{ background: getGradientCss() }}
             />
           </div>
-          <div className="flex justify-between text-[8px] font-mono text-slate-400">
+          <div className="flex justify-between text-[8px] font-mono text-ocean-muted">
             {ticks.map((t, idx) => (
               <span key={idx}>{t.toFixed(1)}{idx === ticks.length - 1 ? ` ${varUnit}` : ''}</span>
             ))}
@@ -277,9 +277,9 @@ export const RightPanel: React.FC = () => {
       {/* 5. Sliders: Opacity & Vertical Exaggeration */}
       <div className="space-y-3">
         <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-300">
+          <div className="flex items-center justify-between text-xs text-ocean-text-secondary">
             <span className="font-medium text-[11px]">Layer Opacity</span>
-            <span className="font-mono text-[10px] text-emerald-400 font-bold">{Math.round(opacity * 100)}%</span>
+            <span className="font-mono text-[10px] text-ocean-accent font-bold">{Math.round(opacity * 100)}%</span>
           </div>
           <input
             type="range"
@@ -293,12 +293,12 @@ export const RightPanel: React.FC = () => {
         </div>
 
         <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-300">
+          <div className="flex items-center justify-between text-xs text-ocean-text-secondary">
             <span className="font-medium text-[11px] flex items-center gap-1">
-              <Maximize2 className="w-3 h-3 text-emerald-400" />
+              <Maximize2 className="w-3 h-3 text-ocean-accent" />
               Bathymetric Exaggeration
             </span>
-            <span className="font-mono text-[10px] text-emerald-400 font-bold">{verticalExaggeration.toFixed(1)}x</span>
+            <span className="font-mono text-[10px] text-ocean-accent font-bold">{verticalExaggeration.toFixed(1)}x</span>
           </div>
           <input
             type="range"
@@ -322,23 +322,23 @@ export const RightPanel: React.FC = () => {
               name: 'Indian Ocean Water Column'
             });
           }}
-          className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500/25 to-teal-500/25 hover:from-emerald-500/35 hover:to-teal-500/35 border border-emerald-400/40 text-emerald-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
+          className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500/25 to-teal-500/25 hover:from-emerald-500/35 hover:to-teal-500/35 border border-ocean-accent/40 text-ocean-accent hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-[150ms] ease-nasa shadow-md active:scale-[0.98]"
         >
-          <Box className="w-3.5 h-3.5 text-emerald-400" />
+          <Box className="w-3.5 h-3.5 text-ocean-accent" />
           <span>Inspect 3D Water Block Studio</span>
         </button>
 
         <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <Globe className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[11px] font-bold text-slate-200">NOAA Graticule Grid</span>
+            <Globe className="w-3.5 h-3.5 text-ocean-accent" />
+            <span className="text-[11px] font-bold text-ocean-text-secondary">NOAA Graticule Grid</span>
           </div>
           <button
             onClick={toggleGraticule}
-            className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full transition ${
+            className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full transition-all duration-[150ms] ease-nasa ${
               isGraticuleEnabled
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                : 'bg-white/5 text-slate-400'
+                ? 'bg-ocean-accent/20 text-ocean-accent border border-ocean-accent/40'
+                : 'bg-white/5 text-ocean-muted'
             }`}
           >
             {isGraticuleEnabled ? 'ENABLED' : 'MUTED'}
@@ -349,16 +349,16 @@ export const RightPanel: React.FC = () => {
       {/* 7. Ocean Currents Dynamics Controls (When Currents Active) */}
       {activeLayers.includes('currents') && (
         <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-2.5">
-          <div className="flex items-center justify-between text-xs text-slate-300">
+          <div className="flex items-center justify-between text-xs text-ocean-text-secondary">
             <div className="flex items-center gap-1.5">
-              <Wind className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-              <span className="text-[11px] font-bold text-slate-200">Currents Vectors ({depthLevel === 0.5 ? '0m' : `${depthLevel}m`})</span>
+              <Wind className="w-3.5 h-3.5 text-ocean-accent animate-pulse" />
+              <span className="text-[11px] font-bold text-ocean-text-secondary">Currents Vectors ({depthLevel === 0.5 ? '0m' : `${depthLevel}m`})</span>
             </div>
-            <span className="font-mono text-[10px] text-emerald-400 font-bold">{currentsSpeed.toFixed(1)}x speed</span>
+            <span className="font-mono text-[10px] text-ocean-accent font-bold">{currentsSpeed.toFixed(1)}x speed</span>
           </div>
 
           <div className="space-y-1">
-            <div className="flex justify-between text-[9px] text-slate-400 font-mono">
+            <div className="flex justify-between text-[9px] text-ocean-muted font-mono">
               <span>Arrow Glyph Scale: {vectorArrowScale.toFixed(1)}x</span>
             </div>
             <input
@@ -373,7 +373,7 @@ export const RightPanel: React.FC = () => {
           </div>
 
           <div className="space-y-1">
-            <div className="flex justify-between text-[9px] text-slate-400 font-mono">
+            <div className="flex justify-between text-[9px] text-ocean-muted font-mono">
               <span>Flow Speed: {currentsSpeed.toFixed(1)}x</span>
             </div>
             <input
@@ -393,10 +393,10 @@ export const RightPanel: React.FC = () => {
       <div className="pt-2 border-t border-white/10 space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-emerald-400" />
+            <Layers className="w-3.5 h-3.5 text-ocean-accent" />
             Export &amp; GIS
           </span>
-          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-ocean-accent/20 text-ocean-accent border border-ocean-accent/30">
             CF-1.8 / OGC
           </span>
         </div>
@@ -404,20 +404,20 @@ export const RightPanel: React.FC = () => {
         <button
           onClick={handleExportNetCDF}
           disabled={isExporting}
-          className="w-full py-2 px-3 glass-pill text-emerald-300 hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50"
+          className="w-full py-2 px-3 glass-pill text-ocean-accent hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-[150ms] ease-nasa active:scale-[0.98] disabled:opacity-50"
         >
-          <Download className={`w-3.5 h-3.5 text-emerald-400 ${isExporting ? 'animate-bounce' : ''}`} />
+          <Download className={`w-3.5 h-3.5 text-ocean-accent ${isExporting ? 'animate-bounce' : ''}`} />
           <span>{isExporting ? 'Packaging NetCDF...' : `Download NetCDF-4 (${selectedVariable.slice(0, 4)}.nc)`}</span>
         </button>
 
         <div className="p-2 rounded-xl bg-black/50 border border-white/5 space-y-1">
-          <div className="flex items-center justify-between text-[10px] text-slate-400">
-            <span className="font-semibold text-slate-300">OGC WMS 1.3.0 Endpoint</span>
+          <div className="flex items-center justify-between text-[10px] text-ocean-muted">
+            <span className="font-semibold text-ocean-text-secondary">OGC WMS 1.3.0 Endpoint</span>
             <a
               href="/api/wms?SERVICE=WMS&REQUEST=GetCapabilities"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-emerald-400 hover:underline flex items-center gap-0.5"
+              className="text-ocean-accent hover:underline flex items-center gap-0.5"
             >
               <span>Capabilities</span>
               <ExternalLink className="w-2.5 h-2.5" />
@@ -428,10 +428,10 @@ export const RightPanel: React.FC = () => {
               type="text"
               readOnly
               value={wmsUrl}
-              className="bg-transparent text-[9px] font-mono text-slate-300 flex-1 outline-none select-all"
+              className="bg-transparent text-[9px] font-mono text-ocean-text-secondary flex-1 outline-none select-all"
             />
-            <button onClick={handleCopyWms} className="p-1 hover:text-emerald-400">
-              {copiedWms ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+            <button onClick={handleCopyWms} className="p-1 hover:text-ocean-accent">
+              {copiedWms ? <Check className="w-3 h-3 text-ocean-accent" /> : <Copy className="w-3 h-3" />}
             </button>
           </div>
         </div>

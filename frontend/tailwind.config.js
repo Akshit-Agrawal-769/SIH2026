@@ -6,6 +6,10 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        mono: ['"Fira Code"', 'monospace'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -41,18 +45,30 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         ocean: {
-          dark: '#0b0f17',
-          panel: 'rgba(20, 25, 35, 0.6)',
-          glass: 'rgba(20, 25, 35, 0.6)',
-          border: 'rgba(255, 255, 255, 0.1)',
-          accent: '#22c55e',
-          cyan: '#00e5ff',
-          muted: '#94a3b8',
-          glow: 'rgba(34, 197, 94, 0.25)'
+          bg: '#090b0d',
+          'bg-secondary': '#101316',
+          panel: 'rgba(18, 21, 22, 0.94)',
+          solid: '#15191b',
+          elevated: '#1b2022',
+          border: 'rgba(255, 255, 255, 0.10)',
+          'border-strong': 'rgba(255, 255, 255, 0.16)',
+          text: '#f5f5f0',
+          'text-secondary': '#c4c7c5',
+          muted: '#858b89',
+          accent: '#14b8a6',
+          'accent-hover': '#2dd4bf',
+          'accent-active': '#0f766e',
+          success: '#22c55e',
+          warning: '#f59e0b',
+          error: '#ef4444'
         }
       },
       fontFamily: {
         mono: ['SF Mono', 'Roboto Mono', 'Fira Code', 'monospace']
+      },
+      transitionTimingFunction: {
+        'nasa': 'cubic-bezier(0, 0.2, 0, 1)',
+        'nasa-slow': 'cubic-bezier(0.2, 0.8, 0.2, 1)',
       }
     },
   },

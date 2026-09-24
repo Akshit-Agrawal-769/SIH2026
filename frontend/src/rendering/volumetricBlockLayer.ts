@@ -122,12 +122,12 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
     }
 
     // Outer cyber border
-    ctx.strokeStyle = 'rgba(0, 229, 255, 0.8)';
+    ctx.strokeStyle = 'rgba(20, 184, 166, 0.8)';
     ctx.lineWidth = 3;
     ctx.strokeRect(0, 0, w, h);
 
     // Variable & range indicator in top-right corner
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.95)';
+    ctx.fillStyle = 'rgba(20, 184, 166, 0.95)';
     ctx.font = 'bold 11px monospace';
     ctx.fillText(`${variable.toUpperCase()} [${range[0].toFixed(1)} - ${range[1].toFixed(1)}]`, w - 210, 16);
   }
@@ -189,7 +189,7 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
           repeat: new Cesium.Cartesian2(4.0, 1.0)
         }),
         outline: true,
-        outlineColor: Cesium.Color.fromCssColorString('rgba(0, 229, 255, 0.85)'),
+        outlineColor: Cesium.Color.fromCssColorString('rgba(20, 184, 166, 0.85)'),
         outlineWidth: 2
       }
     });
@@ -204,7 +204,7 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
         height: -maxVisualHeight,
         material: Cesium.Color.fromCssColorString('rgba(6, 12, 26, 0.88)'),
         outline: true,
-        outlineColor: Cesium.Color.fromCssColorString('rgba(0, 229, 255, 0.9)'),
+        outlineColor: Cesium.Color.fromCssColorString('rgba(20, 184, 166, 0.9)'),
         outlineWidth: 2
       }
     });
@@ -212,7 +212,7 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
 
     // 3. Add 5 Static Suspended 3D Stratification Planes
     const stratificationDepths = [
-      { depth: 50.0, label: '-50m Euphotic Zone', color: 'rgba(0, 229, 255, 0.12)' },
+      { depth: 50.0, label: '-50m Euphotic Zone', color: 'rgba(20, 184, 166, 0.12)' },
       { depth: 150.0, label: '-150m Thermocline Core', color: 'rgba(57, 255, 20, 0.14)' },
       { depth: 500.0, label: '-500m Intermediate Water', color: 'rgba(147, 51, 234, 0.15)' },
       { depth: 1000.0, label: '-1000m Deep Ocean', color: 'rgba(59, 130, 246, 0.18)' },
@@ -229,7 +229,7 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
           height: planeVisualZ,
           material: Cesium.Color.fromCssColorString(plane.color),
           outline: true,
-          outlineColor: Cesium.Color.fromCssColorString('rgba(0, 229, 255, 0.4)'),
+          outlineColor: Cesium.Color.fromCssColorString('rgba(20, 184, 166, 0.4)'),
           outlineWidth: 1.5
         }
       });
@@ -245,9 +245,9 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
       rectangle: {
         coordinates: Cesium.Rectangle.fromDegrees(WEST, SOUTH, EAST, NORTH),
         height: activeVisualZ,
-        material: Cesium.Color.fromCssColorString('rgba(0, 229, 255, 0.35)'),
+        material: Cesium.Color.fromCssColorString('rgba(20, 184, 166, 0.35)'),
         outline: true,
-        outlineColor: Cesium.Color.fromCssColorString('#00e5ff'),
+        outlineColor: Cesium.Color.fromCssColorString('#14b8a6'),
         outlineWidth: 3
       }
     });
@@ -266,7 +266,7 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
           WEST, SOUTH, activeVisualZ
         ]),
         width: 3,
-        material: Cesium.Color.fromCssColorString('#00e5ff')
+        material: Cesium.Color.fromCssColorString('#14b8a6')
       }
     });
     entities.push(activeWireframeEntity);
@@ -279,7 +279,7 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
         text: ` ACTIVE SCAN DEPTH: ${currentDepth === 0.5 ? 'Surface (0m)' : `${currentDepth}m`} `,
         font: 'bold 12px monospace',
         style: Cesium.LabelStyle.FILL,
-        fillColor: Cesium.Color.fromCssColorString('#00E5FF'),
+        fillColor: Cesium.Color.fromCssColorString('#14b8a6'),
         showBackground: true,
         backgroundColor: Cesium.Color.fromCssColorString('rgba(2, 11, 24, 0.92)'),
         backgroundPadding: new Cesium.Cartesian2(8, 5),
@@ -308,7 +308,7 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
           ],
           width: 3,
           material: new Cesium.PolylineDashMaterialProperty({
-            color: Cesium.Color.fromCssColorString('#00e5ff'),
+            color: Cesium.Color.fromCssColorString('#14b8a6'),
             dashLength: 16.0
           })
         }

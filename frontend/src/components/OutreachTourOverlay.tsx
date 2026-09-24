@@ -135,7 +135,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
                     Public Outreach Mode
                   </span>
                 </div>
-                <p className="text-xs text-slate-300 mt-0.5">
+                <p className="text-xs text-ocean-text-secondary mt-0.5">
                   Select an interactive guided narrative to explore real oceanographic phenomena with dynamic 3D camera choreography.
                 </p>
               </div>
@@ -143,7 +143,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
 
             <button
               onClick={() => setMode('operational')}
-              className="px-3 py-1.5 rounded-full glass-pill border border-white/10 text-xs text-slate-300 hover:text-white transition flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-full glass-pill border border-white/10 text-xs text-ocean-text-secondary hover:text-white transition flex items-center gap-1.5"
             >
               <Layers className="w-3.5 h-3.5 text-emerald-400" />
               <span>Return to Operational</span>
@@ -160,7 +160,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
+                    <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-white/5 text-ocean-text-secondary border border-white/10">
                       {tour.category}
                     </span>
                     <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
@@ -171,7 +171,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
                   <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors leading-snug mb-1">
                     {tour.title}
                   </h3>
-                  <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed mb-3">
+                  <p className="text-[11px] text-ocean-muted line-clamp-2 leading-relaxed mb-3">
                     {tour.summary}
                   </p>
                 </div>
@@ -219,14 +219,14 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
                       ? 'w-6 bg-emerald-400'
                       : idx < currentStepIndex
                       ? 'w-2.5 bg-emerald-700'
-                      : 'w-2 bg-slate-700'
+                      : 'w-2 bg-neutral-700'
                   }`}
                   title={`Jump to Step ${idx + 1}`}
                 />
               ))}
             </div>
 
-            <span className="text-[11px] font-mono text-slate-400">
+            <span className="text-[11px] font-mono text-ocean-muted">
               {currentStepIndex + 1} / {activeTour.steps.length}
             </span>
 
@@ -234,7 +234,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
             <button
               onClick={handleExitTour}
               title="Close Tour"
-              className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition"
+              className="p-1 rounded-lg hover:bg-white/10 text-ocean-muted hover:text-white transition"
             >
               <X className="w-4 h-4" />
             </button>
@@ -247,12 +247,12 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
             <h3 className="text-base font-black text-white tracking-tight">
               {step.title}
             </h3>
-            <span className="text-xs text-slate-400 font-medium">
+            <span className="text-xs text-ocean-muted font-medium">
               — {step.subtitle}
             </span>
           </div>
 
-          <p className="text-xs text-slate-200 leading-relaxed font-sans mb-3.5">
+          <p className="text-xs text-ocean-text-secondary leading-relaxed font-sans mb-3.5">
             {step.narrative}
           </p>
 
@@ -278,8 +278,8 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
               disabled={currentStepIndex === 0}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition ${
                 currentStepIndex === 0
-                  ? 'opacity-40 cursor-not-allowed border-transparent text-slate-600'
-                  : 'glass-pill border border-white/10 hover:border-emerald-400 text-slate-300 hover:text-white'
+                  ? 'opacity-40 cursor-not-allowed border-transparent text-neutral-600'
+                  : 'glass-pill border border-white/10 hover:border-emerald-400 text-ocean-text-secondary hover:text-white'
               }`}
             >
               <ChevronLeft className="w-4 h-4" />
@@ -292,7 +292,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
               className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition ${
                 isAutoAdvancing
                   ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
-                  : 'glass-pill border border-white/10 text-slate-400 hover:text-white'
+                  : 'glass-pill border border-white/10 text-ocean-muted hover:text-white'
               }`}
             >
               {isAutoAdvancing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -302,7 +302,7 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
 
           <button
             onClick={handleNextStep}
-            className="px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center gap-1.5 active:scale-95"
+            className="px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center gap-1.5 active:scale-95"
           >
             <span>{isLastStep ? 'Complete Tour' : 'Next Chapter'}</span>
             <ChevronRight className="w-4 h-4" />

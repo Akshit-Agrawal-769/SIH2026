@@ -51,8 +51,8 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
 
   if (loading) {
     return (
-      <div className="h-72 flex flex-col items-center justify-center gap-3 text-slate-400">
-        <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+      <div className="h-72 flex flex-col items-center justify-center gap-3 text-ocean-muted">
+        <div className="w-8 h-8 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
         <p className="text-xs font-mono">Calculating authentic Z-score against basin baseline...</p>
       </div>
     );
@@ -62,8 +62,8 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
     return (
       <div className="h-72 flex flex-col items-center justify-center gap-2 p-6 text-center border border-dashed border-ocean-border rounded-xl">
         <AlertCircle className="w-8 h-8 text-amber-400" />
-        <h4 className="text-sm font-semibold text-slate-200">No Anomaly Baseline Available</h4>
-        <p className="text-xs text-slate-400 max-w-md">
+        <h4 className="text-sm font-semibold text-ocean-text-secondary">No Anomaly Baseline Available</h4>
+        <p className="text-xs text-ocean-muted max-w-md">
           {data?.reason || error || 'Point is on land or outside active model domain.'}
         </p>
       </div>
@@ -81,7 +81,7 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
   return (
     <div className="space-y-4">
       {/* Hero Z-score Card */}
-      <div className="bg-ocean-dark/70 border border-ocean-border rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-5">
+      <div className="bg-ocean-bg/70 border border-ocean-border rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-5">
         <div className="flex items-center gap-4">
           <div
             className={`p-3.5 rounded-2xl border ${
@@ -101,7 +101,7 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
 
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">
+              <span className="text-xs font-mono text-ocean-muted uppercase tracking-wider">
                 Statistical Z-Score
               </span>
               <span
@@ -128,35 +128,35 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
               >
                 {z > 0 ? `+${z.toFixed(2)}` : z.toFixed(2)}σ
               </span>
-              <span className="text-xs font-normal text-slate-400">
+              <span className="text-xs font-normal text-ocean-muted">
                 standard deviations
               </span>
             </div>
-            <p className="text-xs text-slate-300 mt-1">{data.description}</p>
+            <p className="text-xs text-ocean-text-secondary mt-1">{data.description}</p>
           </div>
         </div>
 
         {/* Value vs Baseline Display */}
-        <div className="bg-ocean-dark/90 border border-ocean-border/80 rounded-xl p-3 text-xs w-full sm:w-56 space-y-1.5">
+        <div className="bg-ocean-bg/90 border border-ocean-border/80 rounded-xl p-3 text-xs w-full sm:w-56 space-y-1.5">
           <div className="flex justify-between items-center">
-            <span className="text-slate-400">Sample Value:</span>
+            <span className="text-ocean-muted">Sample Value:</span>
             <span className="font-mono font-bold text-white">
               {data.value} {units}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-slate-400">Basin Mean (μ):</span>
-            <span className="font-mono text-cyan-300">
+            <span className="text-ocean-muted">Basin Mean (μ):</span>
+            <span className="font-mono text-teal-300">
               {data.baseline_mean} {units}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-slate-400">Basin Std (σ):</span>
-            <span className="font-mono text-slate-300">
+            <span className="text-ocean-muted">Basin Std (σ):</span>
+            <span className="font-mono text-ocean-text-secondary">
               {data.baseline_std} {units}
             </span>
           </div>
-          <div className="border-t border-ocean-border/60 pt-1 flex justify-between items-center text-[10px] text-slate-500">
+          <div className="border-t border-ocean-border/60 pt-1 flex justify-between items-center text-[10px] text-neutral-500">
             <span>Baseline Samples (N):</span>
             <span className="font-mono">{data.baseline_samples?.toLocaleString()} cells</span>
           </div>
@@ -164,28 +164,28 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
       </div>
 
       {/* Visual Normal Distribution Scale Bar */}
-      <div className="bg-ocean-dark/60 border border-ocean-border rounded-xl p-4 space-y-3">
-        <div className="flex justify-between items-center text-xs text-slate-400">
+      <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-4 space-y-3">
+        <div className="flex justify-between items-center text-xs text-ocean-muted">
           <span>Standard Deviation Distribution (-3σ to +3σ)</span>
-          <span className="font-mono text-[11px] text-cyan-400">Current: {z.toFixed(2)}σ</span>
+          <span className="font-mono text-[11px] text-teal-400">Current: {z.toFixed(2)}σ</span>
         </div>
 
         {/* Gradient Bar with Marker */}
-        <div className="relative w-full h-4 rounded-full bg-gradient-to-r from-blue-600 via-emerald-500 to-rose-600 overflow-visible">
+        <div className="relative w-full h-4 rounded-full bg-gradient-to-r from-teal-600 via-emerald-500 to-rose-600 overflow-visible">
           {/* Center Zero Line */}
           <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-white/80" />
 
           {/* Current Position Marker */}
           <div
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-white shadow-lg border-2 border-slate-900 flex items-center justify-center transition-all duration-300"
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-white shadow-lg border-2 border-ocean-solid flex items-center justify-center transition-all duration-300"
             style={{ left: `${pointerPercent}%` }}
           >
-            <div className="w-2 h-2 rounded-full bg-cyan-500" />
+            <div className="w-2 h-2 rounded-full bg-teal-500" />
           </div>
         </div>
 
         {/* Scale Ticks */}
-        <div className="flex justify-between text-[10px] font-mono text-slate-400 px-0.5">
+        <div className="flex justify-between text-[10px] font-mono text-ocean-muted px-0.5">
           <span>-3σ (Extreme Cold/Low)</span>
           <span>-2σ</span>
           <span>-1σ</span>
@@ -197,18 +197,18 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
       </div>
 
       {/* Scientific Methodology Context */}
-      <div className="bg-ocean-dark/40 border border-ocean-border/60 rounded-xl p-3.5 text-xs text-slate-300 space-y-1 leading-relaxed">
-        <div className="font-semibold text-slate-200 flex items-center gap-1.5">
-          <Activity className="w-3.5 h-3.5 text-cyan-400" />
+      <div className="bg-ocean-bg/40 border border-ocean-border/60 rounded-xl p-3.5 text-xs text-ocean-text-secondary space-y-1 leading-relaxed">
+        <div className="font-semibold text-ocean-text-secondary flex items-center gap-1.5">
+          <Activity className="w-3.5 h-3.5 text-teal-400" />
           <span>Scientific Z-Score Formulation:</span>
         </div>
-        <p className="text-[11px] text-slate-400">
+        <p className="text-[11px] text-ocean-muted">
           The standardized anomaly is calculated dynamically as{' '}
-          <code className="px-1 py-0.5 bg-ocean-dark rounded text-cyan-300 font-mono">
+          <code className="px-1 py-0.5 bg-ocean-bg rounded text-teal-300 font-mono">
             z = (x - μ) / σ
           </code>
-          , where <span className="text-slate-200">x</span> is the model value at {lat.toFixed(2)}°N, {lon.toFixed(2)}°E at depth {depth}m, and{' '}
-          <span className="text-slate-200">μ</span> and <span className="text-slate-200">σ</span> are the spatial mean and standard deviation computed across all authentic oceanographic grid cells in the Indian Ocean basin for this depth layer.
+          , where <span className="text-ocean-text-secondary">x</span> is the model value at {lat.toFixed(2)}°N, {lon.toFixed(2)}°E at depth {depth}m, and{' '}
+          <span className="text-ocean-text-secondary">μ</span> and <span className="text-ocean-text-secondary">σ</span> are the spatial mean and standard deviation computed across all authentic oceanographic grid cells in the Indian Ocean basin for this depth layer.
         </p>
       </div>
     </div>

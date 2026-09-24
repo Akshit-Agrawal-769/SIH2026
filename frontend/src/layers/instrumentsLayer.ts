@@ -35,7 +35,7 @@ export async function createInstrumentsLayer(
       const isMoored = type === 'moored_buoy';
 
       let labelBadge = '';
-      let labelColor = '#00E5FF';
+      let labelColor = '#ffffff';
       if (isArgo) {
         labelBadge = `ARGO • #${meta.wmo || extId.replace('INCOIS_ARGO_', '')}`;
         labelColor = '#FFD54F';
@@ -47,7 +47,7 @@ export async function createInstrumentsLayer(
         labelColor = '#69F0AE';
       } else {
         labelBadge = `${type.toUpperCase()} • ${extId}`;
-        labelColor = '#00E5FF';
+        labelColor = '#ffffff';
       }
 
       const iconUrl = getPlatformMarkerIconUrl(type, false);

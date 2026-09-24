@@ -93,7 +93,7 @@ export const ScientificInterpretation: React.FC<ScientificInterpretationProps> =
           <h5 className="font-semibold text-emerald-300">
             Deterministic Scientific Interpretation
           </h5>
-          <p className="text-slate-300 text-[11px] mt-0.5 leading-relaxed">
+          <p className="text-ocean-text-secondary text-[11px] mt-0.5 leading-relaxed">
             Rule-based, evidence-grounded oceanographic heuristics. All conclusions are derived strictly from authentic hydrodynamic equations and physical observations. Absolutely zero generative AI or statistical hallucinations.
           </p>
         </div>
@@ -102,45 +102,45 @@ export const ScientificInterpretation: React.FC<ScientificInterpretationProps> =
       {/* Synthesis Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
         {/* Geographic & Water Mass Context */}
-        <div className="bg-ocean-dark/60 border border-ocean-border rounded-xl p-4 space-y-2">
-          <div className="font-semibold text-slate-200 flex items-center gap-1.5">
-            <Compass className="w-4 h-4 text-cyan-400" />
+        <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-4 space-y-2">
+          <div className="font-semibold text-ocean-text-secondary flex items-center gap-1.5">
+            <Compass className="w-4 h-4 text-teal-400" />
             <span>Regional Water Mass Domain: {basinName}</span>
           </div>
-          <p className="text-slate-400 text-[11px] leading-relaxed">
+          <p className="text-ocean-muted text-[11px] leading-relaxed">
             Positioned at {lat.toFixed(2)}°N, {lon.toFixed(2)}°E at depth {depth}m evaluating {variable.toUpperCase()} ({units}). In this sector of the {basinName}, regional hydrodynamics are strongly modulated by seasonal monsoon wind reversals, freshwater river discharge plumes, and mesoscale eddy circulation.
           </p>
         </div>
 
         {/* Stratification & Pycnocline */}
-        <div className="bg-ocean-dark/60 border border-ocean-border rounded-xl p-4 space-y-2">
-          <div className="font-semibold text-slate-200 flex items-center gap-1.5">
-            <Layers className="w-4 h-4 text-indigo-400" />
+        <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-4 space-y-2">
+          <div className="font-semibold text-ocean-text-secondary flex items-center gap-1.5">
+            <Layers className="w-4 h-4 text-teal-400" />
             <span>Water Column Stratification</span>
           </div>
-          <p className="text-slate-400 text-[11px] leading-relaxed">
+          <p className="text-ocean-muted text-[11px] leading-relaxed">
             {mldDesc}
           </p>
         </div>
 
         {/* Thermocline Gradient */}
-        <div className="bg-ocean-dark/60 border border-ocean-border rounded-xl p-4 space-y-2">
-          <div className="font-semibold text-slate-200 flex items-center gap-1.5">
+        <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-4 space-y-2">
+          <div className="font-semibold text-ocean-text-secondary flex items-center gap-1.5">
             <Thermometer className="w-4 h-4 text-amber-400" />
             <span>Thermocline &amp; Diapycnal Barrier</span>
           </div>
-          <p className="text-slate-400 text-[11px] leading-relaxed">
+          <p className="text-ocean-muted text-[11px] leading-relaxed">
             {thermoDesc}
           </p>
         </div>
 
         {/* Anomaly & Trend Departure */}
-        <div className="bg-ocean-dark/60 border border-ocean-border rounded-xl p-4 space-y-2">
-          <div className="font-semibold text-slate-200 flex items-center gap-1.5">
+        <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-4 space-y-2">
+          <div className="font-semibold text-ocean-text-secondary flex items-center gap-1.5">
             <AlertTriangle className="w-4 h-4 text-rose-400" />
             <span>Statistical Anomaly &amp; Trend Assessment</span>
           </div>
-          <p className="text-slate-400 text-[11px] leading-relaxed">
+          <p className="text-ocean-muted text-[11px] leading-relaxed">
             {anomalyDesc} {trendDesc}
           </p>
         </div>
