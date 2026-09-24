@@ -4,15 +4,9 @@ A web-based, browser-native 3D interactive ocean visualization platform ("Digita
 
 Developed for the **Smart India Hackathon 2026 (SIH 2026)**.
 
-> 🌐 **Live Production Link:** 
+> **Live Production Link:** 
  Main Website:
- https://incois-ocean-3d.vercel.app
-
-⚙️ Backend Links:
-Interactive FastAPI Swagger Docs: https://incois-ocean-3d.vercel.app/docs
-Live Backend Health API: https://incois-ocean-3d.vercel.app/api/health
-Real Instruments API: https://incois-ocean-3d.vercel.app/api/instruments
----
+https://sih-zeta-gilt.vercel.app
 
 ## 1. Project Information
 
@@ -22,7 +16,7 @@ Real Instruments API: https://incois-ocean-3d.vercel.app/api/instruments
 - **Organization:** Ministry of Earth Sciences (MoES) — Indian National Centre for Ocean Information Services (INCOIS)
 - **Category:** Software
 - **Theme:** Disaster Management / Smart Ocean & Climate
-- **Team Name:** Null Pointers
+- **Team Name:** W.A.V.E
 - **Team Members:**
   - Akshit Agrawal (Team Leader)
   - Aveeral Jain

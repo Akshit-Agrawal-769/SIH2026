@@ -62,6 +62,10 @@ export interface OceanState {
   hoveredOceanInfo: HoveredOceanInfo | null;
   setHoveredOceanInfo: (info: HoveredOceanInfo | null) => void;
 
+  // Live hovered historical cyclone marker
+  hoveredCyclone: HoveredCycloneInfo | null;
+  setHoveredCyclone: (info: HoveredCycloneInfo | null) => void;
+
   // Panel visibility toggles for unobstructed full-globe view
   showLeftPanel: boolean;
   setShowLeftPanel: (show: boolean) => void;
@@ -124,6 +128,17 @@ export interface HoveredOceanInfo {
   screenY: number;
   currentSpeed?: number;
   currentHeading?: number;
+}
+
+export interface HoveredCycloneInfo {
+  name: string;
+  location: string;
+  lat: number;
+  lon: number;
+  date: string;
+  intensity: string;
+  screenX: number;
+  screenY: number;
 }
 
 export const useOceanStore = create<OceanState>((set) => ({
@@ -251,6 +266,9 @@ export const useOceanStore = create<OceanState>((set) => ({
 
   hoveredOceanInfo: null,
   setHoveredOceanInfo: (hoveredOceanInfo) => set({ hoveredOceanInfo }),
+
+  hoveredCyclone: null,
+  setHoveredCyclone: (hoveredCyclone) => set({ hoveredCyclone }),
 
   showLeftPanel: true,
   setShowLeftPanel: (showLeftPanel) => set({ showLeftPanel }),

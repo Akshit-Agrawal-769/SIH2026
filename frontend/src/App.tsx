@@ -7,6 +7,7 @@ import { RightPanel } from './components/RightPanel';
 import { BottomBar } from './components/BottomBar';
 import { ColorbarLegend } from './components/ColorbarLegend';
 import { OceanHoverHUD } from './components/OceanHoverHUD';
+import { CycloneHoverTooltip } from './components/CycloneHoverTooltip';
 import { OutreachTourOverlay } from './components/OutreachTourOverlay';
 import { GlobeClickWaterBlockCallout } from './components/GlobeClickWaterBlockCallout';
 import { useOceanStore } from './store/useOceanStore';
@@ -124,6 +125,9 @@ export const App: React.FC = () => {
           </Suspense>
         </>
       )}
+
+      {/* Real-time Cyclone Marker Hover Tooltip Popup */}
+      <CycloneHoverTooltip />
     </main>
   );
 };

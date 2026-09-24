@@ -9,6 +9,7 @@ import { createDepthSliceLayer, DepthSliceLayerManager } from '../rendering/dept
 import { createCurrentsLayer, CurrentsLayerManager, computeOceanVelocity } from '../layers/currentsLayer';
 import { createVolumetricBlockLayer, VolumetricBlockManager } from '../rendering/volumetricBlockLayer';
 import { createGraticuleLayer, GraticuleLayerManager } from '../rendering/graticuleLayer';
+import { createCyclonesLayer, CyclonesLayerManager } from '../layers/cyclonesLayer';
 
 interface CesiumViewerProps {
   onViewerReady?: (viewer: Cesium.Viewer) => void;
@@ -23,6 +24,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
   const currentsManagerRef = useRef<CurrentsLayerManager | null>(null);
   const volumetricBlockManagerRef = useRef<VolumetricBlockManager | null>(null);
   const graticuleManagerRef = useRef<GraticuleLayerManager | null>(null);
+  const cyclonesManagerRef = useRef<CyclonesLayerManager | null>(null);
 
   const {
     activeLayers,
@@ -149,6 +151,15 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       manager.updateVisibility(useOceanStore.getState().activeLayers);
     });
 
+    // 2b. Initialize Historical Cyclone Markers Layer (Bay of Bengal & Arabian Sea)
+    const cyclonesManager = createCyclonesLayer(viewer, (hoveredInfo) => {
+      useOceanStore.getState().setHoveredCyclone(hoveredInfo);
+      if (hoveredInfo) {
+        useOceanStore.getState().setHoveredOceanInfo(null);
+      }
+    });
+    cyclonesManagerRef.current = cyclonesManager;
+
     // 3. Initialize Ocean Model Depth-Slice Layer
     createDepthSliceLayer(viewer).then((manager) => {
       depthSliceManagerRef.current = manager;
@@ -167,6 +178,9 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     // 4. Sample Ocean Model Field on Mouse Move for real-time Hover HUD readout
     const hoverHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
     hoverHandler.setInputAction((movement: { endPosition: Cesium.Cartesian2 }) => {
+      if (useOceanStore.getState().hoveredCyclone) {
+        return;
+      }
       if (!depthSliceManagerRef.current) return;
 
       const ray = viewer.camera.getPickRay(movement.endPosition);
@@ -303,6 +317,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       window.removeEventListener('fly-to-ocean-block', handleFlyToBlock);
       removeMoveEndListener();
       hoverHandler.destroy();
+      cyclonesManagerRef.current?.destroy();
       instrumentsManagerRef.current?.destroy();
       depthSliceManagerRef.current?.destroy();
       currentsManagerRef.current?.destroy();
