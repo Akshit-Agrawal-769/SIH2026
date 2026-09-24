@@ -13,8 +13,8 @@ DIST_DATA_DIR = os.path.join(BASE_DIR, "..", "frontend", "dist", "api")
 TILE_SEARCH_DIRS = [
     os.path.join(BASE_DIR, "tiles"),
     os.path.join(BASE_DIR, "..", "frontend", "public", "tiles"),
-    os.path.join(BASE_DIR, "..", "api", "tiles"),
-    os.path.join(BASE_DIR, "..", "tiles"),
+    os.path.join(BASE_DIR, "..", "..", "api", "tiles"),
+    os.path.join(BASE_DIR, "..", "..", "tiles"),
     os.path.join(BASE_DIR, "..", "frontend", "dist", "tiles")
 ]
 
@@ -22,7 +22,7 @@ PROFILE_SEARCH_DIRS = [
     os.path.join(DATA_DIR, "profiles"),
     os.path.join(PUBLIC_DATA_DIR, "profiles"),
     os.path.join(DIST_DATA_DIR, "profiles"),
-    os.path.join(BASE_DIR, "..", "api", "data", "profiles"),
+    os.path.join(BASE_DIR, "..", "..", "api", "data", "profiles"),
     os.path.join(BASE_DIR, "..", "frontend", "public", "data", "profiles")
 ]
 
@@ -555,4 +555,5 @@ def compute_vertical_profile_analysis(lat: float, lon: float, variable: str = "t
         "max_gradient": round(float(max_gradient), 4),
         "gradient_unit": f"{units_map.get(variable, '')}/m"
     }
+
 

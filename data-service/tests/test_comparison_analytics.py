@@ -15,6 +15,11 @@ import app.analytics_engine as ae
 from app.main import app
 from fastapi.testclient import TestClient
 
+def has_real_data():
+    return os.path.exists(os.path.join(repo_root, "tiles", "temperature", "2024-06-03", "10.0.bin"))
+
+pytestmark = pytest.mark.skipif(not has_real_data(), reason="Requires real ocean data tiles not present in CI")
+
 client = TestClient(app)
 
 def test_model_vs_obs_collocation_real_float():
@@ -151,5 +156,6 @@ def test_fastapi_endpoints_end_to_end():
     r5 = client.get("/api/analytics/profile?lat=13.691&lon=88.074&variable=temperature")
     assert r5.status_code == 200
     assert r5.json()["available"] is True
+
 
 
