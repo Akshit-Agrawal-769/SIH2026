@@ -2,7 +2,9 @@
 
 ## 1. System Overview
 
-The INCOIS 3D Ocean Data Visualization Platform is an enterprise-grade, browser-native digital twin of the ocean water column over the Indian Ocean and Exclusive Economic Zone (EEZ). It co-visualizes 4D numerical ocean model fields (temperature, salinity, currents, chlorophyll) and real-time/delayed in-situ observation platforms (Argo floats, gliders, CTDs, BGC sensors).
+The platform visualises INCOIS Bio-ROMS surface fields (SST, SSS, chlorophyll-a, MLD; monthly), CMEMS ARMOR3D surface geostrophic currents and QC-filtered Argo profiles over the Indian Ocean. All served artefacts are produced by `scripts/build_authentic_dataset.py` and listed in `frontend/public/api/catalog.json`; see METHODOLOGY.md for the implemented methods and their limitations (no subsurface gridded data).
+
+> The diagram below is the target deployment topology. PostGIS, Redis and MinIO are optional in the current code: the API serves the catalog directly when they are absent.
 
 ```
                                    ┌─────────────────────────────┐

@@ -13,6 +13,7 @@ interface AnomalyTabProps {
   lon: number;
   depth: number;
   units: string;
+  date?: string;
 }
 
 export const AnomalyTab: React.FC<AnomalyTabProps> = ({
@@ -20,7 +21,8 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
   lat,
   lon,
   depth,
-  units
+  units,
+  date
 }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<AnomalyResponse | null>(null);
@@ -31,7 +33,7 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
     setLoading(true);
     setError(null);
 
-    fetchAnomalies(variable, lat, lon, depth)
+    fetchAnomalies(variable, lat, lon, depth, date)
       .then((res) => {
         if (!active) return;
         setData(res);
@@ -39,21 +41,20 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
       })
       .catch((err) => {
         if (!active) return;
-        console.error('[AnomalyTab] Fetch failed:', err);
-        setError('Failed to compute ocean anomalies.');
+                setError(err?.message || 'Failed to compute the spatial z-score.');
         setLoading(false);
       });
 
     return () => {
       active = false;
     };
-  }, [variable, lat, lon, depth]);
+  }, [variable, lat, lon, depth, date]);
 
   if (loading) {
     return (
       <div className="h-72 flex flex-col items-center justify-center gap-3 text-ocean-muted">
         <div className="w-8 h-8 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs font-mono">Calculating authentic Z-score against basin baseline...</p>
+        <p className="text-xs font-mono">Computing spatial z-score against the same-day domain field…</p>
       </div>
     );
   }
@@ -145,13 +146,13 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-ocean-muted">Basin Mean (μ):</span>
+            <span className="text-ocean-muted">Domain mean (μ, same day):</span>
             <span className="font-mono text-teal-300">
               {data.baseline_mean} {units}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-ocean-muted">Basin Std (σ):</span>
+            <span className="text-ocean-muted">Domain std (σ, same day):</span>
             <span className="font-mono text-ocean-text-secondary">
               {data.baseline_std} {units}
             </span>
@@ -186,13 +187,13 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
 
         {/* Scale Ticks */}
         <div className="flex justify-between text-[10px] font-mono text-ocean-muted px-0.5">
-          <span>-3σ (Extreme Cold/Low)</span>
+          <span>-3σ (low)</span>
           <span>-2σ</span>
           <span>-1σ</span>
           <span className="font-bold text-white">0 (Mean)</span>
           <span>+1σ</span>
           <span>+2σ</span>
-          <span>+3σ (Extreme Warm/High)</span>
+          <span>+3σ (high)</span>
         </div>
       </div>
 
@@ -208,7 +209,7 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
             z = (x - μ) / σ
           </code>
           , where <span className="text-ocean-text-secondary">x</span> is the model value at {lat.toFixed(2)}°N, {lon.toFixed(2)}°E at depth {depth}m, and{' '}
-          <span className="text-ocean-text-secondary">μ</span> and <span className="text-ocean-text-secondary">σ</span> are the spatial mean and standard deviation computed across all authentic oceanographic grid cells in the Indian Ocean basin for this depth layer.
+          <span className="text-ocean-text-secondary">μ</span> and <span className="text-ocean-text-secondary">σ</span> are the mean and standard deviation of all valid ocean cells of the same field (same date and depth) over 35–100°E, 10°S–25°N. This is a spatial departure, not an anomaly relative to a climatology.
         </p>
       </div>
     </div>

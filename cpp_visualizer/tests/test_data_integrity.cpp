@@ -55,7 +55,7 @@ void test_cmems_real_integrity() {
 }
 
 void test_roms_real_integrity() {
-    std::string path = resolve_dataset_path("datasets/INCOIS-BIO-ROMS.nc");
+    std::string path = resolve_dataset_path("datasets/model/INCOIS-BIO-ROMS.nc");
     ocean::SurfaceBGCLoader roms(path);
     const auto& meta = roms.metadata();
 
@@ -121,7 +121,7 @@ void test_argo_real_integrity() {
 
 void test_pco2_pairing_policy() {
     auto cmems = std::make_shared<ocean::CMEMSLoader>(resolve_dataset_path("datasets/cmems.nc"));
-    auto roms = std::make_shared<ocean::SurfaceBGCLoader>(resolve_dataset_path("datasets/INCOIS-BIO-ROMS.nc"));
+    auto roms = std::make_shared<ocean::SurfaceBGCLoader>(resolve_dataset_path("datasets/model/INCOIS-BIO-ROMS.nc"));
     auto points = std::make_shared<ocean::PointCloudBuffer>();
 
     ocean::QueryInterface query(cmems, roms, points);

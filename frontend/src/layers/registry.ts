@@ -24,7 +24,6 @@ const registeredLayers = new Map<string, LayerDefinition>();
  */
 export function registerLayer(layer: LayerDefinition): void {
   registeredLayers.set(layer.id, layer);
-  console.log(`[LayerRegistry] Registered layer: ${layer.id} (${layer.category})`);
 }
 
 /**
@@ -57,95 +56,86 @@ export function getLayersByCategory(category: LayerCategory): LayerDefinition[] 
 
 // Register Built-in Default Layers
 const DEFAULT_LAYERS: LayerDefinition[] = [
-  // 1. Numerical Model Fields
+  // 1. Gridded fields (surface only in this release; see data catalog)
   {
     id: 'temperature',
-    name: 'Ocean Temperature (3D)',
+    name: 'Sea Surface Temperature',
     category: 'model_field',
-    description: 'Volumetric potential temperature across the full water column',
+    description: 'INCOIS Bio-ROMS (IBR) monthly surface temperature',
     units: '°C',
     defaultVisible: true,
-    color: '#ff4d4d',
-    badge: '3D Voxel',
+    color: '#ef4444',
+    badge: 'IBR · monthly',
     iconName: 'waves'
   },
   {
     id: 'salinity',
-    name: 'Ocean Salinity (3D)',
+    name: 'Sea Surface Salinity',
     category: 'model_field',
-    description: 'Volumetric practical salinity and halocline stratification',
+    description: 'INCOIS Bio-ROMS (IBR) monthly surface salinity',
     units: 'PSU',
     defaultVisible: false,
     color: '#14b8a6',
-    badge: '3D Voxel',
+    badge: 'IBR · monthly',
     iconName: 'droplets'
   },
   {
     id: 'chlorophyll',
-    name: 'Chlorophyll-a (BGC)',
+    name: 'Surface Chlorophyll-a',
     category: 'model_field',
-    description: 'Photic zone phytoplankton biomass and biological productivity',
+    description: 'INCOIS Bio-ROMS (IBR) monthly surface chlorophyll-a',
     units: 'mg/m³',
     defaultVisible: false,
-    color: '#2ecc71',
-    badge: 'BGC',
+    color: '#22c55e',
+    badge: 'IBR · BGC',
     iconName: 'activity'
   },
+  {
+    id: 'mld',
+    name: 'Mixed Layer Depth',
+    category: 'model_field',
+    description: 'INCOIS Bio-ROMS (IBR) model-diagnosed mixed layer depth',
+    units: 'm',
+    defaultVisible: false,
+    color: '#a3a3a3',
+    badge: 'IBR · monthly',
+    iconName: 'layers'
+  },
 
-  // 2. Hydrodynamic Current Vectors
+  // 2. Currents
   {
     id: 'currents',
-    name: 'Ocean Current Vectors',
+    name: 'Surface Geostrophic Currents',
     category: 'vector_field',
-    description: 'Real-time 60 FPS animated streamlines and flow velocity vectors',
+    description: 'CMEMS ARMOR3D surface geostrophic velocity, 2024-12-31 only',
     units: 'm/s',
-    defaultVisible: true,
-    color: '#a3e635',
-    badge: 'Flow 60FPS',
+    defaultVisible: false,
+    color: '#f59e0b',
+    badge: 'ARMOR3D · 1 date',
     iconName: 'wind'
   },
 
-  // 3. Autonomous In-Situ Observation Platforms
+  // 3. In-situ observations
   {
     id: 'argo',
     name: 'Argo Profiling Floats',
     category: 'observation',
-    description: 'Autonomous CTD profiling floats cycling between surface and 2000m',
+    description: 'Latest QC-filtered profile per float (Argo GDAC)',
     defaultVisible: true,
-    color: '#ffd700',
-    badge: 'CTD 2000m',
+    color: '#f59e0b',
+    badge: 'QC 1/2',
     iconName: 'radio'
-  },
-  {
-    id: 'glider',
-    name: 'Underwater Gliders',
-    category: 'observation',
-    description: 'Autonomous buoyancy-driven transect gliders with high-res sensors',
-    defaultVisible: true,
-    color: '#ff00ff',
-    badge: 'Sawtooth',
-    iconName: 'radio'
-  },
-  {
-    id: 'moored_buoy',
-    name: 'Moored MetOcean Buoys',
-    category: 'observation',
-    description: 'Deep-sea moored buoys measuring surface waves, winds, and thermistor chains',
-    defaultVisible: true,
-    color: '#00e676',
-    badge: 'OMNI Realtime',
-    iconName: 'anchor'
   },
 
-  // 4. Maritime Boundary
+  // 4. Maritime boundary
   {
     id: 'india_eez',
     name: 'India EEZ Boundary',
     category: 'boundary',
-    description: 'Exclusive Economic Zone maritime boundary (Arabian Sea, Bay of Bengal, Andaman Sea)',
+    description: 'Exclusive Economic Zone boundary',
     defaultVisible: true,
     color: '#14b8a6',
-    badge: 'Maritime Zone',
+    badge: 'Boundary',
     iconName: 'layers'
   }
 ];

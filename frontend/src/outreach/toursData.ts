@@ -16,6 +16,7 @@ export interface TourStep {
   variable: string;
   depth: number;
   activeLayers: string[];
+  /** A real catalog timestep (YYYY-MM-DD). */
   time?: string;
   isPlaying?: boolean;
   selectedInstrumentId?: string | null;
@@ -33,282 +34,210 @@ export interface ScienceTour {
   steps: TourStep[];
 }
 
+/*
+ * Every "in this data" statement below was checked against the served tiles
+ * (INCOIS Bio-ROMS 2019 monthly surface fields; CMEMS ARMOR3D 2024-12-31 surface
+ * geostrophic currents; Argo GDAC profiles). Box means are over the stated
+ * lat/lon boxes. General oceanography is labelled as background.
+ */
 export const SCIENCE_TOURS: ScienceTour[] = [
   {
-    id: 'monsoon-somali-jet',
-    title: 'The Great Southwest Monsoon & Somali Jet',
-    tagline: 'Witness planetary wind stress, cold coastal upwelling, and the Great Whirl',
+    id: 'monsoon-somali-upwelling',
+    title: 'Southwest Monsoon & Somali Upwelling (2019)',
+    tagline: 'A cool, chlorophyll-rich coastal signal off Somalia in the INCOIS Bio-ROMS fields',
     duration: '3 mins',
     difficulty: 'Beginner',
     category: 'Monsoon Dynamics',
     thumbnailColor: 'from-amber-500 to-red-600',
-    summary: 'Discover how the annual Indian Southwest Monsoon drives intense cross-equatorial ocean currents, spawns massive cold coastal upwelling off Somalia, and sheds planetary mesoscale eddies across the Arabian Sea.',
+    summary:
+      'Compare pre-monsoon (April) and monsoon (July) 2019 surface fields from the INCOIS Bio-ROMS model to see the Somali coastal upwelling signature in temperature and chlorophyll.',
     steps: [
       {
         id: 'monsoon-step-1',
         stepNumber: 1,
-        title: 'Planetary Monsoon Wind Stress Engine',
-        subtitle: 'Cross-Equatorial Atmospheric Gradient',
+        title: 'Pre-monsoon surface temperature',
+        subtitle: 'IBR sea surface temperature, 29 Apr 2019',
         narrative:
-          'Every summer from June through September, intense solar heating over the Indian subcontinent establishes a massive atmospheric pressure gradient. Strong southwesterly trade winds drag across the tropical ocean surface, driving one of the most powerful seasonal ocean circulation systems on planet Earth.',
+          'Background: before the southwest monsoon sets in, the northern Indian Ocean is at its warmest. In this model field the box 8–11°N, 51–54°E off Somalia averages about 29.9 °C, similar to the Bay of Bengal (about 30.1 °C at 12–16°N, 86–90°E).',
         keyInsights: [
-          'Reversal of equatorial wind stress across the basin',
-          'Primary moisture transport engine for South Asian agriculture',
-          'Fastest-accelerating seasonal boundary current in the global ocean'
+          'Somali coast box mean ≈ 29.9 °C (29 Apr 2019)',
+          'Bay of Bengal box mean ≈ 30.1 °C',
+          'Source: INCOIS Bio-ROMS monthly surface field'
         ],
-        camera: { lon: 72.0, lat: 6.0, height: 12500000, pitch: -85.0, heading: 0.0, duration: 2.5 },
+        camera: { lon: 66.0, lat: 10.0, height: 9000000, pitch: -85.0, heading: 0.0, duration: 2.5 },
         variable: 'temperature',
-        depth: 0.5,
-        activeLayers: ['temperature', 'currents'],
-        time: '2024-06-01',
-        isPlaying: false
+        depth: 0,
+        activeLayers: ['temperature', 'argo'],
+        time: '2019-04-29'
       },
       {
         id: 'monsoon-step-2',
         stepNumber: 2,
-        title: 'The Somali Cold Upwelling Wedge',
-        subtitle: 'Ekman Divergence along the Horn of Africa',
+        title: 'Monsoon cooling off Somalia',
+        subtitle: 'IBR sea surface temperature, 28 Jul 2019',
         narrative:
-          'Look at the coast of Somalia and Socotra. Intense monsoonal winds blowing parallel to the coastline push surface waters offshore via Ekman transport. This forces cold, nutrient-rich deep water (<21°C) to surge to the surface, creating an intense turquoise cold wedge that contrasts dramatically against the 30°C tropical warm pool.',
+          'Background: alongshore southwest monsoon winds drive offshore Ekman transport and coastal upwelling off Somalia and Oman. In this model field the Somali box has cooled to about 24.4 °C while the central Arabian Sea (12–16°N, 62–66°E) is about 28.4 °C — a contrast of roughly 4 °C.',
         keyInsights: [
-          'Offshore Ekman transport drives coastal divergence',
-          'Sea surface temperatures plunge by over 8°C in days',
-          'Nutrient upwelling triggers explosive primary biological productivity'
+          'Somali coast box mean ≈ 24.4 °C (28 Jul 2019)',
+          'Central Arabian Sea box mean ≈ 28.4 °C',
+          'Cooling relative to April ≈ 5.5 °C at the coast'
         ],
         camera: { lon: 54.0, lat: 11.0, height: 2600000, pitch: -65.0, heading: 30.0, duration: 2.8 },
         variable: 'temperature',
-        depth: 0.5,
-        activeLayers: ['temperature', 'currents'],
-        time: '2024-06-04',
-        isPlaying: false
+        depth: 0,
+        activeLayers: ['temperature', 'argo'],
+        time: '2019-07-28'
       },
       {
         id: 'monsoon-step-3',
         stepNumber: 3,
-        title: 'The Great Whirl & Streaming Vectors',
-        subtitle: 'Supersonic Ocean Jet (>2.2 m/s)',
+        title: 'Chlorophyll response',
+        subtitle: 'IBR surface chlorophyll-a, 28 Jul 2019',
         narrative:
-          'Observe the glowing vector arrows streaming northeastward! The western boundary Somali Current accelerates to over 2.2 m/s (over 8 km/h), feeding the famous "Great Whirl"—a gigantic clockwise anticyclonic eddy hundreds of kilometers wide that sheds rotating vortex rings into the central Arabian Sea.',
+          'Background: upwelled water carries nutrients to the sunlit surface, which supports phytoplankton growth. In the model the Somali box chlorophyll-a is about 1.2 mg/m³ in July, compared with about 0.08 mg/m³ in April. The colour scale is logarithmic.',
         keyInsights: [
-          'Current velocities exceed 2.2 m/s (4.3 knots)',
-          'Great Whirl diameter spans over 450 km across the Somali Basin',
-          'Rotational vortex rings advect heat and nutrients eastward'
+          'Somali box ≈ 1.2 mg/m³ (Jul) vs ≈ 0.08 mg/m³ (Apr)',
+          'Log colour scale: each colour band is a factor, not a step',
+          'Model output, not satellite ocean colour'
         ],
-        camera: { lon: 58.5, lat: 12.5, height: 2100000, pitch: -60.0, heading: 45.0, duration: 2.2 },
-        variable: 'currents',
-        depth: 0.5,
-        activeLayers: ['currents', 'temperature'],
-        time: '2024-06-05',
-        isPlaying: false
+        camera: { lon: 56.0, lat: 12.0, height: 3000000, pitch: -70.0, heading: 20.0, duration: 2.4 },
+        variable: 'chlorophyll',
+        depth: 0,
+        activeLayers: ['chlorophyll', 'argo'],
+        time: '2019-07-28'
       },
       {
         id: 'monsoon-step-4',
         stepNumber: 4,
-        title: '14-Day Monsoon Evolution & Advection',
-        subtitle: 'Westward Rossby Waves & Pulsating Surge',
+        title: 'Mixed layer deepening',
+        subtitle: 'IBR mixed layer depth, Apr → Aug 2019',
         narrative:
-          'Watch the 14-day simulation cycle actively unfold across June 1 to June 14. As monsoon wind stress pulses in weekly bursts, planetary Rossby waves carry mesoscale eddy vortex rings westward, while the cold upwelling plume billows out into the open ocean.',
+          'Stronger monsoon winds mix the upper ocean. In the model the central Arabian Sea mixed layer deepens from about 27 m (29 Apr) to about 69 m (27 Aug). Use the timeline to step month by month; only real model months are shown.',
         keyInsights: [
-          'Westward propagation of planetary Rossby waves (~0.6° lon/day)',
-          'Intra-seasonal monsoon wind bursts modulate upwelling intensity',
-          'Continuous energy transfer between wind, currents, and internal waves'
+          'Central Arabian Sea MLD ≈ 27 m (Apr) → ≈ 58 m (Jul) → ≈ 69 m (Aug)',
+          'Timeline steps only through real monthly timesteps',
+          'MLD here is the model’s own diagnostic'
         ],
-        camera: { lon: 66.0, lat: 13.5, height: 4200000, pitch: -70.0, heading: 10.0, duration: 2.5 },
-        variable: 'temperature',
-        depth: 0.5,
-        activeLayers: ['temperature', 'currents'],
-        time: '2024-06-01',
-        isPlaying: true
+        camera: { lon: 64.0, lat: 14.0, height: 4200000, pitch: -75.0, heading: 10.0, duration: 2.5 },
+        variable: 'mld',
+        depth: 0,
+        activeLayers: ['mld', 'argo'],
+        time: '2019-08-27'
       }
     ]
   },
   {
-    id: 'arabian-sea-salinity',
-    title: 'The Arabian Sea Salinity Furnace',
-    tagline: 'Extreme evaporation, hypersaline waters, and subterranean subduction',
-    duration: '2.5 mins',
-    difficulty: 'Intermediate',
+    id: 'salinity-contrast',
+    title: 'Two Seas, Two Salinities',
+    tagline: 'Arabian Sea vs Bay of Bengal surface salinity in the model',
+    duration: '2 mins',
+    difficulty: 'Beginner',
     category: 'Salinity & Water Masses',
-    thumbnailColor: 'from-emerald-500 to-teal-600',
-    summary: 'Investigate how intense evaporation from dry desert winds turns the northern Arabian Sea into a high-salinity engine, and trace the subduction of Arabian Sea High Salinity Water into the subsurface thermocline.',
+    thumbnailColor: 'from-teal-500 to-emerald-600',
+    summary:
+      'Background: evaporation exceeds precipitation over the Arabian Sea, while large river inflow and monsoon rain freshen the Bay of Bengal. The model fields show a persistent contrast of about 2 PSU.',
     steps: [
       {
         id: 'salinity-step-1',
         stepNumber: 1,
-        title: 'Desert Evaporation Engine',
-        subtitle: 'Net Freshwater Deficit (E >> P)',
+        title: 'Salty Arabian Sea',
+        subtitle: 'IBR sea surface salinity, 28 Jul 2019',
         narrative:
-          'Dry continental winds blowing from the Arabian and Thar deserts scorch the northern Arabian Sea. Annual evaporation exceeds precipitation by over 1.2 meters per year, concentrating sea salt into hyper-saline surface waters surpassing 36.5 to 37.5 PSU.',
-        keyInsights: [
-          'Evaporation drastically exceeds rainfall (E >> P > 1.2 m/yr)',
-          'Surface salinity reaches highest levels in the tropical Indian Ocean (>37 PSU)',
-          'Dense surface layer formed through continuous salt concentration'
-        ],
-        camera: { lon: 65.0, lat: 19.5, height: 2800000, pitch: -70.0, heading: 0.0, duration: 2.5 },
+          'In this field the northern Arabian Sea box (15–20°N, 60–65°E) averages about 35.5 PSU.',
+        keyInsights: ['Arabian Sea box ≈ 35.5 PSU', 'Background: evaporation-dominated basin'],
+        camera: { lon: 63.0, lat: 17.0, height: 3500000, pitch: -75.0, heading: 0.0, duration: 2.4 },
         variable: 'salinity',
-        depth: 0.5,
-        activeLayers: ['salinity', 'india_eez'],
-        time: '2024-06-05',
-        isPlaying: false
+        depth: 0,
+        activeLayers: ['salinity', 'argo'],
+        time: '2019-07-28'
       },
       {
         id: 'salinity-step-2',
         stepNumber: 2,
-        title: 'ASHSW Subduction at 100m Depth',
-        subtitle: 'Convective Density Overturning',
+        title: 'Fresh northern Bay of Bengal',
+        subtitle: 'IBR sea surface salinity, 28 Jul 2019',
         narrative:
-          'We have sliced vertically down to 100 meters depth. Heavy, high-salinity surface water becomes so dense that it sinks beneath lighter equatorial waters, forming the Arabian Sea High Salinity Water (ASHSW) mass. This core tongue flows southward through the thermocline across the entire Arabian Sea.',
-        keyInsights: [
-          'Density-driven convective subduction into the thermocline',
-          'Forms permanent subterranean salinity maximum at 75–150m depth',
-          'Spreads southward toward the equator and eastward toward Sri Lanka'
-        ],
-        camera: { lon: 67.0, lat: 17.5, height: 2400000, pitch: -65.0, heading: 15.0, duration: 2.2 },
+          'The northern Bay of Bengal box (18–21°N, 87–91°E) averages about 33.4 PSU, roughly 2 PSU fresher than the Arabian Sea box. Background: the Ganges–Brahmaputra and other rivers deliver large freshwater volumes to the northern Bay.',
+        keyInsights: ['Northern Bay of Bengal box ≈ 33.4 PSU', 'Contrast with Arabian Sea ≈ 2 PSU'],
+        camera: { lon: 89.0, lat: 18.0, height: 3000000, pitch: -70.0, heading: 0.0, duration: 2.4 },
         variable: 'salinity',
-        depth: 100.0,
-        activeLayers: ['salinity'],
-        time: '2024-06-05',
-        isPlaying: false
+        depth: 0,
+        activeLayers: ['salinity', 'argo'],
+        time: '2019-07-28'
       }
     ]
   },
   {
-    id: 'bay-of-bengal-freshwater',
-    title: 'Bay of Bengal Freshwater Plume & Cyclone Buffer',
-    tagline: 'Ganges-Brahmaputra discharge and the heat-trapping barrier layer',
-    duration: '3 mins',
+    id: 'winter-currents',
+    title: 'Winter Surface Currents (31 Dec 2024)',
+    tagline: 'Geostrophic surface velocity from the CMEMS ARMOR3D analysis',
+    duration: '2 mins',
     difficulty: 'Intermediate',
-    category: 'Biogeochemistry',
-    thumbnailColor: 'from-teal-600 to-teal-800',
-    summary: 'Examine how massive river discharge from the Himalayas blankets the Bay of Bengal with fresh water, creating a barrier layer that traps solar heat and fuels intense tropical cyclones.',
+    category: 'Monsoon Dynamics',
+    thumbnailColor: 'from-neutral-500 to-amber-600',
+    summary:
+      'The only current field in this release is ARMOR3D surface geostrophic velocity for 31 December 2024 (northeast-monsoon season). Arrows are placed on the real 1° vector grid.',
     steps: [
       {
-        id: 'bob-step-1',
+        id: 'currents-step-1',
         stepNumber: 1,
-        title: 'Ganges-Brahmaputra River Inflow',
-        subtitle: 'World\'s Largest River Discharge Lens',
+        title: 'Surface geostrophic currents',
+        subtitle: 'CMEMS ARMOR3D, 31 Dec 2024',
         narrative:
-          'In dramatic contrast to the salty Arabian Sea, the northern Bay of Bengal receives colossal freshwater runoff from the Ganges, Brahmaputra, and Meghna river basins—delivering over 1,300 cubic kilometers of fresh water each year. Watch the freshwater plume (<30 PSU) stretch out across the northern basin.',
+          'Arrow colour and length follow speed. Near the coast of Somalia (2–12°N, 45–56°E) the mean meridional velocity in this field is slightly southward (≈ −0.07 m/s), consistent with background knowledge that the Somali Current reverses in the northeast monsoon.',
         keyInsights: [
-          'Annual river runoff exceeds 1,300 km³/year',
-          'Surface salinity plummets down to 28.5–30.0 PSU',
-          'Dramatic halocline forms within the upper 25 meters'
+          'Single real timestep: 2024-12-31',
+          'Geostrophic velocity (thermal wind), not total current',
+          'Values near the equator are less reliable because geostrophy breaks down there'
         ],
-        camera: { lon: 88.5, lat: 19.5, height: 2300000, pitch: -65.0, heading: 0.0, duration: 2.5 },
-        variable: 'salinity',
-        depth: 0.5,
-        activeLayers: ['salinity', 'india_eez'],
-        time: '2024-06-05',
-        isPlaying: false
-      },
-      {
-        id: 'bob-step-2',
-        stepNumber: 2,
-        title: 'The Cyclone-Fueling "Barrier Layer"',
-        subtitle: 'Solar Heat Trap in the Upper 30m',
-        narrative:
-          'Because fresh water is less dense than salt water, this river plume acts as a buoyant lid. It prevents deep cold water from mixing upward, trapping solar heat inside the top 30 meters. This creates a "Barrier Layer" with ocean temperatures exceeding 30.5°C—the perfect thermal fuel for rapid cyclone intensification.',
-        keyInsights: [
-          'Density stratification prevents vertical turbulent mixing',
-          'Upper 30m solar heat reservoir reaches 30.5°C–31.5°C',
-          'Key thermodynamic catalyst for rapid tropical cyclone intensification'
-        ],
-        camera: { lon: 86.0, lat: 16.0, height: 2800000, pitch: -70.0, heading: 0.0, duration: 2.2 },
-        variable: 'temperature',
-        depth: 0.5,
-        activeLayers: ['temperature', 'salinity'],
-        time: '2024-06-05',
-        isPlaying: false
-      },
-      {
-        id: 'bob-step-3',
-        stepNumber: 3,
-        title: 'Coastal Plume Advection along India EEZ',
-        subtitle: 'East India Coastal Current (EICC) Riverway',
-        narrative:
-          'Watch the 14-day time sequence: the boundary current carries this low-salinity river water southward along the coastlines of Odisha, Andhra Pradesh, and Tamil Nadu. The fresh river plume hugs the eastern Indian seaboard for over 1,500 kilometers.',
-        keyInsights: [
-          'East India Coastal Current transports fresh water southward',
-          'Freshwater boundary layer regulates coastal marine ecosystems',
-          'Dynamic meandering responds to monsoon wind bursts'
-        ],
-        camera: { lon: 83.5, lat: 14.5, height: 2600000, pitch: -65.0, heading: 10.0, duration: 2.5 },
-        variable: 'salinity',
-        depth: 0.5,
-        activeLayers: ['salinity', 'currents'],
-        time: '2024-06-01',
-        isPlaying: true
+        camera: { lon: 60.0, lat: 5.0, height: 7000000, pitch: -80.0, heading: 0.0, duration: 2.5 },
+        variable: 'currents',
+        depth: 0,
+        activeLayers: ['currents', 'argo'],
+        time: '2024-12-31'
       }
     ]
   },
   {
-    id: 'argo-robot-dive',
-    title: 'Argo Autonomous Robot Ocean Profiler Mission',
-    tagline: 'Follow an active robotic buoy on its 2,000m deep profiling dive',
-    duration: '2.5 mins',
-    difficulty: 'Advanced',
+    id: 'argo-profiles',
+    title: 'Argo Floats: Measuring Below the Surface',
+    tagline: 'Real QC-filtered profiles from the Argo GDAC',
+    duration: '2 mins',
+    difficulty: 'Beginner',
     category: 'Ocean Robotics',
-    thumbnailColor: 'from-teal-500 to-teal-700',
-    summary: 'Track an operational INCOIS robotic Argo buoy in the Arabian Sea, explore its autonomous hydraulic buoyancy engine, and inspect high-precision vertical CTD profiles down to 2,000 meters depth.',
+    thumbnailColor: 'from-amber-500 to-orange-600',
+    summary:
+      'Background: Argo floats drift at depth and surface roughly every 10 days, measuring temperature and salinity (some also oxygen and chlorophyll) on the way up. The markers show each float’s latest QC-good profile.',
     steps: [
       {
         id: 'argo-step-1',
         stepNumber: 1,
-        title: 'The INCOIS Autonomous Float Fleet',
-        subtitle: 'Global Sentinel Robot Network',
+        title: 'The float network in this catalog',
+        subtitle: 'Latest ascending profile per float',
         narrative:
-          'Scattered across the Indian Ocean, autonomous robotic Argo floats drift untethered through the high seas. Maintained by INCOIS, these autonomous robots form the observational backbone of modern ocean and climate prediction.',
-        keyInsights: [
-          'Over 4,000 autonomous Argo floats active globally',
-          'Zero fuel consumption: powered by internal hydraulic buoyancy bladders',
-          'Provides continuous vertical temperature and salinity profiles'
-        ],
-        camera: { lon: 74.0, lat: 15.0, height: 4500000, pitch: -75.0, heading: 0.0, duration: 2.5 },
+          'Each marker is a real float position from its latest ascending profile that passed Argo QC (flags 1 and 2). Labels show the WMO number and profile date.',
+        keyInsights: ['13 floats from the Argo GDAC', 'QC flags 1/2 only; adjusted values for delayed-mode data'],
+        camera: { lon: 72.0, lat: 12.0, height: 9000000, pitch: -85.0, heading: 0.0, duration: 2.5 },
         variable: 'temperature',
-        depth: 0.5,
-        activeLayers: ['temperature', 'argo', 'india_eez'],
-        time: '2024-06-04',
-        isPlaying: false
+        depth: 0,
+        activeLayers: ['temperature', 'argo'],
+        time: '2019-07-28',
+        selectedInstrumentId: null
       },
       {
         id: 'argo-step-2',
         stepNumber: 2,
-        title: 'Meet Float INCOIS_ARGO_2902126',
-        subtitle: 'Central Arabian Sea Station (16.25°N, 70.15°E)',
+        title: 'A delayed-mode Arabian Sea float',
+        subtitle: 'WMO 2902120 (INCOIS), 2014–2021',
         narrative:
-          'We have flown right above active buoy INCOIS_ARGO_2902126 off the Maharashtra coast. Every 10 days, this float deflates its external oil bladder to dive 1,000m into the parking depth, drifts for 9 days, descends to 2,000m, and ascends while recording continuous CTD measurements.',
-        keyInsights: [
-          'Station coordinates: 16.25°N, 70.15°E (Maharashtra Offshore)',
-          '10-day recurring dive and ascent profiling cycle',
-          'Equipped with Sea-Bird scientific CTD sensor package'
-        ],
-        camera: { lon: 70.15, lat: 16.25, height: 85000, pitch: -50.0, heading: 25.0, duration: 2.8 },
+          'This float’s near-surface temperatures are also compared with the INCOIS Bio-ROMS model in the Model vs Observation view (210 monthly matchups between 2014 and 2019). Open the profile panel to see its latest QC-filtered profile and observed mixed layer depth.',
+        keyInsights: ['Delayed-mode (adjusted) data', 'Model–observation matchups use the float’s own profile dates'],
+        camera: { lon: 60.0, lat: 15.0, height: 2500000, pitch: -65.0, heading: 0.0, duration: 2.5 },
         variable: 'temperature',
-        depth: 50.0,
-        activeLayers: ['argo', 'temperature'],
-        time: '2024-06-04',
-        isPlaying: false,
-        selectedInstrumentId: 'INCOIS_ARGO_2902126'
-      },
-      {
-        id: 'argo-step-3',
-        stepNumber: 3,
-        title: 'Deep CTD Stratification Profile (0–2,000m)',
-        subtitle: 'Real Ground-Truth Hydrographic Data',
-        narrative:
-          'Notice the open depth-profile window displaying real CTD data from this float! Observe the steep thermocline between 50m and 150m where temperature drops precipitously from 29.1°C down to 14.5°C, matching the subterranean high-salinity core (36.4 PSU).',
-        keyInsights: [
-          'Direct validation of numerical ocean models against real buoys',
-          'Captures thermocline and halocline gradients with 1-meter resolution',
-          'Upon surfacing, transmits data packets via satellite in under 20 minutes'
-        ],
-        camera: { lon: 70.15, lat: 16.25, height: 60000, pitch: -45.0, heading: 20.0, duration: 2.0 },
-        variable: 'temperature',
-        depth: 100.0,
-        activeLayers: ['argo', 'temperature'],
-        time: '2024-06-04',
-        isPlaying: false,
-        selectedInstrumentId: 'INCOIS_ARGO_2902126'
+        depth: 0,
+        activeLayers: ['temperature', 'argo'],
+        time: '2019-07-28',
+        selectedInstrumentId: 'ARGO_2902120'
       }
     ]
   }

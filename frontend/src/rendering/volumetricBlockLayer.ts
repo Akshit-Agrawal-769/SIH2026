@@ -19,11 +19,9 @@ export interface VolumetricBlockManager {
 /**
  * 3D Ocean Volumetric Block Layer Manager.
  * 
- * Renders a true 3D volumetric "piece of the ocean" over the Indian Ocean / Arabian Sea / Bay of Bengal basin:
- * 1. 4 Vertical Cross-Section Curtain Walls descending from sea surface (0m) to 2000m depth with dynamic thermal/haline gradients.
- * 2. Stacked translucent 3D depth slice planes showing water column stratification.
- * 3. Dynamic active 3D scanning laser plane that physically travels vertically as depthLevel slider is adjusted.
- * 4. 4 Vertical 3D Depth Axis Pillars with depth tick markers (0m, 100m, 500m, 1000m, 2000m).
+ * Draws a geometric 0-2000 m reference frame (walls, depth planes, ruler) over the
+ * Arabian Sea / Bay of Bengal. It is a spatial reference only: no values are painted on
+ * the walls because the gridded products in this release have no subsurface levels.
  */
 export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlockManager {
   const entities: Cesium.Entity[] = [];
@@ -48,88 +46,31 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
   wallCanvas.width = 512;
   wallCanvas.height = 256;
 
-  function renderWallTexture(variable: string, _palette: string, range: [number, number]) {
+  // Neutral wall texture: depth ruler only. The gridded products in this release are
+  // surface-only, so the walls carry no colour-coded values (nothing is implied below 0 m).
+  function renderWallTexture(_variable: string, _palette: string, _range: [number, number]) {
     const ctx = wallCanvas.getContext('2d');
     if (!ctx) return;
-
     const w = wallCanvas.width;
     const h = wallCanvas.height;
     ctx.clearRect(0, 0, w, h);
-    ctx.globalAlpha = Math.max(0.25, currentOpacity);
-
-    // Create vertical gradient representing ocean depth column:
-    // Top (row 0) = surface (0m)
-    // Row 20% = 100m (thermocline onset)
-    // Row 35% = 200m (thermocline base)
-    // Row 60% = 800m (intermediate water)
-    // Row 100% = 2000m (abyssal cold deep water)
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-
-    if (variable === 'salinity') {
-      // Viridis-style salinity halocline: high surface salinity -> transition -> deep uniform 34.7 PSU
-      grad.addColorStop(0.0, 'rgba(253, 231, 37, 0.92)');   // Surface high salinity (36.5+ PSU)
-      grad.addColorStop(0.2, 'rgba(94, 201, 98, 0.88)');    // Upper halocline
-      grad.addColorStop(0.4, 'rgba(33, 145, 140, 0.82)');   // Mid halocline
-      grad.addColorStop(0.7, 'rgba(59, 82, 139, 0.75)');    // Deep salinity
-      grad.addColorStop(1.0, 'rgba(68, 1, 84, 0.85)');      // Abyssal uniform salinity
-    } else if (variable === 'chlorophyll') {
-      // Photic zone biological concentration (top 50m) rapidly decaying
-      grad.addColorStop(0.0, 'rgba(250, 204, 21, 0.95)');   // Surface bloom
-      grad.addColorStop(0.15, 'rgba(16, 185, 129, 0.90)');  // Deep chlorophyll maximum (30-50m)
-      grad.addColorStop(0.35, 'rgba(14, 116, 144, 0.60)');  // Aphotic twilight zone
-      grad.addColorStop(0.7, 'rgba(15, 23, 42, 0.35)');     // Dark ocean
-      grad.addColorStop(1.0, 'rgba(2, 6, 23, 0.20)');       // Abyss
-    } else if (variable === 'currents') {
-      // Velocity attenuation from energetic surface jet down to deep drift
-      grad.addColorStop(0.0, 'rgba(244, 63, 94, 0.95)');    // High surface velocity
-      grad.addColorStop(0.2, 'rgba(234, 179, 8, 0.85)');    // Strong subsurface current
-      grad.addColorStop(0.4, 'rgba(16, 185, 129, 0.70)');   // Weakening flow
-      grad.addColorStop(0.7, 'rgba(6, 182, 212, 0.50)');    // Abyssal calm drift
-      grad.addColorStop(1.0, 'rgba(30, 27, 75, 0.40)');     // Sluggish deep bottom flow
-    } else {
-      // Temperature (Turbo palette): warm tropical surface (28-30°C) -> Thermocline -> Cold abyss (3°C)
-      grad.addColorStop(0.0, 'rgba(217, 56, 6, 0.95)');     // Warm surface (30°C)
-      grad.addColorStop(0.15, 'rgba(243, 198, 58, 0.90)');  // Upper mixed layer (28°C)
-      grad.addColorStop(0.35, 'rgba(36, 236, 166, 0.82)');  // Thermocline rapid drop (20°C - 15°C)
-      grad.addColorStop(0.65, 'rgba(70, 117, 237, 0.75)');  // Intermediate water (8°C)
-      grad.addColorStop(1.0, 'rgba(48, 18, 59, 0.85)');     // Cold abyss floor (3°C)
-    }
-
-    ctx.fillStyle = grad;
+    ctx.fillStyle = `rgba(23, 23, 23, ${Math.max(0.2, currentOpacity * 0.45)})`;
     ctx.fillRect(0, 0, w, h);
-
-    // Overlay technical depth grid lines and numerical labels
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.lineWidth = 1.2;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.font = 'bold 12px monospace';
-
-    const depthTicks = [
-      { pct: 0.02, label: '0m [SURFACE]' },
-      { pct: 0.20, label: '-100m [THERMOCLINE ONSET]' },
-      { pct: 0.35, label: '-200m [BARRIER LAYER BASE]' },
-      { pct: 0.60, label: '-800m [OXYGEN MINIMUM]' },
-      { pct: 0.95, label: '-2000m [ABYSSAL FLOOR]' }
-    ];
-
-    for (const tick of depthTicks) {
-      const y = tick.pct * h;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(229, 229, 229, 0.85)';
+    ctx.font = '12px monospace';
+    for (const d of [0, 100, 500, 1000, 2000]) {
+      const y = Math.min(h - 2, (d / 2000) * h + 1);
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(w, y);
       ctx.stroke();
-      ctx.fillText(tick.label, 12, Math.max(14, y - 4));
+      ctx.fillText(`${d} m`, 10, Math.max(14, y - 4));
     }
-
-    // Outer cyber border
-    ctx.strokeStyle = 'rgba(20, 184, 166, 0.8)';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(20, 184, 166, 0.6)';
+    ctx.lineWidth = 2;
     ctx.strokeRect(0, 0, w, h);
-
-    // Variable & range indicator in top-right corner
-    ctx.fillStyle = 'rgba(20, 184, 166, 0.95)';
-    ctx.font = 'bold 11px monospace';
-    ctx.fillText(`${variable.toUpperCase()} [${range[0].toFixed(1)} - ${range[1].toFixed(1)}]`, w - 210, 16);
   }
 
   // Reference to dynamic entities
@@ -198,11 +139,11 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
     // 2b. Add Bottom Floor of Volumetric Slab (-2000m Abyssal Basin)
     const floorEntity = viewer.entities.add({
       id: 'ocean-volume-bottom-floor',
-      name: 'Ocean Abyssal Floor (2000m Depth)',
+      name: '2000 m frame floor',
       rectangle: {
         coordinates: Cesium.Rectangle.fromDegrees(WEST, SOUTH, EAST, NORTH),
         height: -maxVisualHeight,
-        material: Cesium.Color.fromCssColorString('rgba(6, 12, 26, 0.88)'),
+        material: Cesium.Color.fromCssColorString('rgba(23, 23, 23, 0.6)'),
         outline: true,
         outlineColor: Cesium.Color.fromCssColorString('rgba(20, 184, 166, 0.9)'),
         outlineWidth: 2
@@ -211,12 +152,11 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
     entities.push(floorEntity);
 
     // 3. Add 5 Static Suspended 3D Stratification Planes
+    // Neutral depth reference planes (geometry only, no data or water-mass claims).
     const stratificationDepths = [
-      { depth: 50.0, label: '-50m Euphotic Zone', color: 'rgba(20, 184, 166, 0.12)' },
-      { depth: 150.0, label: '-150m Thermocline Core', color: 'rgba(57, 255, 20, 0.14)' },
-      { depth: 500.0, label: '-500m Intermediate Water', color: 'rgba(147, 51, 234, 0.15)' },
-      { depth: 1000.0, label: '-1000m Deep Ocean', color: 'rgba(59, 130, 246, 0.18)' },
-      { depth: 2000.0, label: '-2000m Abyssal Basin Floor', color: 'rgba(15, 23, 42, 0.45)' }
+      { depth: 500.0, label: '500 m reference plane', color: 'rgba(163, 163, 163, 0.06)' },
+      { depth: 1000.0, label: '1000 m reference plane', color: 'rgba(163, 163, 163, 0.06)' },
+      { depth: 2000.0, label: '2000 m reference plane', color: 'rgba(38, 38, 38, 0.35)' }
     ];
 
     for (const plane of stratificationDepths) {
@@ -276,12 +216,12 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
       id: 'ocean-active-plane-badge',
       position: Cesium.Cartesian3.fromDegrees(EAST, NORTH, activeVisualZ + 8000),
       label: {
-        text: ` ACTIVE SCAN DEPTH: ${currentDepth === 0.5 ? 'Surface (0m)' : `${currentDepth}m`} `,
+        text: ` DEPTH PLANE: ${currentDepth} m `,
         font: 'bold 12px monospace',
         style: Cesium.LabelStyle.FILL,
         fillColor: Cesium.Color.fromCssColorString('#14b8a6'),
         showBackground: true,
-        backgroundColor: Cesium.Color.fromCssColorString('rgba(2, 11, 24, 0.92)'),
+        backgroundColor: Cesium.Color.fromCssColorString('rgba(10, 10, 10, 0.9)'),
         backgroundPadding: new Cesium.Cartesian2(8, 5),
         disableDepthTestDistance: Number.POSITIVE_INFINITY
       }
@@ -318,13 +258,7 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
 
       // Depth ticks at NW corner
       if (corner.lon === WEST && corner.lat === NORTH) {
-        const rulerMarks = [
-          { depth: 0.0, text: '◄ 0m Sea Surface' },
-          { depth: 100.0, text: '◄ -100m Thermocline' },
-          { depth: 500.0, text: '◄ -500m Intermediate' },
-          { depth: 1000.0, text: '◄ -1000m Deep Water' },
-          { depth: 2000.0, text: '◄ -2000m Abyssal Floor' }
-        ];
+        const rulerMarks = [0, 100, 500, 1000, 2000].map((d) => ({ depth: d, text: `${d} m` }));
 
         for (const mark of rulerMarks) {
           const tickZ = -mark.depth * currentExagg;
@@ -334,7 +268,7 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
             label: {
               text: ` ${mark.text} `,
               font: 'bold 11px monospace',
-              fillColor: Cesium.Color.fromCssColorString('#FFD54F'),
+              fillColor: Cesium.Color.fromCssColorString('#e5e5e5'),
               showBackground: true,
               backgroundColor: Cesium.Color.fromCssColorString('rgba(0, 0, 0, 0.85)'),
               backgroundPadding: new Cesium.Cartesian2(6, 4),
@@ -405,7 +339,7 @@ export function createVolumetricBlockLayer(viewer: Cesium.Viewer): VolumetricBlo
           );
           if (activePlaneLabelEntity.label) {
             activePlaneLabelEntity.label.text = new Cesium.ConstantProperty(
-              ` ACTIVE SCAN DEPTH: ${currentDepth === 0.5 ? 'Surface (0m)' : `${currentDepth}m`} `
+              ` DEPTH PLANE: ${currentDepth} m `
             );
           }
         }

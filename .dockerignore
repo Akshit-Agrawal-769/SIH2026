@@ -1,0 +1,25 @@
+# Root build context is used by data-service/Dockerfile. Keep it small:
+# only data-service/ and frontend/public/{api,tiles,data} are needed.
+datasets/
+tiles/
+api/
+cpp_visualizer/
+gateway/
+docs/
+assets/
+submission/
+skills/
+scripts/
+infra/
+**/node_modules/
+**/dist/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/venv/
+**/.venv/
+.git/
+*.pdf
+*.html
+frontend/src/
+frontend/node_modules/

@@ -3,7 +3,7 @@ import { useOceanStore } from '../store/useOceanStore';
 import { Wind, Calendar, AlertOctagon, MapPin } from 'lucide-react';
 
 export const CycloneHoverTooltip: React.FC = () => {
-  const { hoveredCyclone } = useOceanStore();
+  const hoveredCyclone = useOceanStore((s) => s.hoveredCyclone);
 
   if (!hoveredCyclone) return null;
 
@@ -17,18 +17,18 @@ export const CycloneHoverTooltip: React.FC = () => {
 
   return (
     <div
-      className="fixed pointer-events-none z-50 glass-panel rounded-2xl p-3.5 shadow-2xl min-w-[240px] max-w-[300px] border border-cyan-400/30 flex flex-col gap-2 transition-all duration-75 select-none"
+      className="fixed pointer-events-none z-50 glass-panel rounded-2xl p-3.5 shadow-2xl min-w-[240px] max-w-[300px] border border-amber-400/30 flex flex-col gap-2 transition-all duration-75 select-none"
       style={{ left: tooltipLeft, top: tooltipTop }}
       data-testid="cyclone-tooltip"
     >
       {/* Category / Icon Badge & Name */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <div className="w-5 h-5 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center shrink-0">
-            <Wind className="w-3.5 h-3.5 text-cyan-300 animate-spin" style={{ animationDuration: '8s' }} />
+          <div className="w-5 h-5 rounded-lg bg-amber-500/15 border border-amber-400/40 flex items-center justify-center shrink-0">
+            <Wind className="w-3.5 h-3.5 text-amber-300 animate-spin" style={{ animationDuration: '8s' }} />
           </div>
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-bold">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">
               Historical Cyclone
             </div>
             <h4 className="text-xs font-bold text-white leading-tight">
@@ -40,15 +40,15 @@ export const CycloneHoverTooltip: React.FC = () => {
 
       {/* Date & Location */}
       <div className="pt-1.5 border-t border-white/10 flex flex-col gap-1 text-[10.5px]">
-        <div className="flex items-center gap-1.5 text-slate-300">
-          <Calendar className="w-3 h-3 text-cyan-400 shrink-0" />
-          <span className="font-mono text-slate-200">{date}</span>
+        <div className="flex items-center gap-1.5 text-neutral-300">
+          <Calendar className="w-3 h-3 text-amber-400 shrink-0" />
+          <span className="font-mono text-neutral-200">{date}</span>
         </div>
 
-        <div className="flex items-center gap-1.5 text-slate-300">
+        <div className="flex items-center gap-1.5 text-neutral-300">
           <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
-          <span className="text-slate-200">{location}</span>
-          <span className="text-[9.5px] font-mono text-slate-400">
+          <span className="text-neutral-200">{location}</span>
+          <span className="text-[9.5px] font-mono text-neutral-400">
             ({lat.toFixed(2)}°N, {lon.toFixed(2)}°E)
           </span>
         </div>
@@ -58,7 +58,7 @@ export const CycloneHoverTooltip: React.FC = () => {
       <div className="pt-1.5 border-t border-white/10 flex items-start gap-1.5">
         <AlertOctagon className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
         <div className="flex flex-col">
-          <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+          <span className="text-[9px] font-mono uppercase tracking-wider text-neutral-400 font-semibold">
             Intensity
           </span>
           <span className="text-[11px] font-bold text-amber-300 font-mono leading-snug">

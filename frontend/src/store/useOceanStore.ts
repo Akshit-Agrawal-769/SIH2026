@@ -1,16 +1,34 @@
 import { create } from 'zustand';
+import { fetchCatalog, DataCatalog, VariableCatalogEntry } from '../api/client';
+import { nearestTime, normalizeTimes, StepUnit, toMs } from '../timeline/timelineEngine';
+import { configureGrid } from '../rendering/grid';
+
+export const MODEL_FIELDS = ['temperature', 'salinity', 'chlorophyll', 'mld', 'currents'] as const;
+
+export type LayerState = 'loading' | 'ok' | 'nodata' | 'error';
+export interface LayerStatus {
+  state: LayerState;
+  message?: string;
+}
 
 export interface OceanState {
   // Mode
   mode: 'home' | 'operational' | 'outreach';
   setMode: (mode: 'home' | 'operational' | 'outreach') => void;
 
+  // Data catalog (real variables, depths, timesteps, provenance)
+  catalog: DataCatalog | null;
+  catalogError: string | null;
+  loadCatalog: () => Promise<void>;
+  layerStatus: Record<string, LayerStatus>;
+  setLayerStatus: (layerId: string, status: LayerStatus) => void;
+
   // Active layer toggles
   activeLayers: string[];
   toggleLayer: (layerId: string) => void;
   setLayers: (layers: string[]) => void;
 
-  // Active 3D model variable
+  // Active gridded variable
   selectedVariable: string;
   setSelectedVariable: (variable: string) => void;
 
@@ -23,13 +41,22 @@ export interface OceanState {
   setIs3DVolumeBlockEnabled: (enabled: boolean) => void;
   toggle3DVolumeBlock: () => void;
 
-  // Time navigation
-
-
-
-
-
-
+  // Time navigation (all times are real dataset timestamps, ISO UTC)
+  timelineStart: string;
+  timelineEnd: string;
+  timelineStep: { value: number; unit: StepUnit };
+  selectedTime: string;
+  availableTimes: string[];
+  lastRequestedTime: string | null;
+  isPlaying: boolean;
+  playbackSpeed: number;
+  setTimelineStart: (start: string) => void;
+  setTimelineEnd: (end: string) => void;
+  setTimelineStep: (step: { value: number; unit: StepUnit }) => void;
+  setSelectedTime: (time: string, requested?: string | null) => void;
+  setIsPlaying: (playing: boolean) => void;
+  setPlaybackSpeed: (speed: number) => void;
+  fetchTimelineMetadata: (variable: string) => void;
 
   // Visual parameters
   opacity: number;
@@ -42,31 +69,21 @@ export interface OceanState {
   setScaleType: (type: 'linear' | 'log') => void;
   vectorArrowScale: number;
   setVectorArrowScale: (scale: number) => void;
-  currentsStyle: 'streamlines' | 'arrows' | 'hybrid';
-  setCurrentsStyle: (style: 'streamlines' | 'arrows' | 'hybrid') => void;
   currentsSpeed: number;
   setCurrentsSpeed: (speed: number) => void;
-  currentsDensity: number;
-  setCurrentsDensity: (density: number) => void;
-  currentsTrailLength: 'short' | 'medium' | 'long';
-  setCurrentsTrailLength: (length: 'short' | 'medium' | 'long') => void;
-  currentsColorTheme: 'neon' | 'thermal' | 'glacier';
-  setCurrentsColorTheme: (theme: 'neon' | 'thermal' | 'glacier') => void;
   autoCalibrateRange: () => void;
 
   // Selected observation instrument
   selectedInstrumentId: string | null;
   setSelectedInstrumentId: (id: string | null) => void;
 
-  // Live sampled ocean point (from mouse hover over globe)
+  // Live sampled ocean point (mouse hover)
   hoveredOceanInfo: HoveredOceanInfo | null;
   setHoveredOceanInfo: (info: HoveredOceanInfo | null) => void;
 
-  // Live hovered historical cyclone marker
   hoveredCyclone: HoveredCycloneInfo | null;
   setHoveredCyclone: (info: HoveredCycloneInfo | null) => void;
 
-  // Panel visibility toggles for unobstructed full-globe view
   showLeftPanel: boolean;
   setShowLeftPanel: (show: boolean) => void;
   toggleLeftPanel: () => void;
@@ -74,20 +91,15 @@ export interface OceanState {
   setShowRightPanel: (show: boolean) => void;
   toggleRightPanel: () => void;
 
-
-
-
-  // On-demand 3D Volumetric Water Column Cube Inspector
+  // Three.js water-column inspector
   activeWaterBlockTarget: WaterBlockTarget | null;
   openWaterBlock: (target: WaterBlockTarget) => void;
   closeWaterBlock: () => void;
 
-  // Scientific cartographic graticule overlay
   isGraticuleEnabled: boolean;
   setIsGraticuleEnabled: (enabled: boolean) => void;
   toggleGraticule: () => void;
 
-  // Globe click prompt point for ocean water block extraction
   clickedGlobePoint: { lon: number; lat: number; screenX: number; screenY: number; basin?: string } | null;
   setClickedGlobePoint: (point: { lon: number; lat: number; screenX: number; screenY: number; basin?: string } | null) => void;
 
@@ -99,11 +111,19 @@ export interface OceanState {
   closeComparisonModal: () => void;
   setComparisonVariable: (variable: string) => void;
 
-  // Scientific Ocean Analytics Studio modal
+  // Analytics modal
   isAnalyticsModalOpen: boolean;
-  analyticsTarget: { lat: number; lon: number; depth?: number; variable?: string; name?: string } | null;
-  openAnalyticsModal: (target?: { lat: number; lon: number; depth?: number; variable?: string; name?: string }) => void;
+  analyticsTarget: AnalyticsTarget | null;
+  openAnalyticsModal: (target?: AnalyticsTarget) => void;
   closeAnalyticsModal: () => void;
+}
+
+export interface AnalyticsTarget {
+  lat: number;
+  lon: number;
+  depth?: number;
+  variable?: string;
+  name?: string;
 }
 
 export interface WaterBlockTarget {
@@ -141,103 +161,125 @@ export interface HoveredCycloneInfo {
   screenY: number;
 }
 
-export const useOceanStore = create<OceanState>((set) => ({
+/** Default open-ocean location used when no point/instrument is selected (Bay of Bengal). */
+export const DEFAULT_OCEAN_POINT = { lat: 15.0, lon: 88.0, name: 'Bay of Bengal (15°N, 88°E)' };
+
+const PALETTES: Record<string, { palette: string; scale: 'linear' | 'log' }> = {
+  temperature: { palette: 'noaa_sst', scale: 'linear' },
+  salinity: { palette: 'viridis', scale: 'linear' },
+  chlorophyll: { palette: 'gfdl_chl', scale: 'log' },
+  mld: { palette: 'viridis', scale: 'linear' },
+  currents: { palette: 'turbo', scale: 'linear' }
+};
+
+export function variableMeta(state: Pick<OceanState, 'catalog'>, variable: string): VariableCatalogEntry | null {
+  return state.catalog?.variables[variable] ?? null;
+}
+
+function timesFor(catalog: DataCatalog | null, variable: string): string[] {
+  const meta = catalog?.variables[variable];
+  return meta ? normalizeTimes(meta.timesteps) : [];
+}
+
+function resolveTimeline(catalog: DataCatalog | null, variable: string, previous: string) {
+  const times = timesFor(catalog, variable);
+  if (!times.length) {
+    return { availableTimes: [], timelineStart: '', timelineEnd: '', selectedTime: '', lastRequestedTime: null };
+  }
+  const selected = previous && times.includes(previous)
+    ? previous
+    : previous
+      ? (nearestTime(times, toMs(previous)) as string)
+      : times[times.length - 1];
+  return {
+    availableTimes: times,
+    timelineStart: times[0],
+    timelineEnd: times[times.length - 1],
+    selectedTime: selected,
+    lastRequestedTime: previous && previous !== selected ? previous : null
+  };
+}
+
+function rangeFor(catalog: DataCatalog | null, variable: string): [number, number] {
+  const meta = catalog?.variables[variable];
+  return meta ? [meta.display_range[0], meta.display_range[1]] : [0, 1];
+}
+
+export const useOceanStore = create<OceanState>((set, get) => ({
   mode: 'home',
   setMode: (mode) => set({ mode }),
 
-  activeLayers: ['temperature', 'currents', 'argo', 'glider', 'moored_buoy', 'india_eez'],
+  catalog: null,
+  catalogError: null,
+  loadCatalog: async () => {
+    if (get().catalog) return;
+    try {
+      const catalog = await fetchCatalog();
+      configureGrid(catalog.grid);
+      const variable = catalog.variables[get().selectedVariable] ? get().selectedVariable : 'temperature';
+      const meta = catalog.variables[variable];
+      set({
+        catalog,
+        catalogError: null,
+        selectedVariable: variable,
+        depthLevel: meta.depths.includes(get().depthLevel) ? get().depthLevel : meta.depths[0],
+        colorRange: rangeFor(catalog, variable),
+        colorPalette: PALETTES[variable]?.palette ?? 'turbo',
+        scaleType: PALETTES[variable]?.scale ?? 'linear',
+        ...resolveTimeline(catalog, variable, get().selectedTime)
+      });
+    } catch (err) {
+      set({ catalogError: `Data catalog unavailable: ${(err as Error).message}` });
+    }
+  },
+  layerStatus: {},
+  setLayerStatus: (layerId, status) =>
+    set((s) => {
+      const prev = s.layerStatus[layerId];
+      if (prev && prev.state === status.state && prev.message === status.message) return {};
+      return { layerStatus: { ...s.layerStatus, [layerId]: status } };
+    }),
+
+  activeLayers: ['temperature', 'argo', 'india_eez'],
   toggleLayer: (layerId) =>
     set((state) => ({
       activeLayers: state.activeLayers.includes(layerId)
         ? state.activeLayers.filter((id) => id !== layerId)
         : [...state.activeLayers, layerId]
     })),
-  setLayers: (activeLayers) => set({ activeLayers }),
+  setLayers: (activeLayers) => set({ activeLayers: activeLayers.filter((id) => id !== 'glider' && id !== 'moored_buoy') }),
 
   selectedVariable: 'temperature',
   setSelectedVariable: (selectedVariable) => {
-    let defaultPalette = 'noaa_sst';
-    let defaultRange: [number, number] = [18.0, 32.0];
-    let defaultScaleType: 'linear' | 'log' = 'linear';
-
-    if (selectedVariable === 'salinity') {
-      defaultPalette = 'viridis';
-      defaultRange = [29.5, 37.5];
-      defaultScaleType = 'linear';
-    } else if (selectedVariable === 'chlorophyll') {
-      defaultPalette = 'gfdl_chl';
-      defaultRange = [0.03, 12.0];
-      defaultScaleType = 'log';
-    } else if (selectedVariable === 'currents') {
-      defaultPalette = 'turbo';
-      defaultRange = [0.0, 2.2];
-      defaultScaleType = 'linear';
-    }
-
-    set((state) => ({
+    const { catalog, selectedTime, activeLayers, depthLevel } = get();
+    const meta = catalog?.variables[selectedVariable];
+    // Only one gridded field is rendered as the depth slice; currents keep their own vector layer.
+    const others = activeLayers.filter((id) => id === 'currents' || !(MODEL_FIELDS as readonly string[]).includes(id));
+    set({
       selectedVariable,
-      colorPalette: defaultPalette,
-      colorRange: defaultRange,
-      scaleType: defaultScaleType,
-      activeLayers: state.activeLayers.includes(selectedVariable)
-        ? state.activeLayers
-        : [...state.activeLayers, selectedVariable]
-    }));
+      colorPalette: PALETTES[selectedVariable]?.palette ?? 'turbo',
+      scaleType: PALETTES[selectedVariable]?.scale ?? 'linear',
+      colorRange: rangeFor(catalog, selectedVariable),
+      activeLayers: others.includes(selectedVariable) ? others : [...others, selectedVariable],
+      depthLevel: meta && !meta.depths.includes(depthLevel) ? meta.depths[0] : depthLevel,
+      ...(catalog ? resolveTimeline(catalog, selectedVariable, selectedTime) : {})
+    });
   },
 
   colorPalette: 'noaa_sst',
   setColorPalette: (colorPalette) => set({ colorPalette }),
-  colorRange: [18.0, 32.0],
+  colorRange: [0, 1],
   setColorRange: (colorRange) => set({ colorRange }),
-
   scaleType: 'linear',
   setScaleType: (scaleType) => set({ scaleType }),
   vectorArrowScale: 1.0,
   setVectorArrowScale: (vectorArrowScale) => set({ vectorArrowScale }),
-  currentsStyle: 'streamlines',
-  setCurrentsStyle: (currentsStyle) => set({ currentsStyle }),
-  currentsSpeed: 1.2,
+  currentsSpeed: 1.0,
   setCurrentsSpeed: (currentsSpeed) => set({ currentsSpeed }),
-  currentsDensity: 3000,
-  setCurrentsDensity: (currentsDensity) => set({ currentsDensity }),
-  currentsTrailLength: 'medium',
-  setCurrentsTrailLength: (currentsTrailLength) => set({ currentsTrailLength }),
-  currentsColorTheme: 'neon',
-  setCurrentsColorTheme: (currentsColorTheme) => set({ currentsColorTheme }),
+  autoCalibrateRange: () => set((s) => ({ colorRange: rangeFor(s.catalog, s.selectedVariable) })),
 
-  autoCalibrateRange: () => {
-    set((state) => {
-      let range: [number, number] = [18.0, 32.0];
-      if (state.selectedVariable === 'salinity') range = [29.5, 37.5];
-      else if (state.selectedVariable === 'chlorophyll') range = [0.03, 12.0];
-      else if (state.selectedVariable === 'currents') range = [0.0, 2.2];
-      else {
-        if (state.depthLevel <= 15.0) range = [18.0, 32.0];
-        else if (state.depthLevel <= 75.0) range = [15.0, 29.0];
-        else if (state.depthLevel <= 150.0) range = [12.0, 24.0];
-        else if (state.depthLevel <= 300.0) range = [8.0, 19.0];
-        else if (state.depthLevel <= 800.0) range = [4.0, 13.0];
-        else range = [2.0, 6.0];
-      }
-      return { colorRange: range };
-    });
-  },
-
-  depthLevel: 0.5,
-  setDepthLevel: (depthLevel) => {
-    set((state) => {
-      let range = state.colorRange;
-      if (state.selectedVariable === 'temperature') {
-        if (depthLevel <= 15.0) range = [18.0, 32.0];
-        else if (depthLevel <= 75.0) range = [15.0, 29.0];
-        else if (depthLevel <= 150.0) range = [12.0, 24.0];
-        else if (depthLevel <= 300.0) range = [8.0, 19.0];
-        else if (depthLevel <= 800.0) range = [4.0, 13.0];
-        else range = [2.0, 6.0];
-      }
-      return { depthLevel, colorRange: range };
-    });
-  },
+  depthLevel: 0,
+  setDepthLevel: (depthLevel) => set({ depthLevel }),
   verticalExaggeration: 250.0,
   setVerticalExaggeration: (verticalExaggeration) => set({ verticalExaggeration }),
   is3DVolumeBlockEnabled: false,
@@ -251,14 +293,29 @@ export const useOceanStore = create<OceanState>((set) => ({
   clickedGlobePoint: null,
   setClickedGlobePoint: (clickedGlobePoint) => set({ clickedGlobePoint }),
 
+  timelineStart: '',
+  timelineEnd: '',
+  timelineStep: { value: 1, unit: 'months' },
+  selectedTime: '',
+  availableTimes: [],
+  lastRequestedTime: null,
+  isPlaying: false,
+  playbackSpeed: 1,
+  setTimelineStart: (timelineStart) => set({ timelineStart }),
+  setTimelineEnd: (timelineEnd) => set({ timelineEnd }),
+  setTimelineStep: (timelineStep) => set({ timelineStep }),
+  setSelectedTime: (selectedTime, requested = null) =>
+    set((s) => (s.availableTimes.includes(selectedTime)
+      ? { selectedTime, lastRequestedTime: requested && requested !== selectedTime ? requested : null }
+      : {})),
+  setIsPlaying: (isPlaying) => set({ isPlaying }),
+  setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
+  fetchTimelineMetadata: (variable) => {
+    const { catalog, selectedTime } = get();
+    if (catalog) set(resolveTimeline(catalog, variable, selectedTime));
+  },
 
-
-
-
-
-
-
-  opacity: 0.8,
+  opacity: 0.85,
   setOpacity: (opacity) => set({ opacity }),
 
   selectedInstrumentId: null,
@@ -278,15 +335,10 @@ export const useOceanStore = create<OceanState>((set) => ({
   setShowRightPanel: (showRightPanel) => set({ showRightPanel }),
   toggleRightPanel: () => set((s) => ({ showRightPanel: !s.showRightPanel })),
 
-
-
-
-
   isGraticuleEnabled: true,
   setIsGraticuleEnabled: (isGraticuleEnabled) => set({ isGraticuleEnabled }),
   toggleGraticule: () => set((s) => ({ isGraticuleEnabled: !s.isGraticuleEnabled })),
 
-  // Model vs Observation comparison modal
   isComparisonModalOpen: false,
   comparisonInstrumentId: null,
   comparisonVariable: 'temperature',
@@ -294,23 +346,20 @@ export const useOceanStore = create<OceanState>((set) => ({
     set({
       isComparisonModalOpen: true,
       comparisonInstrumentId: instrumentId,
-      comparisonVariable: variable
+      comparisonVariable: ['temperature', 'salinity'].includes(variable) ? variable : 'temperature'
     }),
-  closeComparisonModal: () =>
-    set({
-      isComparisonModalOpen: false,
-      comparisonInstrumentId: null
-    }),
+  closeComparisonModal: () => set({ isComparisonModalOpen: false, comparisonInstrumentId: null }),
   setComparisonVariable: (comparisonVariable) => set({ comparisonVariable }),
 
-  // Scientific Ocean Analytics Studio modal
   isAnalyticsModalOpen: false,
   analyticsTarget: null,
   openAnalyticsModal: (target) =>
-    set({
+    set((s) => ({
       isAnalyticsModalOpen: true,
-      analyticsTarget: target || { lat: 13.691, lon: 88.074, depth: 10.0, variable: 'temperature', name: 'Bay of Bengal Central Basin' }
-    }),
+      analyticsTarget: target || (s.clickedGlobePoint
+        ? { lat: s.clickedGlobePoint.lat, lon: s.clickedGlobePoint.lon, name: s.clickedGlobePoint.basin }
+        : { ...DEFAULT_OCEAN_POINT }),
+    })),
   closeAnalyticsModal: () => set({ isAnalyticsModalOpen: false })
 }));
 

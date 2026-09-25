@@ -10,7 +10,8 @@ import {
   MapPin,
   Sparkles
 } from 'lucide-react';
-import { useOceanStore } from '../../store/useOceanStore';
+import { useShallow } from 'zustand/react/shallow';
+import { useOceanStore, DEFAULT_OCEAN_POINT } from '../../store/useOceanStore';
 import { TimeSeriesTab } from './TimeSeriesTab';
 import { VerticalProfileTab } from './VerticalProfileTab';
 import { AnomalyTab } from './AnomalyTab';
@@ -47,14 +48,22 @@ const PRESETS: LocationPreset[] = [
 ];
 
 export const AnalyticsModal: React.FC = () => {
-  const { isAnalyticsModalOpen, analyticsTarget, closeAnalyticsModal } = useOceanStore();
+  const { isAnalyticsModalOpen, analyticsTarget, closeAnalyticsModal, catalog, selectedTime } = useOceanStore(
+    useShallow((s) => ({
+      isAnalyticsModalOpen: s.isAnalyticsModalOpen,
+      analyticsTarget: s.analyticsTarget,
+      closeAnalyticsModal: s.closeAnalyticsModal,
+      catalog: s.catalog,
+      selectedTime: s.selectedTime
+    }))
+  );
 
   const [activeTab, setActiveTab] = useState<TabType>('timeseries');
-  const [lat, setLat] = useState<number>(13.691);
-  const [lon, setLon] = useState<number>(88.074);
-  const [depth, setDepth] = useState<number>(10.0);
+  const [lat, setLat] = useState<number>(DEFAULT_OCEAN_POINT.lat);
+  const [lon, setLon] = useState<number>(DEFAULT_OCEAN_POINT.lon);
+  const [depth, setDepth] = useState<number>(0);
   const [variable, setVariable] = useState<string>('temperature');
-  const [locationName, setLocationName] = useState<string>('Bay of Bengal Central');
+  const [locationName, setLocationName] = useState<string>(DEFAULT_OCEAN_POINT.name);
 
   // Cached summary data for interpretation & report export
   const [profileSummary, setProfileSummary] = useState<any>(null);
@@ -66,39 +75,45 @@ export const AnalyticsModal: React.FC = () => {
       setLat(analyticsTarget.lat);
       setLon(analyticsTarget.lon);
       if (analyticsTarget.depth !== undefined) setDepth(analyticsTarget.depth);
-      if (analyticsTarget.variable) setVariable(analyticsTarget.variable);
-      if (analyticsTarget.name) setLocationName(analyticsTarget.name);
+      if (analyticsTarget.variable && (!catalog || catalog.variables[analyticsTarget.variable])) setVariable(analyticsTarget.variable);
+      setLocationName(analyticsTarget.name || `${analyticsTarget.lat.toFixed(2)}°N, ${analyticsTarget.lon.toFixed(2)}°E`);
     }
-  }, [analyticsTarget]);
+  }, [analyticsTarget, catalog]);
+
+  // The analysed timestep is the timeline's timestep when this variable has it, else its latest.
+  const varTimes = catalog?.variables[variable]?.timesteps ?? [];
+  const date = varTimes.includes(selectedTime.slice(0, 10)) ? selectedTime.slice(0, 10) : varTimes[varTimes.length - 1];
 
   // Pre-fetch summaries for heuristics & report tabs
   useEffect(() => {
     if (!isAnalyticsModalOpen) return;
 
-    fetchVerticalProfileAnalysis(lat, lon, variable)
+    const controller = new AbortController();
+    fetchVerticalProfileAnalysis(lat, lon, variable, date, controller.signal)
       .then((res) => setProfileSummary(res))
       .catch(() => setProfileSummary(null));
-
-    fetchAnomalies(variable, lat, lon, depth)
+    fetchAnomalies(variable, lat, lon, depth, date, controller.signal)
       .then((res) => setAnomalySummary(res))
       .catch(() => setAnomalySummary(null));
-
-    fetchTimeSeries(variable, lat, lon, depth)
+    fetchTimeSeries(variable, lat, lon, depth, controller.signal)
       .then((res) => setTimeseriesSummary(res))
       .catch(() => setTimeseriesSummary(null));
-  }, [isAnalyticsModalOpen, lat, lon, depth, variable]);
+    return () => controller.abort();
+  }, [isAnalyticsModalOpen, lat, lon, depth, variable, date]);
+
+  useEffect(() => {
+    if (!isAnalyticsModalOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeAnalyticsModal(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isAnalyticsModalOpen, closeAnalyticsModal]);
 
   if (!isAnalyticsModalOpen) return null;
 
-  const variables = [
-    { id: 'temperature', label: 'Temperature', unit: '°C' },
-    { id: 'salinity', label: 'Salinity', unit: 'PSU' },
-    { id: 'chlorophyll', label: 'Chlorophyll-a', unit: 'mg/m³' },
-    { id: 'currents', label: 'Current Velocity', unit: 'm/s' }
-  ];
-
-  const currentUnit = variables.find((v) => v.id === variable)?.unit || '°C';
-  const depths = [0.5, 10.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0];
+  const variables = Object.entries(catalog?.variables ?? {}).map(([id, m]) => ({ id, label: m.long_name, unit: m.units }));
+  const currentUnit = catalog?.variables[variable]?.units ?? '';
+  const depths = catalog?.variables[variable]?.depths ?? [0];
+  const sourceMeta = catalog ? catalog.sources[catalog.variables[variable]?.source_id ?? ''] : undefined;
 
   const handleSelectPreset = (preset: LocationPreset) => {
     setLat(preset.lat);
@@ -121,7 +136,7 @@ export const AnalyticsModal: React.FC = () => {
                   Ocean Analytics Studio
                 </span>
                 <span className="text-[10px] font-mono text-ocean-accent bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                  INCOIS Bio-ROMS 3.9
+                  {sourceMeta?.title ?? '—'} · {date ?? 'no timestep'}
                 </span>
               </div>
               <h2 className="text-base font-bold text-white tracking-wide mt-0.5">
@@ -136,6 +151,7 @@ export const AnalyticsModal: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={closeAnalyticsModal}
+              aria-label="Close analytics"
               className="p-1.5 rounded-lg hover:bg-ocean-border text-ocean-muted hover:text-white transition-all duration-[150ms] ease-nasa"
               title="Close Analytics Studio"
             >
@@ -222,7 +238,7 @@ export const AnalyticsModal: React.FC = () => {
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Vertical Profile (0–2000m)</span>
+            <span>Vertical structure</span>
           </button>
 
           <button
@@ -234,7 +250,7 @@ export const AnalyticsModal: React.FC = () => {
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Basin Anomalies (Z-Score)</span>
+            <span>Spatial z-score</span>
           </button>
 
           <button
@@ -246,7 +262,7 @@ export const AnalyticsModal: React.FC = () => {
             }`}
           >
             <Grid className="w-3.5 h-3.5" />
-            <span>Pearson Correlation (NxN)</span>
+            <span>Correlation</span>
           </button>
 
           <button
@@ -258,7 +274,7 @@ export const AnalyticsModal: React.FC = () => {
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-ocean-accent" />
-            <span>Scientific Interpretation</span>
+            <span>Summary</span>
           </button>
 
           <button
@@ -283,6 +299,7 @@ export const AnalyticsModal: React.FC = () => {
               lon={lon}
               depth={depth}
               units={currentUnit}
+              sourceLabel={sourceMeta?.title}
             />
           )}
 
@@ -292,6 +309,7 @@ export const AnalyticsModal: React.FC = () => {
               lat={lat}
               lon={lon}
               units={currentUnit}
+              date={date}
             />
           )}
 
@@ -302,11 +320,12 @@ export const AnalyticsModal: React.FC = () => {
               lon={lon}
               depth={depth}
               units={currentUnit}
+              date={date}
             />
           )}
 
           {activeTab === 'correlation' && (
-            <CorrelationTab lat={lat} lon={lon} depth={depth} />
+            <CorrelationTab lat={lat} lon={lon} depth={depth} date={date} />
           )}
 
           {activeTab === 'interpretation' && (
@@ -316,11 +335,10 @@ export const AnalyticsModal: React.FC = () => {
               depth={depth}
               variable={variable}
               units={currentUnit}
-              mldMeters={profileSummary?.mld_meters}
-              thermoclineDepth={profileSummary?.thermocline_depth_meters}
-              maxGradient={profileSummary?.max_gradient}
-              zScore={anomalySummary?.z_score}
-              trendSlope={timeseriesSummary?.trend_slope_per_day}
+              date={date}
+              profile={profileSummary}
+              anomaly={anomalySummary}
+              timeseries={timeseriesSummary}
             />
           )}
 
@@ -332,6 +350,8 @@ export const AnalyticsModal: React.FC = () => {
               variable={variable}
               units={currentUnit}
               targetName={locationName}
+              date={date}
+              sourceTitle={sourceMeta ? `${sourceMeta.title}${sourceMeta.doi ? ` (DOI ${sourceMeta.doi})` : sourceMeta.product_id ? ` (${sourceMeta.product_id})` : ''}` : undefined}
               timeseriesData={timeseriesSummary}
               anomalyData={anomalySummary}
               profileData={profileSummary}
@@ -341,11 +361,8 @@ export const AnalyticsModal: React.FC = () => {
 
         {/* Footer info */}
         <div className="px-5 py-3 border-t border-ocean-border/80 bg-ocean-bg/60 flex items-center justify-between text-[11px] text-ocean-muted">
-          <div className="flex items-center gap-2 font-mono">
-            <span className="w-2 h-2 rounded-full bg-ocean-accent inline-block" />
-            <span>Operational Ground-Truth Archive Active</span>
-          </div>
-          <div>INCOIS National Oceanographic Data Centre • MoES</div>
+          <div className="font-mono">Computed by the data-service analytics engine from catalogued tiles.</div>
+          <div>{sourceMeta?.title ?? ''}</div>
         </div>
       </div>
     </div>

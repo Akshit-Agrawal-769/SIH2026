@@ -1,80 +1,64 @@
-import pytest
+import json
 import os
 import struct
+import sys
+
 import numpy as np
-import netCDF4 as nc
-from datetime import datetime
+import pytest
 
-@pytest.fixture(autouse=True)
-def generate_synthetic_fixtures(request, monkeypatch):
-    if "test_comparison_analytics" in request.node.nodeid:
-        return
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    fixtures_dir = os.path.join(base_dir, 'fixtures')
-    
-    tiles_dir = os.path.join(fixtures_dir, 'tiles')
-    datasets_dir = os.path.join(fixtures_dir, 'datasets')
-    
-    os.makedirs(os.path.join(tiles_dir, 'temperature', '2024-06-01'), exist_ok=True)
-    os.makedirs(os.path.join(datasets_dir, 'argo'), exist_ok=True)
-    
-    # 1. Generate Binary Tile
-    tile_path = os.path.join(tiles_dir, 'temperature', '2024-06-01', '0.5.bin')
-    if not os.path.exists(tile_path):
-        width = 520
-        height = 280
-        # 32 byte header: 24 bytes packed + 8 bytes padding
-        header = struct.pack('<4sHHHHHHff', b'INCO', 1, 1, width, height, 1, 1, 17.0, 32.0)
-        header += b'\0' * 8
-        
-        cells = np.full(width * height, np.nan, dtype=np.float32)
-        cells[:101278] = 26.0
-        cells[0] = 17.0
-        cells[1] = 32.0
-        cells[103720] = 30.5
-        
-        with open(tile_path, 'wb') as f:
-            f.write(header)
-            f.write(cells.tobytes())
+SERVICE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+REPO_ROOT = os.path.abspath(os.path.join(SERVICE_DIR, ".."))
+REAL_DATA_ROOT = os.path.join(REPO_ROOT, "frontend", "public")
+if SERVICE_DIR not in sys.path:
+    sys.path.insert(0, SERVICE_DIR)
 
-    # 2. Generate Argo NetCDF
-    nc_path = os.path.join(datasets_dir, 'argo', 'incois_2902084_prof.nc')
-    if not os.path.exists(nc_path):
-        with nc.Dataset(nc_path, 'w', format='NETCDF4') as ds:
-            ds.createDimension('N_PROF', 1)
-            ds.createDimension('N_LEVELS', 1)
-            ds.createDimension('STRING8', 8)
-            
-            juld = ds.createVariable('JULD', 'f8', ('N_PROF',))
-            lat = ds.createVariable('LATITUDE', 'f4', ('N_PROF',))
-            lon = ds.createVariable('LONGITUDE', 'f4', ('N_PROF',))
-            cycle = ds.createVariable('CYCLE_NUMBER', 'i4', ('N_PROF',))
-            
-            pres = ds.createVariable('PRES', 'f4', ('N_PROF', 'N_LEVELS'))
-            temp = ds.createVariable('TEMP', 'f4', ('N_PROF', 'N_LEVELS'))
-            psal = ds.createVariable('PSAL', 'f4', ('N_PROF', 'N_LEVELS'))
-            temp_qc = ds.createVariable('TEMP_QC', 'S1', ('N_PROF', 'N_LEVELS'))
-            psal_qc = ds.createVariable('PSAL_QC', 'S1', ('N_PROF', 'N_LEVELS'))
-            
-            platform = ds.createVariable('PLATFORM_NUMBER', 'S1', ('N_PROF', 'STRING8'))
-            
-            juld[0] = (datetime(2024, 6, 1) - datetime(1950, 1, 1)).days
-            lat[0] = 15.0
-            lon[0] = 65.0
-            cycle[0] = 1
-            
-            # fill platform number '2902084 '
-            plat_str = b'2902084 '
-            for i in range(8):
-                platform[0, i] = plat_str[i:i+1]
-            
-            pres[0, 0] = 10.07
-            temp[0, 0] = 28.5
-            psal[0, 0] = 35.2
-            
-            temp_qc[0, 0] = b'1'
-            psal_qc[0, 0] = b'1'
+from app import analytics_engine as ae  # noqa: E402
 
-    monkeypatch.setenv('TILES_DIR', tiles_dir)
-    monkeypatch.setenv('DATASETS_DIR', datasets_dir)
-    monkeypatch.chdir(fixtures_dir)
+
+def write_tile(path, var_code, arr):
+    arr = np.asarray(arr, dtype="<f4")
+    h, w = arr.shape
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    header = struct.pack("<4sHHHHHHff8s", b"INCO", 1, var_code, w, h, 1, 1,
+                         float(np.nanmin(arr)), float(np.nanmax(arr)), b"\x00" * 8)
+    with open(path, "wb") as f:
+        f.write(header + arr.tobytes())
+
+
+@pytest.fixture
+def tiny_root(tmp_path):
+    """
+    Minimal catalog for unit tests of the engine maths: a 4x5 grid, 1-degree
+    cells centred on integer degrees, two variables. Test-only fixture values.
+    """
+    grid = {"width": 5, "height": 4, "lon0": 60.0, "lat0": 10.0, "dlon": 1.0, "dlat": 1.0,
+            "bbox": [59.5, 9.5, 64.5, 13.5], "registration": "cell_center", "row_order": "south_to_north"}
+    dates = ["2019-01-29", "2019-02-28", "2019-04-29"]  # deliberate gap (no March)
+    cat = {"grid": grid, "sources": {"ibr": {"title": "fixture"}}, "instruments": [],
+           "variables": {
+               "temperature": {"var_code": 1, "units": "°C", "long_name": "t", "standard_name": "t",
+                               "source_id": "ibr", "depths": [0.0], "timesteps": dates,
+                               "value_range": [0, 1], "display_range": [0, 1]},
+               "salinity": {"var_code": 2, "units": "PSU", "long_name": "s", "standard_name": "s",
+                            "source_id": "ibr", "depths": [0.0], "timesteps": dates[:1],
+                            "value_range": [0, 1], "display_range": [0, 1]},
+           }}
+    root = tmp_path / "data"
+    (root / "api").mkdir(parents=True)
+    (root / "api" / "catalog.json").write_text(json.dumps(cat), encoding="utf-8")
+    base = np.arange(20, dtype=float).reshape(4, 5)
+    base[0, 0] = np.nan  # land cell
+    for k, d in enumerate(dates):
+        write_tile(str(root / "tiles" / "temperature" / d / "0.0.bin"), 1, base + 10.0 * k)
+    write_tile(str(root / "tiles" / "salinity" / dates[0] / "0.0.bin"), 2, 35.0 + base / 100.0)
+    ae.set_data_root(str(root))
+    yield root
+    ae.set_data_root(REAL_DATA_ROOT)
+
+
+@pytest.fixture
+def real_root():
+    if not os.path.exists(os.path.join(REAL_DATA_ROOT, "api", "catalog.json")):
+        pytest.skip("real data catalog not built")
+    ae.set_data_root(REAL_DATA_ROOT)
+    return REAL_DATA_ROOT

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
+import { useShallow } from 'zustand/react/shallow';
 import { useOceanStore } from '../store/useOceanStore';
 import { parseUrlState, syncStateToUrl } from '../store/urlState';
 import { serializeCameraState, setCameraState } from './cameraUtils';
@@ -30,38 +31,47 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     activeLayers,
     depthLevel,
     selectedVariable,
-    mode,
     opacity,
     colorPalette,
     colorRange,
     scaleType,
     vectorArrowScale,
-    currentsStyle,
     currentsSpeed,
-    currentsDensity,
-    currentsTrailLength,
-    currentsColorTheme,
     verticalExaggeration,
     is3DVolumeBlockEnabled,
     isGraticuleEnabled,
-    setLayers,
-    setDepthLevel,
-    setSelectedVariable,
-    setMode,
-    setSelectedInstrumentId
-  } = useOceanStore();
+    selectedTime
+  } = useOceanStore(useShallow((s) => ({
+    activeLayers: s.activeLayers,
+    depthLevel: s.depthLevel,
+    selectedVariable: s.selectedVariable,
+    opacity: s.opacity,
+    colorPalette: s.colorPalette,
+    colorRange: s.colorRange,
+    scaleType: s.scaleType,
+    vectorArrowScale: s.vectorArrowScale,
+    currentsSpeed: s.currentsSpeed,
+    verticalExaggeration: s.verticalExaggeration,
+    is3DVolumeBlockEnabled: s.is3DVolumeBlockEnabled,
+    isGraticuleEnabled: s.isGraticuleEnabled,
+    selectedTime: s.selectedTime
+  })));
 
   useEffect(() => {
     if (!containerRef.current || viewerRef.current) return;
 
     // Check for permalink URL state to restore
     const initialUrlState = parseUrlState();
-
-    if (initialUrlState.layers) setLayers(initialUrlState.layers);
-    if (initialUrlState.depth !== undefined) setDepthLevel(initialUrlState.depth);
-    
-    if (initialUrlState.variable) setSelectedVariable(initialUrlState.variable);
-    if (initialUrlState.mode) setMode(initialUrlState.mode);
+    const store = useOceanStore.getState();
+    if (initialUrlState.layers) store.setLayers(initialUrlState.layers);
+    if (initialUrlState.variable) store.setSelectedVariable(initialUrlState.variable);
+    if (initialUrlState.depth !== undefined) store.setDepthLevel(initialUrlState.depth);
+    if (initialUrlState.time && !Number.isNaN(Date.parse(initialUrlState.time))) {
+      // Resolved to the nearest real timestep once the catalog is available.
+      useOceanStore.setState({ selectedTime: new Date(initialUrlState.time).toISOString().replace('.000Z', 'Z') });
+      store.fetchTimelineMetadata(useOceanStore.getState().selectedVariable);
+    }
+    if (initialUrlState.mode) store.setMode(initialUrlState.mode);
 
     // Zero API key configuration: use Esri World Imagery (Public ArcGIS MapServer)
     const baseLayer = Cesium.ImageryLayer.fromProviderAsync(
@@ -129,9 +139,10 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       stroke: Cesium.Color.fromCssColorString('#14b8a6'),
       fill: Cesium.Color.fromCssColorString('rgba(20, 184, 166, 0.08)'),
       strokeWidth: 2,
-      clampToGround: true
+      // No terrain provider is used (ellipsoid globe), so ground clamping only disabled the outline.
+      clampToGround: false
     }).then((ds) => {
-      if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+      if (!viewer.isDestroyed()) {
         viewer.dataSources.add(ds);
         eezDataSourceRef.current = ds;
         const currentActiveLayers = useOceanStore.getState().activeLayers;
@@ -143,8 +154,9 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
 
     // 2. Initialize In-situ Instruments Layer (Argo Floats & Gliders)
     createInstrumentsLayer(viewer, (instId: string) => {
-      setSelectedInstrumentId(instId);
+      useOceanStore.getState().setSelectedInstrumentId(instId);
     }).then((manager) => {
+      if (viewer.isDestroyed()) { manager.destroy(); return; }
       instrumentsManagerRef.current = manager;
       manager.updateVisibility(useOceanStore.getState().activeLayers);
     });
@@ -159,12 +171,18 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     cyclonesManagerRef.current = cyclonesManager;
 
     // 3. Initialize Ocean Model Depth-Slice Layer
-    createDepthSliceLayer(viewer).then((manager) => {
+    createDepthSliceLayer(viewer, (status) => {
+      const st = useOceanStore.getState();
+      if (status.state === 'ok') st.setLayerStatus('slice', { state: 'ok' });
+      else if (status.state === 'loading') st.setLayerStatus('slice', { state: 'loading' });
+      else st.setLayerStatus('slice', { state: status.state, message: status.message });
+    }).then((manager) => {
+      if (viewer.isDestroyed()) { manager.destroy(); return; }
       depthSliceManagerRef.current = manager;
       const state = useOceanStore.getState();
       manager.updateSlice({
         variable: state.selectedVariable,
-        date: '2024-06-01',
+        date: state.selectedTime,
         depth: state.depthLevel,
         palette: state.colorPalette,
         opacity: state.opacity,
@@ -181,9 +199,9 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       }
       if (!depthSliceManagerRef.current) return;
 
-      const ray = viewer.camera.getPickRay(movement.endPosition);
-      if (!ray) return;
-      const cartesian = viewer.scene.globe.pick(ray, viewer.scene);
+      // No terrain provider is used, so the analytic ellipsoid intersection is exact
+      // (globe.pick depends on rendered tiles and fails with globe translucency).
+      const cartesian = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
       if (cartesian) {
         const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
         const lon = Cesium.Math.toDegrees(cartographic.longitude);
@@ -192,13 +210,13 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
         const sample = depthSliceManagerRef.current.sampleAt(lon, lat);
         if (sample.value !== null) {
           const store = useOceanStore.getState();
-          const varUnit = store.selectedVariable === 'temperature' ? '°C' : store.selectedVariable === 'salinity' ? 'PSU' : 'mg/m³';
+          const varUnit = store.catalog?.variables[store.selectedVariable]?.units ?? '';
 
           let curSpeed: number | undefined;
           let curHeading: number | undefined;
           if (store.activeLayers.includes('currents')) {
-            const vel = computeOceanVelocity(lon, lat, store.depthLevel, '2024-06-01');
-            if (vel.isAvailable) {
+            const vel = computeOceanVelocity(lon, lat, store.depthLevel, store.selectedTime);
+            if (vel.isAvailable && vel.speed !== null && vel.headingDeg !== null) {
               curSpeed = parseFloat(vel.speed.toFixed(2));
               curHeading = Math.round(vel.headingDeg);
             }
@@ -209,7 +227,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
             lat: parseFloat(lat.toFixed(2)),
             variable: store.selectedVariable,
             depth: store.depthLevel,
-            value: parseFloat(sample.value.toFixed(2)),
+            value: parseFloat(sample.value.toFixed(3)),
             unit: varUnit,
             minVal: store.colorRange[0],
             maxVal: store.colorRange[1],
@@ -232,9 +250,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
         return;
       }
 
-      const ray = viewer.camera.getPickRay(click.position);
-      if (!ray) return;
-      const cartesian = viewer.scene.globe.pick(ray, viewer.scene);
+      const cartesian = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
       if (!cartesian) return;
 
       const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
@@ -263,13 +279,17 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
     // 5. Initialize Ocean Currents Layer (Weather-Map Streamlines + Directional Vector Arrows)
-    const currentsManager = createCurrentsLayer(viewer);
+    const currentsManager = createCurrentsLayer(viewer, (status) => {
+      const st = useOceanStore.getState();
+      if (status.state === 'nodata' || status.state === 'error') st.setLayerStatus('currents', { state: status.state, message: status.message });
+      else st.setLayerStatus('currents', { state: status.state === 'hidden' ? 'ok' : status.state === 'loading' ? 'loading' : 'ok' });
+    });
     currentsManagerRef.current = currentsManager;
     const initStore = useOceanStore.getState();
     currentsManager.updateVisibility(initStore.activeLayers);
     currentsManager.updateDepth(initStore.depthLevel);
     currentsManager.updateArrowScale(initStore.vectorArrowScale);
-    currentsManager.updateTime('2024-06-01');
+    currentsManager.updateTime(initStore.selectedTime);
     currentsManager.updateSettings({
       speed: initStore.currentsSpeed,
       arrowScale: initStore.vectorArrowScale
@@ -307,11 +327,13 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     });
 
     viewerRef.current = viewer;
+    if (import.meta.env.DEV) (window as any).__CESIUM_VIEWER__ = viewer;
     if (onViewerReady) {
       onViewerReady(viewer);
     }
 
     return () => {
+      viewerRef.current = null;
       window.removeEventListener('fly-to-ocean-block', handleFlyToBlock);
       removeMoveEndListener();
       hoverHandler.destroy();
@@ -321,11 +343,11 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       currentsManagerRef.current?.destroy();
       volumetricBlockManagerRef.current?.destroy();
       graticuleManagerRef.current?.destroy();
-      if (viewerRef.current && !viewerRef.current.isDestroyed()) {
-        viewerRef.current.destroy();
-        viewerRef.current = null;
+      if (!viewer.isDestroyed()) {
+        viewer.destroy();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onViewerReady]);
 
   // Update layers and slices when activeLayers, depth, variable, or color settings change
@@ -340,7 +362,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       currentsManagerRef.current.updateVisibility(activeLayers);
       currentsManagerRef.current.updateDepth(depthLevel);
       currentsManagerRef.current.updateArrowScale(vectorArrowScale);
-      currentsManagerRef.current.updateTime('2024-06-01');
+      currentsManagerRef.current.updateTime(selectedTime);
       currentsManagerRef.current.updateSettings({
         speed: currentsSpeed,
         arrowScale: vectorArrowScale
@@ -351,7 +373,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       depthSliceManagerRef.current.setOpacity(opacity);
       depthSliceManagerRef.current.updateSlice({
         variable: selectedVariable,
-        date: '2024-06-01',
+        date: selectedTime,
         depth: depthLevel,
         palette: colorPalette,
         opacity,
@@ -381,17 +403,13 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     activeLayers,
     depthLevel,
     selectedVariable,
-    mode,
+    selectedTime,
     opacity,
     colorPalette,
     colorRange,
     scaleType,
     vectorArrowScale,
-    currentsStyle,
     currentsSpeed,
-    currentsDensity,
-    currentsTrailLength,
-    currentsColorTheme,
     verticalExaggeration,
     is3DVolumeBlockEnabled,
     isGraticuleEnabled
@@ -403,9 +421,3 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     </div>
   );
 };
-
-
-
-
-
-

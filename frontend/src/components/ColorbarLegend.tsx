@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useOceanStore } from '../store/useOceanStore';
+import { formatTick, scalePosition, scaleTicks } from '../rendering/scale';
 import { Thermometer, Droplets, Activity, Wind, X } from 'lucide-react';
 
 export const ColorbarLegend: React.FC = () => {
@@ -11,8 +13,13 @@ export const ColorbarLegend: React.FC = () => {
     colorRange,
     scaleType,
     hoveredOceanInfo,
-    activeLayers
-  } = useOceanStore();
+    activeLayers,
+    catalog
+  } = useOceanStore(useShallow((s) => ({
+    selectedVariable: s.selectedVariable, depthLevel: s.depthLevel, colorPalette: s.colorPalette,
+    colorRange: s.colorRange, scaleType: s.scaleType, hoveredOceanInfo: s.hoveredOceanInfo,
+    activeLayers: s.activeLayers, catalog: s.catalog
+  })));
 
   const isLayerActive = activeLayers.includes(selectedVariable);
   if (!isLayerActive || isDismissed) return null;
@@ -81,22 +88,15 @@ export const ColorbarLegend: React.FC = () => {
   };
 
   const meta = getVariableMeta();
-  const minVal = colorRange ? colorRange[0] : meta.defaultMin;
-  const maxVal = colorRange ? colorRange[1] : meta.defaultMax;
-  const delta = maxVal - minVal > 0.0001 ? maxVal - minVal : 1.0;
-
-  let hoverPct: number | null = null;
-  if (hoveredOceanInfo && hoveredOceanInfo.value !== null) {
-    hoverPct = Math.max(0, Math.min(100, ((hoveredOceanInfo.value - minVal) / delta) * 100));
-  }
-
-  const ticks = [
-    minVal,
-    minVal + delta * 0.25,
-    minVal + delta * 0.5,
-    minVal + delta * 0.75,
-    maxVal
-  ];
+  const catMeta = catalog?.variables[selectedVariable];
+  const title = catMeta?.long_name ?? meta.title;
+  const unit = catMeta?.units ?? meta.unit;
+  const minVal = colorRange[0];
+  const maxVal = colorRange[1];
+  const isLog = scaleType === 'log';
+  const pos = hoveredOceanInfo ? scalePosition(hoveredOceanInfo.value, minVal, maxVal, isLog) : null;
+  const hoverPct = pos === null ? null : pos * 100;
+  const ticks = scaleTicks(minVal, maxVal, isLog, 5);
 
   return (
     <div className="fixed bottom-24 right-5 glass-panel rounded-xl p-4 shadow-2xl z-20 w-80 select-none border border-white/10">
@@ -104,17 +104,18 @@ export const ColorbarLegend: React.FC = () => {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
           {meta.icon}
-          <span>{meta.title}</span>
+          <span>{title}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-ocean-muted">
             {scaleType}
           </span>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-ocean-accent/20 border border-ocean-accent/40 text-ocean-accent font-semibold">
-            {depthLevel === 0.5 ? 'Surface (0m)' : `${depthLevel}m`}
+            {depthLevel === 0 ? 'Surface' : `${depthLevel} m`}
           </span>
           <button
             onClick={() => setIsDismissed(true)}
+            aria-label="Dismiss legend"
             className="p-1 rounded-full hover:bg-white/10 text-ocean-muted hover:text-white transition-all duration-[150ms] ease-nasa ml-1"
             title="Dismiss legend"
           >
@@ -131,11 +132,11 @@ export const ColorbarLegend: React.FC = () => {
         <div className="text-right">
           {hoveredOceanInfo ? (
             <span className="font-mono text-sm font-bold text-ocean-accent">
-              {hoveredOceanInfo.value.toFixed(1)} {hoveredOceanInfo.unit}
+              {formatTick(hoveredOceanInfo.value)} {hoveredOceanInfo.unit}
             </span>
           ) : (
             <span className="font-mono text-xs text-white font-semibold">
-              {minVal.toFixed(1)} — {maxVal.toFixed(1)} {meta.unit}
+              {formatTick(minVal)} — {formatTick(maxVal)} {unit}
             </span>
           )}
         </div>
@@ -159,20 +160,12 @@ export const ColorbarLegend: React.FC = () => {
       <div className="flex justify-between text-[9px] font-mono text-ocean-muted">
         {ticks.map((t, idx) => (
           <span key={idx} className={idx === 0 || idx === ticks.length - 1 ? 'font-bold text-white' : ''}>
-            {t.toFixed(1)}
-            {idx === ticks.length - 1 ? meta.unit : ''}
+            {formatTick(t)}
+            {idx === ticks.length - 1 ? ` ${unit}` : ''}
           </span>
         ))}
       </div>
 
-      {/* Water Mass Thermal Reference Labels */}
-      {selectedVariable === 'temperature' && (
-        <div className="flex justify-between text-[8px] font-mono mt-2 pt-2 border-t border-white/10">
-          <span className="text-teal-400 font-semibold">Cold Upwell</span>
-          <span className="text-ocean-accent font-semibold">Frontal / Eddies</span>
-          <span className="text-amber-400 font-semibold">Warm Pool</span>
-        </div>
-      )}
     </div>
   );
 };

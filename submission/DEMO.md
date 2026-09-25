@@ -12,7 +12,9 @@ Watch the full end-to-end working demonstration of the platform:
 
 - **Live Production URL:** 
 🚀 Main Website (3D Digital Twin):
-👉 https://incois-ocean-3d.vercel.app
+👉 https://sih-zeta-gilt.vercel.app (static frontend)
+
+> ⚠ `https://incois-ocean-3d.vercel.app` is an older Vercel deployment that still serves the removed synthetic tiles and fabricated buoy/glider profiles. It must be redeployed from this branch or taken down.
 
 ⚙️ Backend Links (To show your teammates):
 Interactive FastAPI Swagger Docs: https://incois-ocean-3d.vercel.app/docs
@@ -44,7 +46,7 @@ The demonstration video highlights the core operational capabilities of the plat
 - **Physical Telemetry Readings:** Sound velocity calculation (Mackenzie equation), mixed layer depth (MLD), and pycnocline gradients.
 
 ### Segment 4: In-Situ Observation Co-Visualization (3:15 – 4:15)
-- **Active Platform Markers:** Real-time spatial locations of INCOIS Argo profiling floats, autonomous gliders, and moored OMNI buoys.
+- **Active Platform Markers:** latest QC-filtered positions of 13 Argo floats (no glider or buoy data exists in this release).
 - **CTD Profile HUD:** Clicking an Argo float (e.g., WMO `2902084`) to pull authentic vertical CTD soundings with temperature and salinity curves.
 - **Model vs. Observation Validation:** Side-by-side comparison of model forecasts against real sensor measurements.
 

@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { useOceanStore } from '../store/useOceanStore';
+import { useShallow } from 'zustand/react/shallow';
+import { useOceanStore, DEFAULT_OCEAN_POINT } from '../store/useOceanStore';
+import { API_BASE, dateKey } from '../api/config';
+import { formatTick, scalePosition, scaleTicks } from '../rendering/scale';
 import {
   Sliders,
   Palette,
@@ -21,55 +24,48 @@ import {
 
 export const RightPanel: React.FC = () => {
   const {
-    selectedVariable,
-    setSelectedVariable,
-    opacity,
-    setOpacity,
-    verticalExaggeration,
-    setVerticalExaggeration,
-    colorPalette,
-    setColorPalette,
-    colorRange,
-    setColorRange,
-    scaleType,
-    setScaleType,
-    vectorArrowScale,
-    setVectorArrowScale,
-    currentsSpeed,
-    setCurrentsSpeed,
-    autoCalibrateRange,
-    activeLayers,
-    
-    depthLevel,
-    setDepthLevel,
-    openWaterBlock,
-    hoveredOceanInfo,
-    isGraticuleEnabled,
-    toggleGraticule
-  } = useOceanStore();
+    selectedVariable, setSelectedVariable, opacity, setOpacity, verticalExaggeration, setVerticalExaggeration,
+    colorPalette, setColorPalette, colorRange, setColorRange, scaleType, setScaleType, vectorArrowScale,
+    setVectorArrowScale, currentsSpeed, setCurrentsSpeed, autoCalibrateRange, activeLayers, depthLevel,
+    setDepthLevel, openWaterBlock, hoveredOceanInfo, isGraticuleEnabled, toggleGraticule, catalog, selectedTime,
+    clickedGlobePoint
+  } = useOceanStore(useShallow((s) => ({
+    selectedVariable: s.selectedVariable, setSelectedVariable: s.setSelectedVariable, opacity: s.opacity,
+    setOpacity: s.setOpacity, verticalExaggeration: s.verticalExaggeration, setVerticalExaggeration: s.setVerticalExaggeration,
+    colorPalette: s.colorPalette, setColorPalette: s.setColorPalette, colorRange: s.colorRange, setColorRange: s.setColorRange,
+    scaleType: s.scaleType, setScaleType: s.setScaleType, vectorArrowScale: s.vectorArrowScale,
+    setVectorArrowScale: s.setVectorArrowScale, currentsSpeed: s.currentsSpeed, setCurrentsSpeed: s.setCurrentsSpeed,
+    autoCalibrateRange: s.autoCalibrateRange, activeLayers: s.activeLayers, depthLevel: s.depthLevel,
+    setDepthLevel: s.setDepthLevel, openWaterBlock: s.openWaterBlock, hoveredOceanInfo: s.hoveredOceanInfo,
+    isGraticuleEnabled: s.isGraticuleEnabled, toggleGraticule: s.toggleGraticule, catalog: s.catalog,
+    selectedTime: s.selectedTime, clickedGlobePoint: s.clickedGlobePoint
+  })));
+  const varMeta = catalog?.variables[selectedVariable];
+  const depthOptions = varMeta?.depths ?? [0];
 
   const [copiedWms, setCopiedWms] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const palettes = [
-    { id: 'noaa_sst', name: 'NOAA High-Res SST' },
-    { id: 'gfdl_chl', name: 'GFDL ESM2.6 Chlorophyll' },
-    { id: 'turbo', name: 'Turbo (Rainbow)' },
-    { id: 'viridis', name: 'Viridis (Oceanic Salinity)' },
-    { id: 'plasma', name: 'Plasma (Thermal)' },
-    { id: 'coolwarm', name: 'Cool-Warm (Divergent)' }
+    { id: 'noaa_sst', name: 'Spectral (SST style)' },
+    { id: 'gfdl_chl', name: 'Spectral (chlorophyll style)' },
+    { id: 'turbo', name: 'Turbo' },
+    { id: 'viridis', name: 'Viridis' },
+    { id: 'plasma', name: 'Plasma' },
+    { id: 'coolwarm', name: 'Cool-Warm (divergent)' }
   ];
 
-  const variables = [
-    { id: 'temperature', label: 'Temp', unit: '°C', icon: <Waves className="w-3 h-3 text-ocean-accent" /> },
-    { id: 'salinity', label: 'Salinity', unit: 'PSU', icon: <Droplets className="w-3 h-3 text-teal-400" /> },
-    { id: 'chlorophyll', label: 'Chl-a', unit: 'mg/m³', icon: <Activity className="w-3 h-3 text-ocean-accent" /> },
-    { id: 'currents', label: 'Currents', unit: 'm/s', icon: <Wind className="w-3 h-3 text-ocean-accent" /> }
+  const allVariables = [
+    { id: 'temperature', label: 'SST', icon: <Waves className="w-3 h-3 text-ocean-accent" /> },
+    { id: 'salinity', label: 'SSS', icon: <Droplets className="w-3 h-3 text-teal-400" /> },
+    { id: 'chlorophyll', label: 'Chl-a', icon: <Activity className="w-3 h-3 text-ocean-accent" /> },
+    { id: 'mld', label: 'MLD', icon: <Layers className="w-3 h-3 text-ocean-accent" /> },
+    { id: 'currents', label: 'Currents', icon: <Wind className="w-3 h-3 text-ocean-accent" /> }
   ];
+  const variables = allVariables.filter((v) => !catalog || catalog.variables[v.id]);
 
-  const wmsUrl = typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.hostname}:4000/api/wms`
-    : 'http://localhost:4000/api/wms';
+  const apiOrigin = API_BASE.startsWith('http') ? API_BASE : `${typeof window !== 'undefined' ? window.location.origin : ''}${API_BASE}`;
+  const wmsUrl = `${apiOrigin}/wms`;
 
   const handleCopyWms = () => {
     navigator.clipboard.writeText(wmsUrl);
@@ -80,10 +76,11 @@ export const RightPanel: React.FC = () => {
   const handleExportNetCDF = async () => {
     try {
       setIsExporting(true);
-      const downloadUrl = `/api/export/netcdf?variable=${selectedVariable}&date=2024-06-01`;
+      const d = dateKey(selectedTime);
+      const downloadUrl = `${API_BASE}/export/netcdf?variable=${encodeURIComponent(selectedVariable)}&date=${d}`;
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = `INCOIS_${selectedVariable}_2024-06-01.nc`;
+      link.download = `INCOIS_${selectedVariable}_${d}.nc`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -119,26 +116,16 @@ export const RightPanel: React.FC = () => {
     }
   };
 
-  const varUnit = selectedVariable === 'temperature' ? '°C' : selectedVariable === 'salinity' ? 'PSU' : selectedVariable === 'chlorophyll' ? 'mg/m³' : 'm/s';
+  const varUnit = varMeta?.units ?? '';
   const minVal = colorRange[0];
   const maxVal = colorRange[1];
-  const delta = maxVal - minVal > 0.0001 ? maxVal - minVal : 1.0;
-
-  let hoverPct: number | null = null;
-  if (hoveredOceanInfo && hoveredOceanInfo.value !== null) {
-    hoverPct = Math.max(0, Math.min(100, ((hoveredOceanInfo.value - minVal) / delta) * 100));
-  }
-
-  const ticks = [
-    minVal,
-    minVal + delta * 0.25,
-    minVal + delta * 0.5,
-    minVal + delta * 0.75,
-    maxVal
-  ];
+  const isLog = scaleType === 'log';
+  const pos = hoveredOceanInfo ? scalePosition(hoveredOceanInfo.value, minVal, maxVal, isLog) : null;
+  const hoverPct = pos === null ? null : pos * 100;
+  const ticks = scaleTicks(minVal, maxVal, isLog, 5);
 
   return (
-    <aside className="fixed right-4 top-16 w-80 max-h-[calc(100vh-120px)] overflow-y-auto glass-panel rounded-xl p-4 flex flex-col gap-4 select-none z-20 shadow-2xl custom-scrollbar">
+    <aside aria-label="Visualization controls" className="fixed right-4 top-16 w-80 max-h-[calc(100vh-240px)] overflow-y-auto glass-panel rounded-xl p-4 flex flex-col gap-4 select-none z-20 shadow-2xl custom-scrollbar">
       {/* 1. Header & Active Variable Indicator */}
       <div className="flex items-center justify-between pb-2 border-b border-white/10">
         <div className="flex items-center gap-1.5 text-[10px] font-bold text-ocean-muted uppercase tracking-wider">
@@ -153,11 +140,14 @@ export const RightPanel: React.FC = () => {
       {/* 2. Model Variable Switcher */}
       <div className="space-y-1.5">
         <span className="text-[11px] text-ocean-text-secondary font-medium">Rendered Parameter</span>
-        <div className="grid grid-cols-4 gap-1 p-1 bg-black/40 rounded-xl border border-white/5">
+        <div role="radiogroup" aria-label="Rendered variable" className="grid grid-cols-5 gap-1 p-1 bg-black/40 rounded-xl border border-white/5">
           {variables.map((v) => (
             <button
               key={v.id}
               onClick={() => setSelectedVariable(v.id)}
+              role="radio"
+              aria-checked={selectedVariable === v.id}
+              title={catalog?.variables[v.id]?.long_name}
               className={`flex flex-col items-center py-1.5 px-1 rounded-lg transition-all duration-[150ms] ease-nasa text-center ${
                 selectedVariable === v.id
                   ? 'bg-white text-ocean-solid font-bold shadow-md'
@@ -214,35 +204,30 @@ export const RightPanel: React.FC = () => {
         </div>
       </div>
 
-            {/* 3.5 Depth Slice Selector */}
+      {/* 3.5 Depth level: only levels that exist in the source data */}
       <div className="space-y-1">
-        <div className="flex items-center justify-between text-xs text-ocean-text-secondary">
+        <label htmlFor="depth-select" className="flex items-center justify-between text-xs text-ocean-text-secondary">
           <span className="font-medium text-[11px] flex items-center gap-1">
             <Layers className="w-3 h-3 text-ocean-accent" />
-            Depth Slice
+            Depth level
           </span>
-          <span className="font-mono text-[10px] text-ocean-accent font-bold">{depthLevel === 0.5 ? '0m' : depthLevel + 'm'}</span>
-        </div>
+          <span className="font-mono text-[10px] text-ocean-accent font-bold">{depthLevel} m</span>
+        </label>
         <select
+          id="depth-select"
           value={depthLevel}
           onChange={(e) => setDepthLevel(parseFloat(e.target.value))}
-          className="w-full bg-black/40 border border-white/10 rounded-lg p-1 text-xs text-ocean-text-secondary"
+          className="w-full bg-black/40 border border-white/10 rounded-lg p-1 text-xs text-ocean-text-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ocean-accent"
         >
-          <option value="0.5">Surface (0m)</option>
-          <option value="5">5m</option>
-          <option value="15">15m</option>
-          <option value="30">30m</option>
-          <option value="50">50m</option>
-          <option value="75">75m</option>
-          <option value="100">100m</option>
-          <option value="150">150m</option>
-          <option value="200">200m</option>
-          <option value="300">300m</option>
-          <option value="500">500m</option>
-          <option value="800">800m</option>
-          <option value="1000">1000m</option>
-          <option value="2000">2000m</option>
+          {depthOptions.map((d) => (
+            <option key={d} value={d} className="bg-ocean-solid">{d === 0 ? 'Surface (0 m)' : `${d} m`}</option>
+          ))}
         </select>
+        {varMeta && (
+          <p className="text-[9px] text-ocean-muted leading-snug">
+            {catalog?.sources[varMeta.source_id]?.title}: {varMeta.vertical_coverage ?? `${depthOptions.length} level(s)`}. Subsurface levels are not available and are never interpolated.
+          </p>
+        )}
       </div>
 
       {/* 4. Physical Range Editor & Colormap Gradient */}
@@ -300,7 +285,7 @@ export const RightPanel: React.FC = () => {
           </div>
           <div className="flex justify-between text-[8px] font-mono text-ocean-muted">
             {ticks.map((t, idx) => (
-              <span key={idx}>{t.toFixed(1)}{idx === ticks.length - 1 ? ` ${varUnit}` : ''}</span>
+              <span key={idx}>{formatTick(t)}{idx === ticks.length - 1 ? ` ${varUnit}` : ''}</span>
             ))}
           </div>
         </div>
@@ -328,15 +313,16 @@ export const RightPanel: React.FC = () => {
           <div className="flex items-center justify-between text-xs text-ocean-text-secondary">
             <span className="font-medium text-[11px] flex items-center gap-1">
               <Maximize2 className="w-3 h-3 text-ocean-accent" />
-              Bathymetric Exaggeration
+              3D frame vertical exaggeration
             </span>
-            <span className="font-mono text-[10px] text-ocean-accent font-bold">{verticalExaggeration.toFixed(1)}x</span>
+            <span className="font-mono text-[10px] text-ocean-accent font-bold">{verticalExaggeration.toFixed(0)}x</span>
           </div>
           <input
             type="range"
-            min="1.0"
-            max="15.0"
-            step="0.5"
+            aria-label="3D frame vertical exaggeration"
+            min="50"
+            max="500"
+            step="10"
             value={verticalExaggeration}
             onChange={(e) => setVerticalExaggeration(parseFloat(e.target.value))}
             className="w-full accent-emerald-400 cursor-pointer"
@@ -348,32 +334,30 @@ export const RightPanel: React.FC = () => {
       <div className="space-y-2 pt-1 border-t border-white/10">
         <button
           onClick={() => {
-            openWaterBlock({
-              lon: 78.0,
-              lat: 12.0,
-              name: 'Indian Ocean Water Column'
-            });
+            const p = clickedGlobePoint ?? DEFAULT_OCEAN_POINT;
+            openWaterBlock({ lon: p.lon, lat: p.lat, name: clickedGlobePoint?.basin ?? DEFAULT_OCEAN_POINT.name });
           }}
           className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500/25 to-teal-500/25 hover:from-emerald-500/35 hover:to-teal-500/35 border border-ocean-accent/40 text-ocean-accent hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-[150ms] ease-nasa shadow-md active:scale-[0.98]"
         >
           <Box className="w-3.5 h-3.5 text-ocean-accent" />
-          <span>Inspect 3D Water Block Studio</span>
+          <span>Open 3D water-column view</span>
         </button>
 
         <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <Globe className="w-3.5 h-3.5 text-ocean-accent" />
-            <span className="text-[11px] font-bold text-ocean-text-secondary">NOAA Graticule Grid</span>
+            <span className="text-[11px] font-bold text-ocean-text-secondary">Graticule</span>
           </div>
           <button
             onClick={toggleGraticule}
+            aria-pressed={isGraticuleEnabled}
             className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full transition-all duration-[150ms] ease-nasa ${
               isGraticuleEnabled
                 ? 'bg-ocean-accent/20 text-ocean-accent border border-ocean-accent/40'
                 : 'bg-white/5 text-ocean-muted'
             }`}
           >
-            {isGraticuleEnabled ? 'ENABLED' : 'MUTED'}
+            {isGraticuleEnabled ? 'ON' : 'OFF'}
           </button>
         </div>
       </div>
@@ -384,7 +368,7 @@ export const RightPanel: React.FC = () => {
           <div className="flex items-center justify-between text-xs text-ocean-text-secondary">
             <div className="flex items-center gap-1.5">
               <Wind className="w-3.5 h-3.5 text-ocean-accent animate-pulse" />
-              <span className="text-[11px] font-bold text-ocean-text-secondary">Currents Vectors ({depthLevel === 0.5 ? '0m' : `${depthLevel}m`})</span>
+              <span className="text-[11px] font-bold text-ocean-text-secondary">Current vectors (ARMOR3D, {catalog?.variables.currents?.timesteps[0] ?? '—'})</span>
             </div>
             <span className="font-mono text-[10px] text-ocean-accent font-bold">{currentsSpeed.toFixed(1)}x speed</span>
           </div>
@@ -435,18 +419,18 @@ export const RightPanel: React.FC = () => {
 
         <button
           onClick={handleExportNetCDF}
-          disabled={isExporting}
+          disabled={isExporting || !selectedTime}
           className="w-full py-2 px-3 glass-pill text-ocean-accent hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-[150ms] ease-nasa active:scale-[0.98] disabled:opacity-50"
         >
           <Download className={`w-3.5 h-3.5 text-ocean-accent ${isExporting ? 'animate-bounce' : ''}`} />
-          <span>{isExporting ? 'Packaging NetCDF...' : `Download NetCDF-4 (${selectedVariable.slice(0, 4)}.nc)`}</span>
+          <span>{isExporting ? 'Requesting NetCDF…' : `Download NetCDF-4 (${selectedVariable}, ${dateKey(selectedTime) || '—'})`}</span>
         </button>
 
         <div className="p-2 rounded-xl bg-black/50 border border-white/5 space-y-1">
           <div className="flex items-center justify-between text-[10px] text-ocean-muted">
             <span className="font-semibold text-ocean-text-secondary">OGC WMS 1.3.0 Endpoint</span>
             <a
-              href="/api/wms?SERVICE=WMS&REQUEST=GetCapabilities"
+              href={`${wmsUrl}?SERVICE=WMS&REQUEST=GetCapabilities`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-ocean-accent hover:underline flex items-center gap-0.5"
@@ -462,7 +446,7 @@ export const RightPanel: React.FC = () => {
               value={wmsUrl}
               className="bg-transparent text-[9px] font-mono text-ocean-text-secondary flex-1 outline-none select-all"
             />
-            <button onClick={handleCopyWms} className="p-1 hover:text-ocean-accent">
+            <button onClick={handleCopyWms} aria-label="Copy WMS endpoint URL" className="p-1 hover:text-ocean-accent">
               {copiedWms ? <Check className="w-3 h-3 text-ocean-accent" /> : <Copy className="w-3 h-3" />}
             </button>
           </div>

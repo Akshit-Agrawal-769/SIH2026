@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useOceanStore } from '../store/useOceanStore';
 import { fetchInstrumentProfile, InstrumentProfileResponse } from '../api/client';
 import {
@@ -32,7 +33,13 @@ export const InstrumentProfileModal: React.FC = () => {
     openWaterBlock,
     openComparisonModal,
     openAnalyticsModal
-  } = useOceanStore();
+  } = useOceanStore(useShallow((s) => ({
+    selectedInstrumentId: s.selectedInstrumentId,
+    setSelectedInstrumentId: s.setSelectedInstrumentId,
+    openWaterBlock: s.openWaterBlock,
+    openComparisonModal: s.openComparisonModal,
+    openAnalyticsModal: s.openAnalyticsModal
+  })));
   const [profile, setProfile] = useState<InstrumentProfileResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,20 +51,29 @@ export const InstrumentProfileModal: React.FC = () => {
       return;
     }
 
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
-    fetchInstrumentProfile(selectedInstrumentId)
+    setProfile(null);
+    fetchInstrumentProfile(selectedInstrumentId, controller.signal)
       .then((data) => {
         setProfile(data);
+        setLoading(false);
       })
       .catch((err) => {
-        console.error('[ProfileModal] Fetch error:', err);
+        if (err?.name === 'AbortError') return;
         setError(err.message || 'Failed to load profile data');
-      })
-      .finally(() => {
         setLoading(false);
       });
+    return () => controller.abort();
   }, [selectedInstrumentId]);
+
+  useEffect(() => {
+    if (!selectedInstrumentId) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedInstrumentId(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedInstrumentId, setSelectedInstrumentId]);
 
   if (!selectedInstrumentId) return null;
 
@@ -77,13 +93,13 @@ export const InstrumentProfileModal: React.FC = () => {
         return {
           name: 'Practical Salinity',
           unit: 'PSU',
-          color: '#00e5ff',
+          color: '#2dd4bf',
           dataKey: 'salinity'
         };
       case 'oxygen':
         return {
           name: 'Dissolved Oxygen',
-          unit: 'ml/l',
+          unit: 'µmol/kg',
           color: '#c084fc',
           dataKey: 'oxygen'
         };
@@ -99,9 +115,12 @@ export const InstrumentProfileModal: React.FC = () => {
 
   const currentConfig = getVariableConfig();
 
-  // Find surface and deep readings
-  const surfaceMeasurement = profile?.measurements[0];
-  const deepMeasurement = profile?.measurements[profile.measurements.length - 1];
+  // Only levels where the selected parameter was measured and passed QC.
+  const series = (profile?.measurements || []).filter((m) => (m as any)[currentConfig.dataKey] !== null && (m as any)[currentConfig.dataKey] !== undefined);
+  const surfaceMeasurement = series[0];
+  const deepMeasurement = series[series.length - 1];
+  const hasParam = (key: string) => (profile?.measurements || []).some((m) => (m as any)[key] !== null && (m as any)[key] !== undefined);
+  const analysis = profile?.analysis;
 
   return (
     <div className="absolute right-4 top-16 bottom-20 w-96 glass-panel rounded-2xl shadow-2xl z-40 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right duration-[300ms] ease-nasa-slow border border-white/10">
@@ -120,10 +139,10 @@ export const InstrumentProfileModal: React.FC = () => {
               <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
                 isArgo ? 'bg-amber-400/20 text-amber-300' : 'bg-fuchsia-400/20 text-fuchsia-300'
               }`}>
-                {isArgo ? 'Argo Profiling Float' : 'Underwater Glider'}
+                {isArgo ? 'Argo profiling float' : profile?.platform_type ?? 'Platform'}
               </span>
               <span className="text-[10px] text-ocean-muted font-mono">
-                {meta.institution || 'INCOIS'}
+                {meta.institution || ''}
               </span>
             </div>
             <h3 className="text-sm font-bold text-white tracking-wide mt-0.5">
@@ -134,6 +153,7 @@ export const InstrumentProfileModal: React.FC = () => {
 
         <button
           onClick={() => setSelectedInstrumentId(null)}
+          aria-label="Close profile viewer"
           className="p-1.5 rounded-lg hover:bg-white/10 text-ocean-muted hover:text-white transition-all duration-[150ms] ease-nasa"
           title="Close profile viewer"
         >
@@ -153,7 +173,7 @@ export const InstrumentProfileModal: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-ocean-muted shrink-0" />
             <span className="text-[11px] font-mono text-ocean-text-secondary">
-              {new Date(profile.timestamp).toLocaleDateString()}
+              {profile.timestamp.slice(0, 16).replace('T', ' ')} UTC · cycle {profile.cycle_number ?? '—'}
             </span>
           </div>
         </div>
@@ -175,13 +195,13 @@ export const InstrumentProfileModal: React.FC = () => {
             className="w-full py-2 px-3 glass-pill text-ocean-accent hover:text-white border border-ocean-accent/50 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md transition-all duration-[150ms] ease-nasa active:scale-[0.98]"
           >
             <Box className="w-4 h-4 text-ocean-accent" />
-            <span>Inspect 3D Water Block (0–2000m)</span>
+            <span>Open 3D water-column view</span>
           </button>
 
           <button
             onClick={() => {
               if (selectedInstrumentId) {
-                openComparisonModal(selectedInstrumentId, activeTab);
+                openComparisonModal(selectedInstrumentId, activeTab === 'salinity' ? 'salinity' : 'temperature');
               }
             }}
             className="w-full py-2 px-3 bg-gradient-to-r from-amber-500/20 to-orange-600/30 hover:from-amber-500/35 hover:to-orange-600/45 text-amber-200 border border-amber-400/40 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md shadow-amber-500/10 transition-all duration-[150ms] ease-nasa active:scale-[0.98]"
@@ -196,8 +216,8 @@ export const InstrumentProfileModal: React.FC = () => {
                 openAnalyticsModal({
                   lat: profile.latitude,
                   lon: profile.longitude,
-                  depth: 10.0,
-                  variable: activeTab,
+                  depth: 0,
+                  variable: activeTab === 'salinity' ? 'salinity' : activeTab === 'chlorophyll' ? 'chlorophyll' : 'temperature',
                   name: `${meta.wmo ? `Float #${meta.wmo}` : profile.external_id}`
                 });
               }
@@ -238,7 +258,8 @@ export const InstrumentProfileModal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('oxygen')}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-all duration-[150ms] ease-nasa ${
+          disabled={!!profile && !hasParam('oxygen')}
+          className={`disabled:opacity-30 disabled:cursor-not-allowed flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-all duration-[150ms] ease-nasa ${
             activeTab === 'oxygen'
               ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
               : 'text-ocean-muted hover:text-ocean-text-secondary hover:bg-white/5'
@@ -250,7 +271,8 @@ export const InstrumentProfileModal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('chlorophyll')}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-all duration-[150ms] ease-nasa ${
+          disabled={!!profile && !hasParam('chlorophyll')}
+          className={`disabled:opacity-30 disabled:cursor-not-allowed flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-all duration-[150ms] ease-nasa ${
             activeTab === 'chlorophyll'
               ? 'bg-ocean-accent/20 text-ocean-accent border border-ocean-accent/40'
               : 'text-ocean-muted hover:text-ocean-text-secondary hover:bg-white/5'
@@ -280,24 +302,26 @@ export const InstrumentProfileModal: React.FC = () => {
           <div className="w-full h-full flex flex-col">
             <div className="text-[11px] text-ocean-muted flex items-center justify-between mb-1 px-1">
               <span>{currentConfig.name} ({currentConfig.unit})</span>
-              <span className="font-mono text-ocean-accent">Surface (0m) → Depth (2000m)</span>
+              <span className="font-mono text-ocean-accent">
+                {series.length ? `${series[0].depth.toFixed(0)}–${series[series.length - 1].depth.toFixed(0)} m · ${series.length} QC-good levels` : 'no QC-good levels'}
+              </span>
             </div>
 
             <div className="w-full h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={profile.measurements}
+                  data={series}
                   layout="vertical"
                   margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#404040" opacity={0.4} />
                   {/* Inverted Y-Axis: 0m at the surface, 2000m at the abyss */}
                   <YAxis
                     type="number"
                     dataKey="depth"
                     reversed={true}
                     unit="m"
-                    stroke="#64748b"
+                    stroke="#a3a3a3"
                     fontSize={10}
                     tickCount={6}
                   />
@@ -305,13 +329,13 @@ export const InstrumentProfileModal: React.FC = () => {
                     type="number"
                     dataKey={currentConfig.dataKey}
                     unit={currentConfig.unit}
-                    stroke="#64748b"
+                    stroke="#a3a3a3"
                     fontSize={10}
                     domain={['auto', 'auto']}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'rgba(20, 25, 35, 0.95)',
+                      backgroundColor: 'rgba(23, 23, 23, 0.95)',
                       borderColor: 'rgba(255, 255, 255, 0.15)',
                       borderRadius: '12px',
                       color: '#f8fafc',
@@ -322,13 +346,13 @@ export const InstrumentProfileModal: React.FC = () => {
                     labelFormatter={(depthVal: any) => `Depth: ${depthVal} meters`}
                   />
                   <Line
-                    type="monotone"
+                    type="linear"
                     dataKey={currentConfig.dataKey}
                     stroke={currentConfig.color}
                     strokeWidth={2.5}
                     dot={{ r: 2, fill: currentConfig.color }}
                     activeDot={{ r: 5 }}
-                    isAnimationActive={true}
+                    isAnimationActive={false}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -337,18 +361,37 @@ export const InstrumentProfileModal: React.FC = () => {
         )}
       </div>
 
+      {/* Observed stratification (computed from this profile's QC-good temperature levels) */}
+      {profile && analysis && (
+        <div className="px-3 pb-2 text-[10px] font-mono text-ocean-muted grid grid-cols-2 gap-2">
+          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+            <span className="block">Mixed layer depth</span>
+            <span className="text-white font-bold text-xs">{analysis.mld_meters !== null ? `${analysis.mld_meters} m` : 'n/a'}</span>
+          </div>
+          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+            <span className="block">Thermocline (max −dT/dz)</span>
+            <span className="text-white font-bold text-xs">
+              {analysis.thermocline_depth_meters !== null ? `${analysis.thermocline_depth_meters} m` : 'n/a'}
+            </span>
+          </div>
+          <p className="col-span-2 leading-snug" title={analysis.method}>
+            {analysis.reason ?? analysis.method}. QC: {meta.qc_policy ?? 'Argo flags 1/2'}. Source: {meta.source_file ?? 'Argo GDAC'}.
+          </p>
+        </div>
+      )}
+
       {/* Bottom Summary Stats */}
       {profile && surfaceMeasurement && deepMeasurement && (
         <div className="p-3 bg-black/40 border-t border-white/10 grid grid-cols-2 gap-2 text-xs">
           <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-            <span className="text-[10px] text-ocean-muted block font-mono">Surface (1m)</span>
+            <span className="text-[10px] text-ocean-muted block font-mono">Shallowest ({surfaceMeasurement.depth.toFixed(1)} m)</span>
             <span className="font-mono font-bold text-white">
               {(surfaceMeasurement as any)[currentConfig.dataKey] ?? 'N/A'} {currentConfig.unit}
             </span>
           </div>
 
           <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-            <span className="text-[10px] text-ocean-muted block font-mono">Abyss (2000m)</span>
+            <span className="text-[10px] text-ocean-muted block font-mono">Deepest ({deepMeasurement.depth.toFixed(0)} m)</span>
             <span className="font-mono font-bold text-white">
               {(deepMeasurement as any)[currentConfig.dataKey] ?? 'N/A'} {currentConfig.unit}
             </span>

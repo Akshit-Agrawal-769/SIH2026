@@ -1,11 +1,6 @@
 import React from 'react';
-import {
-  Download,
-  Printer,
-  FileSpreadsheet,
-  FileText,
-  ShieldCheck
-} from 'lucide-react';
+import { Download, Printer, FileSpreadsheet, FileText, Info } from 'lucide-react';
+import type { AnomalyResponse, TimeSeriesResponse, VerticalProfileResponse } from '../../api/analyticsClient';
 
 interface ReportExportProps {
   lat: number;
@@ -14,71 +9,47 @@ interface ReportExportProps {
   variable: string;
   units: string;
   targetName?: string;
-  timeseriesData?: any;
-  anomalyData?: any;
-  profileData?: any;
+  date?: string;
+  sourceTitle?: string;
+  timeseriesData?: TimeSeriesResponse | null;
+  anomalyData?: AnomalyResponse | null;
+  profileData?: VerticalProfileResponse | null;
 }
 
+const na = (v: unknown) => (v === null || v === undefined || v === '' ? 'n/a' : String(v));
+
 export const ReportExport: React.FC<ReportExportProps> = ({
-  lat,
-  lon,
-  depth,
-  variable,
-  units,
-  targetName,
-  timeseriesData,
-  anomalyData,
-  profileData
+  lat, lon, depth, variable, units, targetName, date, sourceTitle, timeseriesData, anomalyData, profileData
 }) => {
   const exportCSV = () => {
     const meta = [
-      `# =========================================================================`,
-      `# INCOIS 3D OCEAN PLATFORM - OPERATIONAL OCEANOGRAPHIC BRIEF`,
-      `# =========================================================================`,
-      `# Location: ${targetName || 'Indian Ocean Station'}`,
-      `# Coordinates: ${lat.toFixed(3)}°N, ${lon.toFixed(3)}°E`,
-      `# Analysis Depth: ${depth} meters`,
-      `# Analyzed Variable: ${variable} (${units})`,
-      `# Model Source: INCOIS Operational Bio-ROMS 3.9 Hydrodynamic Model`,
-      `# Data Policy: STRICT_REAL_DATA_ZERO_SYNTHETIC`,
-      `# Export Timestamp: ${new Date().toISOString()}`,
-      `#`,
-      `# --- STRATIFICATION METRICS ---`,
-      `# Mixed Layer Depth (MLD): ${profileData?.mld_meters ?? 'N/A'} m`,
-      `# Thermocline Depth: ${profileData?.thermocline_depth_meters ?? 'N/A'} m`,
-      `# Maximum Gradient: ${profileData?.max_gradient ?? 'N/A'} ${profileData?.gradient_unit ?? ''}`,
-      `# Surface Value (0.5m): ${profileData?.surface_value ?? 'N/A'} ${units}`,
-      `# Deep Value (2000m): ${profileData?.bottom_value ?? 'N/A'} ${units}`,
-      `#`,
-      `# --- STATISTICAL ANOMALY ---`,
-      `# Local Sample: ${anomalyData?.value ?? 'N/A'} ${units}`,
-      `# Basin Mean (mu): ${anomalyData?.baseline_mean ?? 'N/A'} ${units}`,
-      `# Basin Std (sigma): ${anomalyData?.baseline_std ?? 'N/A'} ${units}`,
-      `# Standardized Z-Score: ${anomalyData?.z_score ?? 'N/A'}`,
-      `# Classification: ${anomalyData?.classification ?? 'N/A'}`,
-      `#`,
-      `# --- MULTI-DAY TIME SERIES (${timeseriesData?.interval ?? '5-Day'}) ---`,
-      `Date,Value (${units})`
+      '# INCOIS 3D Ocean Platform - point analysis export',
+      `# Location: ${targetName || 'selected point'} (${lat.toFixed(4)} N, ${lon.toFixed(4)} E)`,
+      `# Variable: ${variable} (${units}), depth ${depth} m, analysed timestep ${na(date)}`,
+      `# Source: ${na(sourceTitle)}`,
+      `# Exported: ${new Date().toISOString()}`,
+      '#',
+      `# Model MLD (source diagnostic): ${na(profileData?.model_mld_meters)} m`,
+      `# Vertical profile: ${profileData?.available ? 'available' : `unavailable - ${na(profileData?.reason)}`}`,
+      '#',
+      `# Spatial z-score: ${na(anomalyData?.z_score)} (value ${na(anomalyData?.value)} ${units}; domain mean ${na(anomalyData?.baseline_mean)}, ` +
+        `std ${na(anomalyData?.baseline_std)}, n=${na(anomalyData?.baseline_samples)}; same-day spatial baseline, not a climatology)`,
+      '#',
+      `# Time series: ${na(timeseriesData?.interval)}; OLS slope ${na(timeseriesData?.trend_slope_per_30_days)} ${units}/30 days ` +
+        `(${na(timeseriesData?.trend_method)})`,
+      `# Missing timesteps at this point: ${(timeseriesData?.missing_dates ?? []).join(' ') || 'none'}`,
+      `date,${variable}_${units.replace(/[^A-Za-z0-9]/g, '')}`
     ];
-
-    const timeseriesRows =
-      timeseriesData?.timeseries_points?.map((t: any) => `${t.date},${t.value}`) || [];
-
-    const fullContent = meta.join('\n') + '\n' + timeseriesRows.join('\n');
-    const encodedUri = encodeURI('data:text/csv;charset=utf-8,' + fullContent);
+    const rows = timeseriesData?.timeseries_points?.map((t) => `${t.date},${t.value}`) ?? [];
+    const blob = new Blob([[...meta, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute(
-      'download',
-      `INCOIS_Ocean_Report_${lat.toFixed(2)}N_${lon.toFixed(2)}E_${variable}.csv`
-    );
+    link.href = url;
+    link.download = `INCOIS_point_${lat.toFixed(2)}N_${lon.toFixed(2)}E_${variable}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const handlePrint = () => {
-    window.print();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -87,48 +58,35 @@ export const ReportExport: React.FC<ReportExportProps> = ({
         <div>
           <h4 className="text-sm font-bold text-white flex items-center gap-2">
             <FileText className="w-4 h-4 text-teal-400" />
-            <span>Generate &amp; Export Scientific Ocean Brief</span>
+            <span>Export</span>
           </h4>
           <p className="text-xs text-ocean-muted mt-1 leading-relaxed">
-            Download comprehensive physical oceanography reports containing all collocated time series, vertical stratification indices, anomaly Z-scores, and correlation tables.
+            The CSV contains the monthly series at this point plus the computed statistics and their definitions.
           </p>
         </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-          {/* CSV Download Card */}
           <div className="bg-ocean-bg/80 border border-ocean-border/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
-            <div>
-              <div className="flex items-center gap-2 font-semibold text-ocean-text-secondary text-xs">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                <span>Raw Scientific Data (CSV)</span>
-              </div>
-              <p className="text-[11px] text-ocean-muted mt-1 leading-relaxed">
-                Includes full metadata headers, layer stratification statistics, regional baseline figures, and time-series vectors.
-              </p>
+            <div className="flex items-center gap-2 font-semibold text-ocean-text-secondary text-xs">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              <span>CSV</span>
             </div>
             <button
               onClick={exportCSV}
-              className="w-full py-2 px-3 bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-200 border border-emerald-500/40 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition"
+              disabled={!timeseriesData?.timeseries_points?.length}
+              className="w-full py-2 px-3 bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-200 border border-emerald-500/40 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-300"
             >
               <Download className="w-4 h-4" />
-              <span>Download CSV Dataset</span>
+              <span>Download CSV</span>
             </button>
           </div>
-
-          {/* Printable Brief Card */}
           <div className="bg-ocean-bg/80 border border-ocean-border/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
-            <div>
-              <div className="flex items-center gap-2 font-semibold text-ocean-text-secondary text-xs">
-                <Printer className="w-4 h-4 text-teal-400" />
-                <span>Printable Scientific Brief</span>
-              </div>
-              <p className="text-[11px] text-ocean-muted mt-1 leading-relaxed">
-                Formats the active studio charts and interpretations into a high-resolution, institutional print summary.
-              </p>
+            <div className="flex items-center gap-2 font-semibold text-ocean-text-secondary text-xs">
+              <Printer className="w-4 h-4 text-teal-400" />
+              <span>Print the current view</span>
             </div>
             <button
-              onClick={handlePrint}
-              className="w-full py-2 px-3 bg-teal-600/30 hover:bg-teal-600/40 text-teal-200 border border-teal-500/40 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition"
+              onClick={() => window.print()}
+              className="w-full py-2 px-3 bg-teal-600/30 hover:bg-teal-600/40 text-teal-200 border border-teal-500/40 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-1 focus-visible:ring-teal-300"
             >
               <Printer className="w-4 h-4" />
               <span>Print / Save as PDF</span>
@@ -136,16 +94,10 @@ export const ReportExport: React.FC<ReportExportProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Compliance Notice */}
       <div className="bg-ocean-bg/30 border border-ocean-border/40 rounded-xl p-3 text-[11px] text-ocean-muted flex items-center gap-2">
-        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-        <span>
-          Reports conform to INCOIS National Oceanographic Data Centre and IOC/UNESCO CF-1.6 metadata standards.
-        </span>
+        <Info className="w-4 h-4 text-ocean-muted shrink-0" />
+        <span>Values are copied from the API responses shown in the other tabs; nothing is recomputed or filled in the browser.</span>
       </div>
     </div>
   );
 };
-
-

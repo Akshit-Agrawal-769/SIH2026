@@ -10,12 +10,14 @@ interface CorrelationTabProps {
   lat: number;
   lon: number;
   depth: number;
+  date?: string;
 }
 
 export const CorrelationTab: React.FC<CorrelationTabProps> = ({
   lat,
   lon,
-  depth
+  depth,
+  date
 }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<CorrelationResponse | null>(null);
@@ -27,7 +29,7 @@ export const CorrelationTab: React.FC<CorrelationTabProps> = ({
     setLoading(true);
     setError(null);
 
-    fetchCorrelation(lat, lon, depth)
+    fetchCorrelation(lat, lon, depth, date)
       .then((res) => {
         if (!active) return;
         setData(res);
@@ -35,15 +37,14 @@ export const CorrelationTab: React.FC<CorrelationTabProps> = ({
       })
       .catch((err) => {
         if (!active) return;
-        console.error('[CorrelationTab] Fetch failed:', err);
-        setError('Failed to compute correlation matrix.');
+                setError(err?.message || 'Failed to compute correlation matrix.');
         setLoading(false);
       });
 
     return () => {
       active = false;
     };
-  }, [lat, lon, depth]);
+  }, [lat, lon, depth, date]);
 
   if (loading) {
     return (
@@ -70,6 +71,7 @@ export const CorrelationTab: React.FC<CorrelationTabProps> = ({
     temperature: 'Temp (°C)',
     salinity: 'Salinity (PSU)',
     currents: 'Current Speed (m/s)',
+    mld: 'MLD (m)',
     chlorophyll: 'Chlorophyll (mg/m³)'
   };
 
@@ -91,7 +93,7 @@ export const CorrelationTab: React.FC<CorrelationTabProps> = ({
             <span>Dynamic Multi-Variable Pearson Correlation Matrix</span>
           </h4>
           <p className="text-xs text-ocean-muted mt-0.5">
-            Sampled across {data.sample_count} valid ocean cells in the surrounding ~100 km mesoscale neighborhood at depth {depth}m.
+            {data.sample_count} co-valid ocean cells in a 9×9-cell (≈1.1°) window, depth {depth} m, timestep {data.date}.
           </p>
         </div>
         <div className="text-xs font-mono px-2.5 py-1 rounded bg-ocean-bg border border-ocean-border text-teal-400">
@@ -162,38 +164,38 @@ export const CorrelationTab: React.FC<CorrelationTabProps> = ({
             </span>
             <span className="text-ocean-muted">
               ({hoveredCell.r > 0.7
-                ? 'Strong Positive Coupling'
+                ? 'strong positive'
                 : hoveredCell.r > 0.3
-                ? 'Moderate Positive Coupling'
+                ? 'moderate positive'
                 : hoveredCell.r < -0.7
-                ? 'Strong Inverse Coupling'
+                ? 'strong negative'
                 : hoveredCell.r < -0.3
-                ? 'Moderate Inverse Coupling'
-                : 'Weak/Neutral Covariance'})
+                ? 'moderate negative'
+                : 'weak'})
             </span>
           </div>
         ) : (
           <div className="text-ocean-muted flex items-center gap-1.5">
             <Info className="w-3.5 h-3.5 text-neutral-500" />
-            <span>Hover over any correlation cell in the matrix to inspect physical coupling metrics.</span>
+            <span>Hover a cell to see the coefficient.</span>
           </div>
         )}
       </div>
 
-      {/* Scientific Insights on Ocean Physics */}
-      <div className="bg-ocean-bg/40 border border-ocean-border/60 rounded-xl p-3 text-xs text-ocean-muted space-y-1">
+      {/* Method note (descriptive statistics only) */}
+      <div className="bg-ocean-bg/40 border border-ocean-border/60 rounded-xl p-3 text-[11px] text-ocean-muted space-y-1">
         <div className="font-semibold text-ocean-text-secondary flex items-center gap-1.5">
           <Activity className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Oceanographic Physics Grounding:</span>
+          <span>How to read this</span>
         </div>
-        <ul className="list-disc pl-4 space-y-1 text-[11px] text-ocean-muted">
-          <li>
-            <strong className="text-ocean-text-secondary">Temperature vs. Salinity:</strong> In the Bay of Bengal, negative correlation reflects buoyant, warm, low-salinity river discharge plumes (Ganga-Brahmaputra), whereas positive correlation indicates Arabian Sea high-salinity water mass intrusion.
-          </li>
-          <li>
-            <strong className="text-ocean-text-secondary">Temperature vs. Chlorophyll-a:</strong> Coastal upwelling delivers cold, nutrient-rich sub-surface water into the euphotic zone, typically producing an inverse correlation between SST and phytoplankton biomass.
-          </li>
-        </ul>
+        <p>
+          Pearson r between fields that share the timestep {data.date}, over the cells of a 9×9 window (0.125° cells, ≈1.1°)
+          around the point. Neighbouring cells are spatially autocorrelated, so no significance is implied, and r does not
+          identify a physical cause. Chlorophyll is strongly skewed, so r for chlorophyll is sensitive to a few high values.
+          {data.skipped && Object.keys(data.skipped).length > 0 && (
+            <> Not co-temporal and excluded: {Object.entries(data.skipped).map(([k, v]) => `${k} (${v})`).join(', ')}.</>
+          )}
+        </p>
       </div>
     </div>
   );

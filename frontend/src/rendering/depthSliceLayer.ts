@@ -1,17 +1,25 @@
 import * as Cesium from 'cesium';
-import { fetchOceanTile, OceanTileData } from '../api/client';
+import { fetchOceanTile, NoDataError, OceanTileData } from '../api/client';
 import { renderTileToCanvas, sampleOceanDataAt } from './colormaps';
+import { GRID } from './grid';
+
+export interface SliceParams {
+  variable: string;
+  date: string;
+  depth: number;
+  palette?: string;
+  opacity?: number;
+  customRange?: [number, number];
+  scaleType?: 'linear' | 'log';
+}
+
+export type SliceStatus =
+  | { state: 'loading' }
+  | { state: 'ok'; variable: string; date: string; depth: number }
+  | { state: 'nodata' | 'error'; message: string };
 
 export interface DepthSliceLayerManager {
-  updateSlice: (params: {
-    variable: string;
-    date: string;
-    depth: number;
-    palette?: string;
-    opacity?: number;
-    customRange?: [number, number];
-    scaleType?: 'linear' | 'log';
-  }) => Promise<void>;
+  updateSlice: (params: SliceParams) => Promise<void>;
   updateVisibility: (activeLayers: string[]) => void;
   setOpacity: (opacity: number) => void;
   sampleAt: (lon: number, lat: number) => { value: number | null; isLand: boolean };
@@ -19,97 +27,75 @@ export interface DepthSliceLayerManager {
   destroy: () => void;
 }
 
-// Authentic North Indian Ocean & Arabian Sea / Bay of Bengal bounding box
-export const OCEAN_BOUNDS = {
-  west: 35.0,
-  south: -10.0,
-  east: 100.0,
-  north: 25.0
-};
-
-const OCEAN_RECTANGLE = Cesium.Rectangle.fromDegrees(
-  OCEAN_BOUNDS.west,
-  OCEAN_BOUNDS.south,
-  OCEAN_BOUNDS.east,
-  OCEAN_BOUNDS.north
-);
-
 /**
- * Creates and manages high-performance 2D/3D depth-slice field rendering
- * draped over the Indian Ocean water column.
+ * Drapes the selected gridded field over the Cesium globe. Only the most recent
+ * request may update the globe (older responses are discarded), and a missing tile
+ * removes the previous image instead of leaving stale data on screen.
  */
 export async function createDepthSliceLayer(
-  viewer: Cesium.Viewer
+  viewer: Cesium.Viewer,
+  onStatus?: (status: SliceStatus) => void
 ): Promise<DepthSliceLayerManager> {
   let currentImageryLayer: Cesium.ImageryLayer | null = null;
   let currentVariable = 'temperature';
   let isLayerVisible = true;
   let currentOpacity = 0.85;
   let currentTileData: OceanTileData | null = null;
+  let requestSeq = 0;
+  let lastKey = '';
 
-  const updateSlice = async (params: {
-    variable: string;
-    date: string;
-    depth: number;
-    palette?: string;
-    opacity?: number;
-    customRange?: [number, number];
-    scaleType?: 'linear' | 'log';
-  }) => {
-    currentVariable = params.variable;
-    if (params.opacity !== undefined) {
-      currentOpacity = params.opacity;
+  const clear = () => {
+    if (currentImageryLayer && !viewer.isDestroyed()) {
+      viewer.imageryLayers.remove(currentImageryLayer, true);
     }
+    currentImageryLayer = null;
+    currentTileData = null;
+  };
 
+  const updateSlice = async (params: SliceParams) => {
+    currentVariable = params.variable;
+    if (params.opacity !== undefined) currentOpacity = params.opacity;
+    const key = JSON.stringify([params.variable, params.date, params.depth, params.palette, params.customRange,
+      params.scaleType]);
+    if (key === lastKey) return;
+    lastKey = key;
+    const seq = ++requestSeq;
+
+    if (!params.date) {
+      clear();
+      onStatus?.({ state: 'nodata', message: `No timesteps available for ${params.variable}` });
+      return;
+    }
+    onStatus?.({ state: 'loading' });
     try {
-      const tileData: OceanTileData = await fetchOceanTile(
-        params.variable,
-        params.date,
-        params.depth
-      );
-      currentTileData = tileData;
-
+      const tileData = await fetchOceanTile(params.variable, params.date, params.depth);
+      if (seq !== requestSeq || viewer.isDestroyed()) return; // superseded by a newer request
       const canvas = renderTileToCanvas(tileData, {
         palette: params.palette,
-        opacity: currentOpacity,
+        opacity: 1.0,
         customRange: params.customRange,
         scaleType: params.scaleType
       });
-
-      const dataUrl = canvas.toDataURL('image/png');
-
-      const provider = await Cesium.SingleTileImageryProvider.fromUrl(dataUrl, {
-        rectangle: OCEAN_RECTANGLE
+      const provider = await Cesium.SingleTileImageryProvider.fromUrl(canvas.toDataURL('image/png'), {
+        rectangle: Cesium.Rectangle.fromDegrees(...GRID.bbox)
       });
-
-      if (viewer.isDestroyed()) return;
-
-      const newImageryLayer = viewer.imageryLayers.addImageryProvider(provider);
-      newImageryLayer.alpha = currentOpacity;
-      newImageryLayer.show = isLayerVisible;
-
-      // Ensure depth-slice sits above base satellite map (index 0)
-      if (viewer.imageryLayers.length > 2) {
-        viewer.imageryLayers.raiseToTop(newImageryLayer);
-      }
-
-      // Remove previous depth-slice layer after new one is ready
-      if (currentImageryLayer) {
-        viewer.imageryLayers.remove(currentImageryLayer, true);
-      }
-      currentImageryLayer = newImageryLayer;
-
-      console.log(
-        `[DepthSliceLayer] Rendered authentic ${params.variable} at depth ${params.depth}m (min: ${tileData.header.minVal.toFixed(2)}, max: ${tileData.header.maxVal.toFixed(2)})`
-      );
+      if (seq !== requestSeq || viewer.isDestroyed()) return;
+      const layer = viewer.imageryLayers.addImageryProvider(provider);
+      layer.alpha = currentOpacity;
+      layer.show = isLayerVisible;
+      viewer.imageryLayers.raiseToTop(layer);
+      if (currentImageryLayer) viewer.imageryLayers.remove(currentImageryLayer, true);
+      currentImageryLayer = layer;
+      currentTileData = tileData;
+      onStatus?.({ state: 'ok', variable: params.variable, date: params.date, depth: params.depth });
     } catch (err) {
-      console.warn(`[DepthSliceLayer] No authentic data available for ${params.variable} at depth ${params.depth}m (strict no-mock policy):`, err);
-      // Cleanly remove any previous imagery layer so stale data is not displayed
-      if (currentImageryLayer && !viewer.isDestroyed()) {
-        viewer.imageryLayers.remove(currentImageryLayer, true);
-        currentImageryLayer = null;
-      }
-      currentTileData = null;
+      if (seq !== requestSeq) return;
+      clear();
+      lastKey = '';
+      const message = err instanceof NoDataError
+        ? `${err.message} (no synthetic substitute is shown)`
+        : `Failed to load ${params.variable}: ${(err as Error).message}`;
+      onStatus?.({ state: err instanceof NoDataError ? 'nodata' : 'error', message });
     }
   };
 
@@ -117,29 +103,20 @@ export async function createDepthSliceLayer(
     updateSlice,
     updateVisibility: (activeLayers: string[]) => {
       isLayerVisible = activeLayers.includes(currentVariable);
-      if (currentImageryLayer) {
-        currentImageryLayer.show = isLayerVisible;
-      }
+      if (currentImageryLayer) currentImageryLayer.show = isLayerVisible;
     },
     setOpacity: (opacity: number) => {
       currentOpacity = opacity;
-      if (currentImageryLayer) {
-        currentImageryLayer.alpha = opacity;
-      }
+      if (currentImageryLayer) currentImageryLayer.alpha = opacity;
     },
     sampleAt: (lon: number, lat: number) => {
-      if (!currentTileData || !isLayerVisible) {
-        return { value: null, isLand: false };
-      }
+      if (!currentTileData || !isLayerVisible) return { value: null, isLand: false };
       return sampleOceanDataAt(currentTileData, lon, lat);
     },
     getCurrentTileData: () => currentTileData,
     destroy: () => {
-      if (currentImageryLayer && !viewer.isDestroyed()) {
-        viewer.imageryLayers.remove(currentImageryLayer, true);
-        currentImageryLayer = null;
-      }
-      currentTileData = null;
+      requestSeq++;
+      clear();
     }
   };
 }

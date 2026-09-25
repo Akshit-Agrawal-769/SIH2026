@@ -65,7 +65,7 @@ int main() {
     }
 
     // 2. INCOIS-BIO-ROMS 2D Surface 480-Month Time Series Ingestion
-    std::string roms_path = "datasets/INCOIS-BIO-ROMS.nc";
+    std::string roms_path = "datasets/model/INCOIS-BIO-ROMS.nc";
     std::shared_ptr<ocean::SurfaceBGCLoader> roms;
     if (fs::exists(roms_path)) {
         std::cout << "\n[2/4] Ingesting INCOIS-BIO-ROMS Primary Surface Time Series (" << roms_path << ")...\n";

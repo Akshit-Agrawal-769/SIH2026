@@ -40,7 +40,7 @@ export default function DotGlobeHeroDemo({
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
             <span className="relative z-10 text-xs font-mono font-bold text-emerald-400 tracking-wider uppercase flex items-center gap-1.5">
               <Waves className="w-3.5 h-3.5 text-emerald-400" />
-              INCOIS 3D OCEAN DIGITAL TWIN
+              INCOIS 3D OCEAN DATA VISUALISATION
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
           </motion.div>
@@ -73,10 +73,10 @@ export default function DotGlobeHeroDemo({
             className="max-w-2xl mx-auto space-y-3"
           >
             <p className="text-lg md:text-xl text-ocean-text-secondary leading-relaxed font-normal">
-              High-resolution 4D volumetric visualization of hydrodynamic circulation, temperature, salinity, and in-situ autonomous sensor fleets.
+              Interactive globe and water-column views of Indian Ocean surface fields, currents and Argo profiles.
             </p>
             <p className="text-xs font-mono text-ocean-muted">
-              Coupled INCOIS HYCOM, NOAA VHR SST, Argo profiling floats &amp; deep-sea glider networks.
+              INCOIS Bio-ROMS surface fields, CMEMS ARMOR3D surface currents and QC-filtered Argo profiles.
             </p>
           </motion.div>
         </motion.div>

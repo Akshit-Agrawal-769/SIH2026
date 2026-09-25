@@ -22,6 +22,7 @@ interface TimeSeriesTabProps {
   lon: number;
   depth: number;
   units: string;
+  sourceLabel?: string;
 }
 
 export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
@@ -29,7 +30,8 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
   lat,
   lon,
   depth,
-  units
+  units,
+  sourceLabel
 }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<TimeSeriesResponse | null>(null);
@@ -48,8 +50,7 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
       })
       .catch((err) => {
         if (!active) return;
-        console.error('[TimeSeriesTab] Fetch failed:', err);
-        setError('Failed to fetch timeseries data.');
+        setError(err?.message || 'Failed to fetch timeseries data.');
         setLoading(false);
       });
 
@@ -62,7 +63,7 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
     return (
       <div className="h-72 flex flex-col items-center justify-center gap-3 text-ocean-muted">
         <div className="w-8 h-8 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs font-mono">Extracting multi-day hydrodynamic timeseries_points...</p>
+        <p className="text-xs font-mono">Sampling every catalogued timestep at this point…</p>
       </div>
     );
   }
@@ -106,7 +107,7 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
         </div>
 
         <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-3">
-          <div className="text-[10px] font-mono text-ocean-muted uppercase tracking-wider">5-Day Net Delta</div>
+          <div className="text-[10px] font-mono text-ocean-muted uppercase tracking-wider">Net change (first → last)</div>
           <div className={`text-base font-bold mt-0.5 flex items-center gap-1 ${
             isUp ? 'text-amber-400' : isDown ? 'text-teal-400' : 'text-ocean-text-secondary'
           }`}>
@@ -117,7 +118,7 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
               {data.delta !== undefined ? `${data.delta > 0 ? '+' : ''}${data.delta} ${units}` : '—'}
             </span>
           </div>
-          <div className="text-[10px] text-ocean-muted">Total temporal shift</div>
+          <div className="text-[10px] text-ocean-muted">last minus first timestep</div>
         </div>
 
         <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-3">
@@ -127,7 +128,7 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
               ? `${data.trend_slope_per_day > 0 ? '+' : ''}${data.trend_slope_per_day} ${units}/d`
               : '—'}
           </div>
-          <div className="text-[10px] text-ocean-muted">Linear rate of change</div>
+          <div className="text-[10px] text-ocean-muted">OLS slope (seasonal cycle not removed)</div>
         </div>
       </div>
 
@@ -141,29 +142,29 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
                 <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.4} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#404040" opacity={0.4} />
             <XAxis
               dataKey="date"
-              tick={{ fill: '#94a3b8', fontSize: 11 }}
-              label={{ value: 'Operational Forecast Date', position: 'insideBottom', offset: -10, fill: '#94a3b8', fontSize: 11 }}
+              tick={{ fill: '#a3a3a3', fontSize: 11 }}
+              label={{ value: 'Model timestep (UTC)', position: 'insideBottom', offset: -10, fill: '#a3a3a3', fontSize: 11 }}
             />
             <YAxis
-              tick={{ fill: '#94a3b8', fontSize: 11 }}
+              tick={{ fill: '#a3a3a3', fontSize: 11 }}
               domain={['auto', 'auto']}
-              label={{ value: `${units}`, angle: -90, position: 'insideLeft', fill: '#94a3b8', fontSize: 11 }}
+              label={{ value: `${units}`, angle: -90, position: 'insideLeft', fill: '#a3a3a3', fontSize: 11 }}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#0f172a',
-                borderColor: '#334155',
+                backgroundColor: '#171717',
+                borderColor: '#404040',
                 borderRadius: '0.75rem',
                 fontSize: '12px'
               }}
               formatter={(val: any) => [`${val} ${units}`, `${variable.toUpperCase()}`]}
               labelFormatter={(lbl) => `Date: ${lbl}`}
             />
-            <Area
-              type="monotone"
+            <Area isAnimationActive={false}
+              type="linear"
               dataKey="value"
               stroke="#14b8a6"
               strokeWidth={2.5}
@@ -187,7 +188,7 @@ export const TimeSeriesTab: React.FC<TimeSeriesTabProps> = ({
           <span className="text-ocean-text-secondary font-mono">{data.std} {units}</span>)
         </div>
         <div className="font-mono text-[11px] text-neutral-500">
-          Depth slice: {depth}m • Collocated Bio-ROMS
+          Depth {depth} m • {sourceLabel ?? data.source_id} • {data.trend_method}
         </div>
       </div>
     </div>

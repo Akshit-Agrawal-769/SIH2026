@@ -1,12 +1,14 @@
 # INCOIS 3D Ocean Data Visualization Platform
 
-A web-based, browser-native 3D interactive ocean visualization platform ("Digital Twin of the Water Column") that integrates numerical ocean model outputs and in-situ observations (Argo profiling floats, autonomous underwater gliders, and moored buoys) across the Indian Ocean and Exclusive Economic Zone (EEZ).
+A web-based 3D ocean data visualization platform that combines INCOIS Bio-ROMS model fields, CMEMS ARMOR3D surface currents and QC-filtered Argo profiles over the Indian Ocean and India's EEZ, on a Cesium globe with a Three.js water-column view.
 
 Developed for the **Smart India Hackathon 2026 (SIH 2026)**.
 
-> **Live Production Link:** 
- Main Website:
-https://sih-zeta-gilt.vercel.app
+> **Frontend (static hosting):** https://sih-zeta-gilt.vercel.app
+>
+> Static hosting serves the same authentic artefacts (tiles, Argo profiles, precomputed
+> comparisons). Point analytics, WMS and NetCDF export need the API: deploy
+> `render.yaml` and build the frontend with `VITE_API_BASE_URL=<gateway URL>`.
 
 ## 1. Project Information
 
@@ -41,32 +43,39 @@ India's vast Exclusive Economic Zone (EEZ) and coastline demand continuous, high
 
 ## 3. Proposed Solution
 
-The **INCOIS 3D Ocean Platform** provides a browser-native Digital Twin of the water column:
-- **Dual-Engine 3D Architecture:** Merges **CesiumJS** (macro-scale geospatial virtual globe navigation) with **Three.js** (micro-scale 3D volumetric water column studio).
-- **Authoritative C++ Core (`ocean_core`):** Direct C++ NetCDF reading, international UNESCO QC filtering (flags '1' and '2'), TEOS-10 thermodynamics, and sub-millisecond Float32 binary tile export (`INCO` format).
-- **Co-Visualization of Models & Sensors:** Simultaneous display of gridded CMEMS/ROMS ocean models and authentic in-situ CTD profiles (Argo floats and gliders).
-- **Zero-Mock Scientific Integrity:** Strict elimination of all synthetic/fake data generators. Missing observations produce explicit HTTP 404 responses with transparent provenance tracking.
+- **Dual-engine view:** CesiumJS for geographic context (globe, fields, Argo markers, EEZ, currents) and Three.js for a water-column view at any ocean point.
+- **Authentic data only:** every served value is traceable to a source NetCDF file through `frontend/public/api/catalog.json` (see [DATA_POLICY.md](DATA_POLICY.md)). Missing data is shown as "no data", never filled.
+- **Model vs observation:** surface matchups between Argo floats and INCOIS Bio-ROMS with RMSE, MAE, bias and Pearson r computed from the listed pairs.
+- **Open standards:** OGC WMS 1.3.0 and CF-1.8 NetCDF export from the same tiles.
 
 ---
 
-## 4. Key Features
+## 4. Key Features (as implemented)
 
-- **Global 3D Virtual Globe:** Geospatial navigation across the Indian Ocean, Arabian Sea, and Bay of Bengal with bathymetric terrain and day-night terminators.
-- **Dynamic Depth Slicing:** Smooth vertical navigation through the water column (surface to -2000m abyssal basin) with sub-millisecond response.
-- **60 FPS Current Streamlines:** GPU-accelerated WebGL vector particle system animating horizontal ocean currents and eddies.
-- **3D Volumetric Water Column Studio:** Interactive Three.js cube inspector with laser depth slicing and water mass stratification analysis.
-- **In-Situ CTD Profile Inspector:** Interactive temperature and salinity sounding charts for active INCOIS Argo floats.
-- **Scientific Colormap Customization:** Calibrated oceanographic palettes (NOAA SST, Turbo, Viridis, GFDL Chlorophyll) with auto-calibration.
-- **Open Standards Interoperability:** Native OGC WMS 1.3.0 GetMap/GetCapabilities endpoints and CF-1.8 NetCDF-4 volumetric data export.
+| Feature | Data | Notes |
+|---|---|---|
+| Globe fields: SST, SSS, chlorophyll-a, MLD | INCOIS Bio-ROMS, 12 monthly timesteps of 2019, surface only | log scale for chlorophyll |
+| Surface geostrophic currents | CMEMS ARMOR3D, 2024-12-31 only | arrows on the real 1° vector grid |
+| Timeline | real catalog timesteps only | custom UTC range, step, speed, keyboard |
+| Argo floats | 13 floats, latest QC 1/2 profile each | T, S, and O₂/Chl where measured |
+| Profile analysis | observed MLD (ΔT = 0.2 °C) and thermocline | from the Argo profile |
+| Model vs observation | Argo ≤10 m vs IBR surface, ±15 days | 2902120: 210 pairs; 2902084: 52 pairs |
+| Point analytics | time series (OLS), spatial z-score, correlation | requires the API |
+| Water-column view (Three.js) | real surface field + nearest Argo profile | no subsurface gridded data exists |
+| WMS 1.3.0 / NetCDF export | catalogued tiles | exact subsets, real time/depth |
+
+Depth slicing below the surface shows no gridded data by design: the available model and
+analysis products are surface-only, and subsurface values are never interpolated or invented.
 
 ---
 
 ## 5. Technology Stack
 
 - **Frontend:** React 18, TypeScript, CesiumJS, Three.js, Vite, Tailwind CSS, Lucide Icons, Recharts
-- **C++ Ocean Engine (`ocean_core`):** C++17/20, NetCDF C/C++ API, CMake, Ninja, UCRT64/GCC
-- **Backend Data Service:** Python 3.11+, FastAPI, Uvicorn, xarray, NetCDF4, NumPy, SciPy, SQLAlchemy, GeoAlchemy2
-- **API Gateway:** Node.js, Express, TypeScript
+- **C++ Ocean Engine (`ocean_core`):** C++20, NetCDF C API, CMake — NetCDF loaders, QC filter, UNESCO/TEOS-10 depth, standalone tile exporter
+- **Data build:** Python (`scripts/build_authentic_dataset.py`: netCDF4, SciPy, gsw)
+- **Backend Data Service:** Python 3.11+, FastAPI, NumPy, SciPy, netCDF4; optional SQLAlchemy/GeoAlchemy2 (PostGIS) and MinIO
+- **API Gateway:** Node.js, Express, TypeScript (public read-only proxy, JWT for mutating requests, rate limit)
 - **Database & Storage:** PostgreSQL 15 + PostGIS, Redis 7, MinIO S3 Object Storage
 - **Containerization:** Docker, Docker Compose
 
@@ -77,38 +86,30 @@ The **INCOIS 3D Ocean Platform** provides a browser-native Digital Twin of the w
 See [docs/architecture.md](docs/architecture.md) for the complete architectural specification.
 
 ```text
-[ AUTHENTIC NETCDF DATASETS ]
-  - CMEMS Reanalysis (cmems.nc)
-  - INCOIS Bio-ROMS (INCOIS-BIO-ROMS.nc)
-  - INCOIS Argo Profiles (datasets/argo/*.nc)
+[ SOURCE NETCDF (datasets/, not in git) ]
+  - INCOIS-BIO-ROMS.nc  (INCOIS Bio-ROMS, monthly surface SST/SSS/CHL/MLD)
+  - cmems.nc            (CMEMS ARMOR3D, 2024-12-31 surface ugo/vgo)
+  - Argo GDAC profiles  (coriolis/<WMO>/profiles/S*.nc, argo/incois_<WMO>_prof.nc)
                         │
                         ▼
-       [ C++ OCEAN_CORE ENGINE ]
-         - NetCDF Loader & UNESCO QC Filter
-         - TEOS-10 Thermodynamics
-         - export_real_tiles Tool
-                        │
-                        ▼ produces 32-byte 'INCO' + Float32 binary tiles
-               [ AUTHORITATIVE TILES ]
-               tiles/{variable}/{date}/{depth}.bin
+  scripts/build_authentic_dataset.py   (QC 1/2, TEOS-10, regridding, matchups)
                         │
                         ▼
-       [ FASTAPI DATA SERVICE (Port 8000) ]
-         - tiles.py (Float32 tiles / 404 on missing)
-         - instruments.py (Authentic Argo CTD profiles)
-         - wms.py (OGC WMS 1.3.0) & export.py (CF-1.8 NetCDF)
-                        │
-                        ▼
-       [ NODE.JS GATEWAY (Port 4000) ]
-                        │
-                        ▼
-       [ REACT 18 CLIENT (Port 3000) ]
-         ┌──────────────┴──────────────┐
-         ▼                             ▼
-[ CESIUM 3D GLOBE ]          [ THREE.JS 3D VOLUME ]
-- Geospatial Context          - 3D Water Column Studio
-- Depth-Slice Draping         - Laser Scan & In-Situ CTD
+  frontend/public/{tiles,api,data}     (catalog.json + INCO float32 tiles + JSON)
+          │                                        │
+          ▼                                        ▼
+  FastAPI data-service (8000)           static hosting (Vercel) serves the same files
+          │
+          ▼
+  Node gateway (4000, public GET, JWT for POST)
+          │
+          ▼
+  React client (3000):  Cesium globe  +  Three.js water-column view
 ```
+
+The C++ `ocean_core` (`cpp_visualizer/`) provides independent NetCDF readers, QC filtering
+and a standalone tile exporter (`export_real_tiles`, labels tiles with source timestamps);
+the served tiles come from the Python build script.
 
 ---
 
@@ -147,8 +148,9 @@ INCOIS-3D-OCEAN-VISUALIZATION/
 |---|---|
 | `frontend/` | Web application source code (CesiumJS, Three.js, React components) |
 | `data-service/` | FastAPI backend, OGC WMS, CF-1.8 exporter, and NetCDF ingestion adapters |
-| `cpp_visualizer/` | C++ computational core, QC filtering, TEOS-10, and binary tile exporter |
-| `gateway/` | Node.js reverse proxy, rate limiting, and API consolidation |
+| `cpp_visualizer/` | C++ computational core, QC filtering, depth conversion, standalone tile exporter |
+| `scripts/build_authentic_dataset.py` | Builds every served artefact from the source NetCDF files |
+| `gateway/` | Node.js reverse proxy (public GET, JWT for mutating requests), rate limiting |
 | `datasets/` | Authentic source NetCDF files (CMEMS, Bio-ROMS, Argo) |
 | `docs/` | Comprehensive technical architecture and scientific standards |
 | `assets/screenshots/` | High-resolution UI captures and visualizer previews |
@@ -171,7 +173,7 @@ The team's final SIH PowerPoint presentation is documented in [submission/PRESEN
 A video demonstration of the working 3D visualizer is documented in [submission/DEMO.md](submission/DEMO.md).
 
 - **Demonstration Link:** Accessible via YouTube / Google Drive in [submission/DEMO.md](submission/DEMO.md).
-- **Features Demonstrated:** Full 3D globe orbit, 60 FPS current streamlines, laser depth slicing, Three.js water column block, and authentic in-situ CTD profile inspection.
+- **Note:** the demo video was recorded with an earlier build whose subsurface fields, glider/buoy platforms and current animation used synthetic data that has since been removed (see AUDIT_REPORT.md).
 
 ---
 
@@ -205,18 +207,22 @@ cp .env.example .env
 
 ## 12. Run
 
-### Option 1: Docker (Recommended 1-Command Startup)
+### Rebuilding the data (only when the source NetCDF files change)
 ```bash
-# Build and launch all services in background
-docker compose up --build -d
+pip install -r scripts/requirements-build.txt
+python scripts/build_authentic_dataset.py --ibr-year 2019
+```
 
-# Seed database and sync authentic binary tiles
+### Option 1: Docker
+```bash
+docker compose up --build -d
+# optional: load the catalogued Argo profiles into PostGIS
 docker exec -it incois_data_service python seed_data.py
 ```
 
 ### Option 2: Local Development
 ```bash
-# Terminal 1: Python Data Service
+# Terminal 1: Python Data Service (reads frontend/public by default)
 cd data-service
 pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -231,12 +237,13 @@ cd frontend
 npm install
 npm run dev
 
-# Optional C++ Exporter Build:
-cd cpp_visualizer
-mkdir build && cd build
-cmake -G Ninja ..
-ninja
-./export_real_tiles ../.. ../../tiles
+# Tests
+cd data-service && pytest tests/            # engine + API on the real catalog
+cd frontend && npx vitest run               # timeline, colour scale, sound speed
+
+# Optional C++ build
+cmake -S cpp_visualizer -B cpp_visualizer/build && cmake --build cpp_visualizer/build
+ctest --test-dir cpp_visualizer/build
 ```
 
 ### Port Mappings
@@ -246,7 +253,7 @@ ninja
 | **API Gateway** | [http://localhost:4000](http://localhost:4000) | Reverse proxy & API aggregator |
 | **Backend Swagger API** | [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive OpenAPI documentation |
 | **OGC WMS 1.3.0** | [http://localhost:4000/api/wms](http://localhost:4000/api/wms?SERVICE=WMS&REQUEST=GetCapabilities) | GIS integration endpoint |
-| **MinIO S3 Console** | [http://localhost:9001](http://localhost:9001) | Object storage admin console |
+| **MinIO S3 Console** | [http://127.0.0.1:9001](http://127.0.0.1:9001) | Optional object storage (bound to localhost) |
 
 ---
 
@@ -261,5 +268,5 @@ ninja
 
 ## Important Security & Integrity Notice
 
-- **Zero Credentials Committed:** This repository contains no passwords, private API keys, or cloud access tokens. Default development configurations are provided via `.env.example`.
-- **Scientific Data Policy:** In accordance with MoES/INCOIS guidelines, this repository operates under a strict **NO MOCK DATA** policy. All visualizations originate from authentic NetCDF sources or explicit HTTP 404 responses.
+- **Credentials:** no secrets are committed. `docker-compose.yml` only has local-development defaults for PostGIS/MinIO, bound to 127.0.0.1. The gateway has no built-in login; mutating endpoints stay disabled unless `JWT_SECRET` (gateway) and `ADMIN_API_TOKEN` (data-service) are set.
+- **Scientific data policy:** see [DATA_POLICY.md](DATA_POLICY.md) and [METHODOLOGY.md](METHODOLOGY.md). The 2026-09 audit is summarised in [AUDIT_REPORT.md](AUDIT_REPORT.md).

@@ -9,8 +9,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-incois_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-incois_password}
       POSTGRES_DB: ${POSTGRES_DB:-incois_ocean}
+    # Bound to loopback only: internal database, never exposed publicly.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +25,7 @@ services:
     container_name: incois_redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -42,8 +43,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -62,29 +63,28 @@ services:
       /bin/sh -c "
       /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ACCESS_KEY:-minioadmin} ${MINIO_SECRET_KEY:-minioadmin};
       /usr/bin/mc mb myminio/${MINIO_BUCKET:-ocean-data} --ignore-existing;
-      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET:-ocean-data};
       exit 0;
       "
 
   data-service:
     build:
-      context: ./data-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: data-service/Dockerfile
     container_name: incois_data_service
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-incois_user}:${POSTGRES_PASSWORD:-incois_password}@postgres:5432/${POSTGRES_DB:-incois_ocean}
       REDIS_URL: redis://redis:6379/0
+      ENABLE_MINIO: ${ENABLE_MINIO:-false}
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-ocean-data}
       MINIO_SECURE: "false"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-}
     ports:
-      - "8000:8000"
-    volumes:
-      - ./datasets:/app/datasets
-      - ./tiles:/app/tiles:ro
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -93,7 +93,7 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -106,16 +106,19 @@ services:
     restart: unless-stopped
     environment:
       PORT: 4000
-      NODE_ENV: development
+      NODE_ENV: production
       DATA_SERVICE_URL: http://data-service:8000
-      JWT_SECRET: your_secure_secret_here
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      # Empty JWT_SECRET keeps mutating endpoints disabled; reads stay public.
+      JWT_SECRET: ${JWT_SECRET:-}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-}
     ports:
       - "4000:4000"
     depends_on:
       data-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4000/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -126,11 +129,8 @@ services:
       dockerfile: Dockerfile
     container_name: incois_frontend
     restart: unless-stopped
-    environment:
-      VITE_GATEWAY_URL: http://localhost:4000
     ports:
       - "3000:3000"
-      - "3001:3000"
     depends_on:
       - gateway
 

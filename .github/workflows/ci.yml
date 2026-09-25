@@ -11,7 +11,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -21,37 +21,45 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: 'frontend/package.json'
-      
+          cache-dependency-path: |
+            frontend/package-lock.json
+            gateway/package-lock.json
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: Build C++ Visualizer
+      - name: Build C++ core and run unit tests
         run: |
           sudo apt-get update && sudo apt-get install -y cmake build-essential libnetcdf-dev libnetcdff-dev
-          cd cpp_visualizer
-          mkdir build && cd build
-          cmake ..
-          make
+          cmake -S cpp_visualizer -B cpp_visualizer/build
+          cmake --build cpp_visualizer/build -j 2
+          # TestDataIntegrity needs the (untracked) source NetCDF files; the other tests are self-contained.
+          ctest --test-dir cpp_visualizer/build --output-on-failure -E TestDataIntegrity
 
-      - name: Install Python Dependencies and Run Tests
+      - name: Data-service tests (engine + API against the committed data catalog)
         run: |
           cd data-service
           python -m venv venv
           source venv/bin/activate
-          pip install -r requirements.txt
-          pip install pytest httpx netCDF4
-          PYTHONPATH=. pytest tests/
-        
-      - name: Install Frontend Dependencies and Build
+          pip install -r requirements.txt pytest
+          PYTHONPATH=. pytest tests/ -q
+
+      - name: Gateway build
+        run: |
+          cd gateway
+          npm ci
+          npm run build
+
+      - name: Frontend unit tests and production build
         run: |
           cd frontend
-          npm install
+          npm ci
+          npx vitest run
           npm run build
 
       - name: Validate docker-compose.yml
         run: |
-          docker compose config
+          docker compose config -q

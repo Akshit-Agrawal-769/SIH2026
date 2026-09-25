@@ -56,13 +56,13 @@ This document describes the high-level architecture, module interactions, data p
 The authoritative computational core implemented in modern C++ (C++17/20). It provides:
 - **NetCDF I/O Layer:** High-throughput parallel reader for multi-gigabyte NetCDF-3/4 files via the official NetCDF C/C++ libraries.
 - **Scientific QC Filter:** Enforces the international UNESCO Argo quality-control standard, accepting only observations with QC flag `'1'` (Good) or `'2'` (Probably Good), while discarding uncalibrated or interpolated values.
-- **TEOS-10 Thermodynamics:** Calculates absolute salinity, conservative temperature, sound speed, and density using the international Thermodynamic Equation of Seawater 2010.
-- **Real Tile Exporter (`export_real_tiles`):** Projects gridded models onto the Indian Ocean bounds (`[35°E, 100°E], [-10°N, 25°N]`) and packs values into the lightweight `INCO` binary format.
+- **Depth from pressure:** UNESCO 1983 (Saunders & Fofonoff) latitude-dependent formula, which agrees with TEOS-10 `gsw.z_from_p` to < 5 mm at 2000 dbar. (No other TEOS-10 quantities are implemented in C++.)
+- **Real Tile Exporter (`export_real_tiles`):** exports surface slices on the native source grids, each labelled with its source timestamp. The tiles served by the web platform are produced by `scripts/build_authentic_dataset.py`.
 
 ### 2.2. Scientific Data Service (`data-service/`)
 A high-performance asynchronous Python backend built with **FastAPI**, **xarray**, and **SQLAlchemy**:
 - **Binary Tile Router (`app/routers/tiles.py`):** Serves packed Float32 ocean slices directly to web clients. If an authentic tile does not exist for a requested time or depth, it responds with an explicit **HTTP 404**—never substituting fake data.
-- **In-Situ Ingestion Adapters (`app/ingestion/`):** Plug-and-play architecture for reading profiling floats, gliders, and moored buoys directly from raw NetCDF files or relational databases.
+- **Ingestion adapters (`app/ingestion/`):** the Argo adapter loads the catalogued QC-filtered profiles into PostGIS; the gridded adapter mirrors catalogued tiles to MinIO. No glider or buoy data exists in this release.
 - **Interoperability Endpoints:**
   - `OGC WMS 1.3.0`: Generates dynamically styled PNG map layers for external GIS tools.
   - `CF-1.8 NetCDF Export`: Generates standards-compliant NetCDF files for climate researchers.
@@ -70,7 +70,7 @@ A high-performance asynchronous Python backend built with **FastAPI**, **xarray*
 ### 2.3. Node.js API Gateway (`gateway/`)
 An enterprise-grade reverse proxy built with Express and TypeScript:
 - Consolidates frontend API requests under a single origin (`/api/*`).
-- Handles CORS, rate limiting, and request logging.
+- Public read-only `GET /api/*`; JWT required for mutating requests; per-IP rate limiting; env-driven CORS.
 - Routes tile and sensor queries to the data-service while buffering large stream responses.
 
 ### 2.4. React 18 3D Frontend (`frontend/`)

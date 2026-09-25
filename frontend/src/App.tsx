@@ -9,48 +9,41 @@ import { OceanHoverHUD } from './components/OceanHoverHUD';
 import { CycloneHoverTooltip } from './components/CycloneHoverTooltip';
 import { OutreachTourOverlay } from './components/OutreachTourOverlay';
 import { GlobeClickWaterBlockCallout } from './components/GlobeClickWaterBlockCallout';
+import { Timeline } from './components/Timeline';
+import { useShallow } from 'zustand/react/shallow';
 import { useOceanStore } from './store/useOceanStore';
-import DotGlobeHeroDemo from './components/ui/demo';
+import { DataStatusBar } from './components/DataStatusBar';
+import { parseUrlState } from './store/urlState';
 
+const DotGlobeHeroDemo = React.lazy(() => import('./components/ui/demo'));
 const InstrumentProfileModal = React.lazy(() => import('./components/InstrumentProfileModal').then(m => ({ default: m.InstrumentProfileModal })));
-const OceanWaterCubeModal = React.lazy(() => import('./components/OceanWaterCubeModal').then(m => ({ default: m.OceanWaterCubeModal })));
+const VolumetricStudio = React.lazy(() => import('./components/VolumetricStudio'));
 const ModelObservationModal = React.lazy(() => import('./components/comparison').then(m => ({ default: m.ModelObservationModal })));
 const AnalyticsModal = React.lazy(() => import('./components/analytics').then(m => ({ default: m.AnalyticsModal })));
 
 export const App: React.FC = () => {
   const [viewer, setViewer] = useState<Cesium.Viewer | null>(null);
-  const [authReady, setAuthReady] = useState(false);
-  const { mode, setMode, showLeftPanel, showRightPanel } = useOceanStore();
+  const { mode, setMode, showLeftPanel, showRightPanel, loadCatalog, activeWaterBlockTarget, closeWaterBlock } = useOceanStore(
+    useShallow((s) => ({
+      mode: s.mode,
+      setMode: s.setMode,
+      showLeftPanel: s.showLeftPanel,
+      showRightPanel: s.showRightPanel, activeWaterBlockTarget: s.activeWaterBlockTarget, closeWaterBlock: s.closeWaterBlock,
+      loadCatalog: s.loadCatalog
+    }))
+  );
 
   React.useEffect(() => {
-    fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'password' })
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.token) {
-          localStorage.setItem('token', data.token);
-        }
-        setAuthReady(true);
-      })
-      .catch(err => {
-        console.error('Failed to auto-login', err);
-        setAuthReady(true);
-      });
-  }, []);
+    loadCatalog();
+    // Permalinks: open the view they describe instead of the landing page.
+    const url = parseUrlState();
+    if (url.mode) setMode(url.mode);
+    else if (url.camera || url.layers) setMode('operational');
+  }, [loadCatalog, setMode]);
 
-  if (!authReady) {
-    return (
-      <div className="flex items-center justify-center w-screen h-screen bg-[#0b0f17] text-white font-mono text-xs">
-        <div className="flex items-center gap-2.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-          <span>Initializing Oceanix Gateway Session...</span>
-        </div>
-      </div>
-    );
-  }
+  React.useEffect(() => {
+    if (mode === 'home') setViewer(null);
+  }, [mode]);
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-[#0b0f17] font-sans select-none">
@@ -68,10 +61,12 @@ export const App: React.FC = () => {
       {/* Home Landing Hero View */}
       {mode === 'home' ? (
         <div className="pt-16 h-full w-full relative z-10">
-          <DotGlobeHeroDemo
-            onStartExploring={() => setMode('operational')}
-            onViewDemo={() => setMode('outreach')}
-          />
+          <Suspense fallback={<div role="status" className="h-full w-full flex items-center justify-center text-ocean-muted text-xs tracking-[0.2em]">LOADING…</div>}>
+            <DotGlobeHeroDemo
+              onStartExploring={() => setMode('operational')}
+              onViewDemo={() => setMode('outreach')}
+            />
+          </Suspense>
         </div>
       ) : (
         <>
@@ -83,6 +78,7 @@ export const App: React.FC = () => {
             <>
               {showLeftPanel && <LeftPanel />}
               {showRightPanel && <RightPanel />}
+              <Timeline />
             </>
           )}
 
@@ -96,29 +92,37 @@ export const App: React.FC = () => {
             <ColorbarLegend />
           )}
 
+          {mode === 'operational' && <DataStatusBar />}
+
           {/* Real-time Cursor Hover HUD Readout */}
           <OceanHoverHUD />
 
           {/* Floating In-situ Instrument Depth Profile Visualizer */}
-          <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">LOADING PROFILE DATA...</div>}>
+          <Suspense fallback={<div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">LOADING PROFILE DATA...</div>}>
             <InstrumentProfileModal />
           </Suspense>
 
           {/* Interactive 3D Volumetric Water Column Cube Studio */}
-          <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">INITIALIZING VOLUMETRIC VIEW...</div>}>
-            <OceanWaterCubeModal />
+          <Suspense fallback={<div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">INITIALIZING VOLUMETRIC VIEW...</div>}>
+            <VolumetricStudio 
+              open={!!activeWaterBlockTarget} 
+              onClose={closeWaterBlock} 
+              authToken={localStorage.getItem('token')} 
+              initialFilename="INCOIS-BIO-ROMS.nc" 
+              initialVariable="temp" 
+            />
           </Suspense>
 
           {/* Floating Callout when Clicking Ocean on Globe */}
           <GlobeClickWaterBlockCallout />
 
           {/* Collocated Model vs Observation Ground-Truth Verification Modal */}
-          <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">LOADING COMPARISON WORKSPACE...</div>}>
+          <Suspense fallback={<div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">LOADING COMPARISON WORKSPACE...</div>}>
             <ModelObservationModal />
           </Suspense>
 
           {/* Scientific Ocean Analytics Studio Modal */}
-          <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">LOADING ANALYTICAL WORKSPACE...</div>}>
+          <Suspense fallback={<div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-bg/60 backdrop-blur-md text-ocean-muted font-sans tracking-[0.2em] text-xs font-medium animate-pulse pointer-events-none">LOADING ANALYTICAL WORKSPACE...</div>}>
             <AnalyticsModal />
           </Suspense>
         </>

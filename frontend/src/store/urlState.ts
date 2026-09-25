@@ -83,11 +83,13 @@ export function syncStateToUrl(camera: CameraState | null, store: OceanState) {
     params.set('layers', store.activeLayers.join(','));
   }
 
-  if (store.depthLevel !== 0.5) {
+  if (store.depthLevel !== 0) {
     params.set('depth', store.depthLevel.toString());
   }
 
-  
+  if (store.selectedTime) {
+    params.set('time', store.selectedTime.slice(0, 10));
+  }
 
   if (store.selectedVariable !== 'temperature') {
     params.set('var', store.selectedVariable);

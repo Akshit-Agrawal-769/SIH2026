@@ -1,0 +1,33 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec).
+# Deploys the data-service (bundles the authentic data catalog) and the gateway.
+# The Vercel frontend then needs VITE_API_BASE_URL=https://<gateway>.onrender.com at build time.
+services:
+  - type: web
+    name: incois-data-service
+    runtime: docker
+    dockerfilePath: ./data-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false            # e.g. https://<your-app>.vercel.app
+      - key: ADMIN_API_TOKEN
+        sync: false            # leave unset to keep ingestion disabled
+
+  - type: web
+    name: incois-gateway
+    runtime: docker
+    dockerfilePath: ./gateway/Dockerfile
+    dockerContext: ./gateway
+    healthCheckPath: /health
+    envVars:
+      - key: DATA_SERVICE_URL
+        sync: false            # https://incois-data-service.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false            # https://<your-app>.vercel.app
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true    # only used for mutating requests; reads are public
+      - key: ADMIN_API_TOKEN
+        sync: false

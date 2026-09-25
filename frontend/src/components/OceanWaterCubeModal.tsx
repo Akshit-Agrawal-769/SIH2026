@@ -1,1044 +1,493 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { useShallow } from 'zustand/react/shallow';
+import { X, Maximize2, Minimize2, RotateCcw, Play, Pause, AlertTriangle, CheckCircle, Database, Radio, ArrowDown } from 'lucide-react';
 import { useOceanStore } from '../store/useOceanStore';
-import { fetchOceanTile, OceanTileData } from '../api/client';
-import { renderTileToCanvas, sampleOceanDataAt } from '../rendering/colormaps';
 import {
-  X,
-  Maximize2,
-  Minimize2,
-  RotateCcw,
-  Play,
-  Pause,
-  Waves,
-  Droplets,
-  Wind,
-  Activity,
-  Box,
-  Sparkles,
-  Compass,
-  ArrowDown,
-  AlertTriangle,
-  CheckCircle,
-  Database,
-  Radio
-} from 'lucide-react';
+  canonicalInstrumentId,
+  fetchInstrumentProfile,
+  fetchInstruments,
+  fetchOceanTile,
+  InstrumentProfileResponse,
+  OceanTileData
+} from '../api/client';
+import { renderTileToCanvas, sampleColormap, sampleOceanDataAt } from '../rendering/colormaps';
+import { GRID } from '../rendering/grid';
+import { scalePosition } from '../rendering/scale';
+import { mackenzieInRange, mackenzieSoundSpeed } from '../science/soundSpeed';
+
+const CUBE_W = 10;
+const CUBE_L = 10;
+const CUBE_H = 14; // y = +7 is the sea surface, y = -7 is 2000 m
+const MAX_DEPTH = 2000;
+const HALF_WINDOW_DEG = 5; // the cube top shows +/- 5 degrees around the selected point
+const ACCENT = 0x14b8a6;
+
+const depthToY = (d: number) => CUBE_H / 2 - (Math.min(Math.max(d, 0), MAX_DEPTH) / MAX_DEPTH) * CUBE_H;
+
+/** Crop the rendered field to a lon/lat window (canvas rows run north -> south). */
+function cropWindow(full: HTMLCanvasElement, lon: number, lat: number): HTMLCanvasElement {
+  const col = (x: number) => Math.round((x - GRID.lon0) / GRID.dlon);
+  const row = (y: number) => Math.round((y - GRID.lat0) / GRID.dlat);
+  const c0 = col(lon - HALF_WINDOW_DEG);
+  const c1 = col(lon + HALF_WINDOW_DEG);
+  const r0 = row(lat - HALF_WINDOW_DEG);
+  const r1 = row(lat + HALF_WINDOW_DEG);
+  const out = document.createElement('canvas');
+  out.width = 256;
+  out.height = 256;
+  const ctx = out.getContext('2d');
+  if (!ctx) return out;
+  ctx.imageSmoothingEnabled = false;
+  const sx = c0, sw = c1 - c0 + 1;
+  const sy = GRID.height - 1 - r1, sh = r1 - r0 + 1;
+  // Portions outside the served grid stay transparent (no data), never filled.
+  ctx.drawImage(full, sx, sy, sw, sh, 0, 0, 256, 256);
+  return out;
+}
+
+function wallTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 512;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = 'rgba(38, 38, 38, 0.35)';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.fillStyle = 'rgba(229,229,229,0.85)';
+  ctx.font = '14px monospace';
+  for (const d of [0, 100, 250, 500, 1000, 1500, 2000]) {
+    const y = Math.min(c.height - 2, (d / MAX_DEPTH) * c.height + 1);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(c.width, y);
+    ctx.stroke();
+    ctx.fillText(`${d} m`, 8, Math.max(16, y - 4));
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function disposeObject(root: THREE.Object3D) {
+  root.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (mesh.geometry) mesh.geometry.dispose();
+    const mat = (mesh as any).material as THREE.Material | THREE.Material[] | undefined;
+    const mats = Array.isArray(mat) ? mat : mat ? [mat] : [];
+    for (const m of mats) {
+      const map = (m as THREE.MeshBasicMaterial).map;
+      if (map) map.dispose();
+      m.dispose();
+    }
+  });
+}
+
+const ARGO_KEY: Record<string, 'temperature' | 'salinity' | 'chlorophyll' | undefined> = {
+  temperature: 'temperature',
+  salinity: 'salinity',
+  chlorophyll: 'chlorophyll'
+};
 
 export const OceanWaterCubeModal: React.FC = () => {
-  const { activeWaterBlockTarget, closeWaterBlock } = useOceanStore();
+  const { target, closeWaterBlock, selectedTime, catalog, storeVariable, colorRange, colorPalette, scaleType } = useOceanStore(
+    useShallow((s) => ({
+      target: s.activeWaterBlockTarget,
+      closeWaterBlock: s.closeWaterBlock,
+      selectedTime: s.selectedTime,
+      catalog: s.catalog,
+      storeVariable: s.selectedVariable,
+      colorRange: s.colorRange,
+      colorPalette: s.colorPalette,
+      scaleType: s.scaleType
+    }))
+  );
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [activeVar, setActiveVar] = useState<string>(storeVariable);
+  const [sliceDepth, setSliceDepth] = useState(0);
+  const [autoRotate, setAutoRotate] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [tile, setTile] = useState<OceanTileData | null>(null);
+  const [tileState, setTileState] = useState<'loading' | 'ok' | 'nodata'>('loading');
+  const [profile, setProfile] = useState<InstrumentProfileResponse | null>(null);
+  const [profileNote, setProfileNote] = useState<string>('');
+  const [profileLoading, setProfileLoading] = useState(false);
 
-  // UI state
-  const [activeVar, setActiveVar] = useState<'temperature' | 'salinity' | 'currents' | 'chlorophyll'>('temperature');
-  const [sliceDepth, setSliceDepth] = useState<number>(0.5);
-  const [isAutoRotating, setIsAutoRotating] = useState<boolean>(true);
-  const [showFlowParticles, setShowFlowParticles] = useState<boolean>(true);
-  const [showStrataPlanes, setShowStrataPlanes] = useState<boolean>(true);
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [authenticProfile, setAuthenticProfile] = useState<any>(null);
-  const [profileLoading, setProfileLoading] = useState<boolean>(false);
+  const autoRotateRef = useRef(autoRotate);
+  autoRotateRef.current = autoRotate;
+  const sceneRef = useRef<{
+    scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls; renderer: THREE.WebGLRenderer;
+    group: THREE.Group; topMat: THREE.MeshBasicMaterial; slice: THREE.Mesh; argo: THREE.Group; mld: THREE.Mesh;
+  } | null>(null);
 
-  // Authentic Model Tile state (from authoritative C++ ocean_core tile store)
-  const [modelTileData, setModelTileData] = useState<OceanTileData | null>(null);
-  const [modelTileLoading, setModelTileLoading] = useState<boolean>(false);
-  const [modelTileError, setModelTileError] = useState<string | null>(null);
-  const [modelSampledValue, setModelSampledValue] = useState<number | null>(null);
-
-  // References to Three.js objects
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const controlsRef = useRef<OrbitControls | null>(null);
-  const animFrameIdRef = useRef<number | null>(null);
-
-  // Dynamic mesh references
-  const cubeMeshRef = useRef<THREE.Mesh | null>(null);
-  const laserPlaneRef = useRef<THREE.Group | null>(null);
-  const laserPlaneMeshRef = useRef<THREE.Mesh | null>(null);
-  const particlesRef = useRef<THREE.Points | null>(null);
-  const strataGroupRef = useRef<THREE.Group | null>(null);
-
-  // Physical constants of the 3D Cube
-  const CUBE_W = 10;
-  const CUBE_L = 10;
-  const CUBE_H = 14; // Represents 0m at top (y = 7) down to 2000m at bottom (y = -7)
-  const MAX_DEPTH = 2000;
-
-  // Convert depth in meters (0 to 2000) to Three.js local Y (-7 to +7)
-  const depthToY = (depthMeters: number) => {
-    const fraction = Math.min(Math.max(depthMeters, 0), MAX_DEPTH) / MAX_DEPTH;
-    return CUBE_H / 2 - fraction * CUBE_H;
-  };
-
-  // 1. Procedural Texture Generator for the 4 Vertical Walls
-  const generateWallTexture = (variable: string) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return new THREE.CanvasTexture(canvas);
-
-    const w = canvas.width;
-    const h = canvas.height;
-
-    // Draw ocean depth vertical gradient
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    if (variable === 'salinity') {
-      grad.addColorStop(0.0, '#fde725'); // Surface high salinity (36.5 PSU)
-      grad.addColorStop(0.15, '#5ec962'); // Upper halocline
-      grad.addColorStop(0.35, '#21918c'); // Mid halocline
-      grad.addColorStop(0.65, '#3b528b'); // Deep salinity
-      grad.addColorStop(1.0, '#440154'); // Abyssal salinity (34.7 PSU)
-    } else if (variable === 'chlorophyll') {
-      grad.addColorStop(0.0, '#facc15'); // Photic bloom (2.5 mg/m³)
-      grad.addColorStop(0.12, '#10b981'); // Deep chlorophyll max
-      grad.addColorStop(0.25, '#0e7490'); // Twilight onset
-      grad.addColorStop(0.6, '#0f172a'); // Aphotic zone
-      grad.addColorStop(1.0, '#020617'); // Abyss
-    } else if (variable === 'currents') {
-      grad.addColorStop(0.0, '#f43f5e'); // Surface energetic flow (1.8 m/s)
-      grad.addColorStop(0.15, '#eab308'); // Subsurface current
-      grad.addColorStop(0.35, '#10b981'); // Decay zone
-      grad.addColorStop(0.65, '#06b6d4'); // Slow deep drift
-      grad.addColorStop(1.0, '#1e1b4b'); // Abyssal calm (<0.05 m/s)
-    } else {
-      // Temperature (Turbo)
-      grad.addColorStop(0.0, '#d93806'); // Warm surface 29.5°C
-      grad.addColorStop(0.12, '#f3c63a'); // Mixed layer 28.0°C
-      grad.addColorStop(0.3, '#24eca6'); // Thermocline drop (20°C)
-      grad.addColorStop(0.55, '#4675ed'); // Intermediate (10°C)
-      grad.addColorStop(1.0, '#30123b'); // Cold abyssal floor (3.2°C)
-    }
-
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
-
-    // Overlay horizontal depth tick lines and annotations
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 1.5;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.font = 'bold 13px monospace';
-
-    const ticks = [
-      { y: 0.02, text: '0m [SEA SURFACE]' },
-      { y: 0.1, text: '-50m [EUPHOTIC BASE]' },
-      { y: 0.2, text: '-150m [THERMOCLINE CORE]' },
-      { y: 0.4, text: '-500m [INTERMEDIATE WATER]' },
-      { y: 0.7, text: '-1000m [DEEP OXYGEN MIN]' },
-      { y: 0.96, text: '-2000m [ABYSSAL BASIN]' }
-    ];
-
-    ticks.forEach((t) => {
-      const yPos = t.y * h;
-      ctx.beginPath();
-      ctx.moveTo(0, yPos);
-      ctx.lineTo(w, yPos);
-      ctx.stroke();
-      ctx.fillText(t.text, 14, Math.max(16, yPos - 4));
-    });
-
-    // Technical grid pattern
-    ctx.strokeStyle = 'rgba(20, 184, 166, 0.15)';
-    ctx.lineWidth = 1;
-    for (let x = 40; x < w; x += 40) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, h);
-      ctx.stroke();
-    }
-
-    // Outer neon border
-    ctx.strokeStyle = 'rgba(20, 184, 166, 0.85)';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(0, 0, w, h);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    return texture;
-  };
-
-  // 2. Procedural Sea Surface Texture
-  const generateSurfaceTexture = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return new THREE.CanvasTexture(canvas);
-
-    ctx.fillStyle = '#062846';
-    ctx.fillRect(0, 0, 256, 256);
-
-    // Oceanic wave ripples
-    ctx.strokeStyle = 'rgba(20, 184, 166, 0.35)';
-    ctx.lineWidth = 1.2;
-    for (let i = 0; i < 256; i += 16) {
-      ctx.beginPath();
-      ctx.arc(128, 128, i, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    // Compass rose cross
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.beginPath();
-    ctx.moveTo(128, 20);
-    ctx.lineTo(128, 236);
-    ctx.moveTo(20, 128);
-    ctx.lineTo(236, 128);
-    ctx.stroke();
-
-    ctx.fillStyle = 'rgba(20, 184, 166, 0.9)';
-    ctx.font = 'bold 12px monospace';
-    ctx.fillText('N ▲', 120, 24);
-
-    return new THREE.CanvasTexture(canvas);
-  };
-
-  // 3. Procedural Abyssal Floor Texture
-  const generateFloorTexture = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return new THREE.CanvasTexture(canvas);
-
-    ctx.fillStyle = '#040711';
-    ctx.fillRect(0, 0, 256, 256);
-
-    ctx.strokeStyle = 'rgba(20, 184, 166, 0.25)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 256; i += 32) {
-      ctx.beginPath();
-      ctx.moveTo(i, 0);
-      ctx.lineTo(i, 256);
-      ctx.moveTo(0, i);
-      ctx.lineTo(256, i);
-      ctx.stroke();
-    }
-
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
-    ctx.font = 'bold 11px monospace';
-    ctx.fillText('BENTHIC SEABED [-2000m]', 45, 132);
-
-    return new THREE.CanvasTexture(canvas);
-  };
-
-  // Mount Three.js Scene
+  // Scene: created once per opened target, fully disposed on close.
   useEffect(() => {
-    if (!activeWaterBlockTarget || !canvasRef.current) return;
-
-    const width = canvasRef.current.clientWidth;
-    const height = canvasRef.current.clientHeight;
-
-    // 1. Scene
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#030712');
-    sceneRef.current = scene;
-
-    // 2. Camera
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(16, 11, 20);
-    cameraRef.current = camera;
-
-    // 3. Renderer
-    const renderer = new THREE.WebGLRenderer({
-      canvas: canvasRef.current,
-      antialias: true,
-      alpha: true
-    });
-    renderer.setSize(width, height);
+    if (!target || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    rendererRef.current = renderer;
-
-    // 4. OrbitControls
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#0a0a0a');
+    const camera = new THREE.PerspectiveCamera(45, canvas.clientWidth / Math.max(1, canvas.clientHeight), 0.1, 1000);
+    camera.position.set(16, 11, 20);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
     controls.maxDistance = 50;
     controls.minDistance = 6;
-    controls.target.set(0, 0, 0);
-    controlsRef.current = controls;
 
-    // 5. Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-    scene.add(ambientLight);
+    const group = new THREE.Group();
+    scene.add(group);
+    const walls = wallTexture();
+    const wallMat = () => new THREE.MeshBasicMaterial({ map: walls, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false });
+    const topMat = new THREE.MeshBasicMaterial({ color: 0x262626, transparent: true, opacity: 0.95, side: THREE.DoubleSide });
+    const floorMat = new THREE.MeshBasicMaterial({ color: 0x171717, transparent: true, opacity: 0.9 });
+    const box = new THREE.Mesh(new THREE.BoxGeometry(CUBE_W, CUBE_H, CUBE_L),
+      [wallMat(), wallMat(), topMat, floorMat, wallMat(), wallMat()]);
+    group.add(box);
+    group.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(CUBE_W, CUBE_H, CUBE_L)),
+      new THREE.LineBasicMaterial({ color: ACCENT })));
 
-    const dirLight1 = new THREE.DirectionalLight(0x00e5ff, 1.2);
-    dirLight1.position.set(20, 30, 20);
-    scene.add(dirLight1);
+    // Depth plane (textured only where a gridded level exists).
+    const sliceGeo = new THREE.PlaneGeometry(CUBE_W * 0.99, CUBE_L * 0.99);
+    sliceGeo.rotateX(Math.PI / 2); // texture top (north) -> +Z, same as the box top face
+    const slice = new THREE.Mesh(sliceGeo, new THREE.MeshBasicMaterial({ color: 0x737373, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
+    slice.position.y = depthToY(0);
+    group.add(slice);
 
-    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
-    dirLight2.position.set(-20, -10, -20);
-    scene.add(dirLight2);
+    // North marker on the +Z edge of the top face.
+    const north = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.7, 12), new THREE.MeshBasicMaterial({ color: 0xe5e5e5 }));
+    north.rotation.x = Math.PI / 2;
+    north.position.set(0, CUBE_H / 2 + 0.2, CUBE_L / 2 + 0.6);
+    group.add(north);
 
-    // 6. Create 3D Ocean Cube Mesh
-    const wallTex = generateWallTexture(activeVar);
-    const surfaceTex = generateSurfaceTexture();
-    const floorTex = generateFloorTexture();
+    const argo = new THREE.Group();
+    group.add(argo);
+    const mldGeo = new THREE.PlaneGeometry(CUBE_W * 0.98, CUBE_L * 0.98);
+    mldGeo.rotateX(Math.PI / 2);
+    const mld = new THREE.Mesh(mldGeo, new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
+    mld.visible = false;
+    group.add(mld);
 
-    const materials = [
-      new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.85 }), // +X (East)
-      new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.85 }), // -X (West)
-      new THREE.MeshStandardMaterial({ map: surfaceTex, roughness: 0.3, metalness: 0.2, transparent: true, opacity: 0.92 }), // +Y (Surface)
-      new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8, metalness: 0.1, transparent: true, opacity: 0.95 }), // -Y (Abyssal Floor)
-      new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.85 }), // +Z (South)
-      new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.85 })  // -Z (North)
-    ];
+    sceneRef.current = { scene, camera, controls, renderer, group, topMat, slice, argo, mld };
 
-    const boxGeo = new THREE.BoxGeometry(CUBE_W, CUBE_H, CUBE_L);
-    const cubeMesh = new THREE.Mesh(boxGeo, materials);
-    scene.add(cubeMesh);
-    cubeMeshRef.current = cubeMesh;
-
-    // Outer wireframe edge lines
-    const wireframeGeo = new THREE.EdgesGeometry(boxGeo);
-    const wireframeMat = new THREE.LineBasicMaterial({ color: 0x00e5ff, linewidth: 2 });
-    const wireframe = new THREE.LineSegments(wireframeGeo, wireframeMat);
-    cubeMesh.add(wireframe);
-
-    // 7. Dynamic Slicing Laser Plane
-    const laserGroup = new THREE.Group();
-    const laserPlaneGeo = new THREE.PlaneGeometry(CUBE_W * 0.99, CUBE_L * 0.99);
-    laserPlaneGeo.rotateX(-Math.PI / 2);
-    const laserPlaneMat = new THREE.MeshBasicMaterial({
-      color: 0x00e5ff,
-      transparent: true,
-      opacity: 0.35,
-      side: THREE.DoubleSide
-    });
-    const laserPlaneMesh = new THREE.Mesh(laserPlaneGeo, laserPlaneMat);
-    laserGroup.add(laserPlaneMesh);
-    laserPlaneMeshRef.current = laserPlaneMesh;
-
-    // Glowing laser border
-    const borderGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(CUBE_W * 0.99, 0.05, CUBE_L * 0.99));
-    const borderMat = new THREE.LineBasicMaterial({ color: 0x39ff14, linewidth: 2 });
-    const borderLines = new THREE.LineSegments(borderGeo, borderMat);
-    laserGroup.add(borderLines);
-
-    laserGroup.position.y = depthToY(sliceDepth);
-    scene.add(laserGroup);
-    laserPlaneRef.current = laserGroup;
-
-    // 8. Static Stratification Planes
-    const strataGroup = new THREE.Group();
-    const strataDepths = [
-      { depth: 50, color: 0x00e5ff, opacity: 0.12 },
-      { depth: 150, color: 0x10b981, opacity: 0.14 },
-      { depth: 500, color: 0xa855f7, opacity: 0.16 },
-      { depth: 1000, color: 0x3b82f6, opacity: 0.18 }
-    ];
-
-    strataDepths.forEach((st) => {
-      const pGeo = new THREE.PlaneGeometry(CUBE_W * 0.98, CUBE_L * 0.98);
-      pGeo.rotateX(-Math.PI / 2);
-      const pMat = new THREE.MeshBasicMaterial({
-        color: st.color,
-        transparent: true,
-        opacity: st.opacity,
-        side: THREE.DoubleSide
-      });
-      const pMesh = new THREE.Mesh(pGeo, pMat);
-      pMesh.position.y = depthToY(st.depth);
-
-      // Border outline
-      const pBorder = new THREE.LineSegments(
-        new THREE.EdgesGeometry(new THREE.BoxGeometry(CUBE_W * 0.98, 0.02, CUBE_L * 0.98)),
-        new THREE.LineBasicMaterial({ color: st.color, transparent: true, opacity: 0.4 })
-      );
-      pMesh.add(pBorder);
-      strataGroup.add(pMesh);
-    });
-    scene.add(strataGroup);
-    strataGroupRef.current = strataGroup;
-
-    // 9. Animated Subsurface Current Flow Particles
-    const particleCount = 450;
-    const particlePositions = new Float32Array(particleCount * 3);
-    const particleVelocities = new Float32Array(particleCount * 3);
-
-    for (let i = 0; i < particleCount; i++) {
-      const idx = i * 3;
-      particlePositions[idx] = (Math.random() - 0.5) * (CUBE_W - 0.8);
-      particlePositions[idx + 1] = (Math.random() - 0.5) * (CUBE_H - 0.8);
-      particlePositions[idx + 2] = (Math.random() - 0.5) * (CUBE_L - 0.8);
-
-      // Depth attenuation: particles near surface move much faster!
-      const depthFraction = (CUBE_H / 2 - particlePositions[idx + 1]) / CUBE_H;
-      const speed = Math.max(0.015, (1.0 - depthFraction) * 0.08);
-
-      particleVelocities[idx] = speed; // Flow in +X direction (eastward drift)
-      particleVelocities[idx + 1] = (Math.random() - 0.5) * 0.005; // Vertical turbulence
-      particleVelocities[idx + 2] = (Math.random() - 0.5) * 0.01;
-    }
-
-    const particleGeometry = new THREE.BufferGeometry();
-    particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-    const particleMaterial = new THREE.PointsMaterial({
-      color: 0x00e5ff,
-      size: 0.18,
-      transparent: true,
-      opacity: 0.75,
-      blending: THREE.AdditiveBlending
-    });
-    const particles = new THREE.Points(particleGeometry, particleMaterial);
-    scene.add(particles);
-    particlesRef.current = particles;
-
-    // 10. Corner Depth Ruler Pillars
-    const pillarMat = new THREE.LineDashedMaterial({
-      color: 0x00e5ff,
-      dashSize: 0.5,
-      gapSize: 0.3
-    });
-    const corners = [
-      [-CUBE_W / 2, -CUBE_L / 2],
-      [CUBE_W / 2, -CUBE_L / 2],
-      [CUBE_W / 2, CUBE_L / 2],
-      [-CUBE_W / 2, CUBE_L / 2]
-    ];
-    corners.forEach(([cx, cz]) => {
-      const points = [
-        new THREE.Vector3(cx, CUBE_H / 2, cz),
-        new THREE.Vector3(cx, -CUBE_H / 2, cz)
-      ];
-      const pGeo = new THREE.BufferGeometry().setFromPoints(points);
-      const line = new THREE.Line(pGeo, pillarMat);
-      line.computeLineDistances();
-      scene.add(line);
-    });
-
-    // 11. Animation Loop
+    let frame = 0;
     const animate = () => {
-      animFrameIdRef.current = requestAnimationFrame(animate);
-
-      // Auto-rotation around vertical axis
-      if (isAutoRotating && controlsRef.current) {
-        cubeMesh.rotation.y += 0.003;
-        strataGroup.rotation.y += 0.003;
-        laserGroup.rotation.y += 0.003;
-        particles.rotation.y += 0.003;
-      }
-
-      // Animate current flow particles
-      if (particlesRef.current && showFlowParticles) {
-        const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
-        for (let i = 0; i < particleCount; i++) {
-          const idx = i * 3;
-          positions[idx] += particleVelocities[idx];
-          positions[idx + 1] += particleVelocities[idx + 1];
-          positions[idx + 2] += particleVelocities[idx + 2];
-
-          // Wrap around X boundary
-          if (positions[idx] > (CUBE_W / 2 - 0.4)) {
-            positions[idx] = -CUBE_W / 2 + 0.4;
-          }
-        }
-        particlesRef.current.geometry.attributes.position.needsUpdate = true;
-      }
-
+      frame = requestAnimationFrame(animate);
+      if (autoRotateRef.current) group.rotation.y += 0.003;
       controls.update();
       renderer.render(scene, camera);
     };
-
     animate();
 
-    // Window resize handler
-    const handleResize = () => {
-      if (!canvasRef.current || !rendererRef.current || !cameraRef.current) return;
-      const newW = canvasRef.current.clientWidth;
-      const newH = canvasRef.current.clientHeight;
-      cameraRef.current.aspect = newW / newH;
-      cameraRef.current.updateProjectionMatrix();
-      rendererRef.current.setSize(newW, newH);
+    const onResize = () => {
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      camera.aspect = w / Math.max(1, h);
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h, false);
     };
-
-    window.addEventListener('resize', handleResize);
+    const ro = new ResizeObserver(onResize);
+    ro.observe(canvas);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeWaterBlock(); };
+    window.addEventListener('keydown', onKey);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+      cancelAnimationFrame(frame);
+      ro.disconnect();
+      window.removeEventListener('keydown', onKey);
+      controls.dispose();
+      disposeObject(scene);
+      walls.dispose();
       renderer.dispose();
+      sceneRef.current = null;
     };
-  }, [activeWaterBlockTarget, activeVar]);
+  }, [target, closeWaterBlock]);
 
-  // Update Laser Slicing Plane when depth slider changes
+  // Real gridded field for the selected variable at the timeline's timestep.
   useEffect(() => {
-    if (laserPlaneRef.current) {
-      laserPlaneRef.current.position.y = depthToY(sliceDepth);
+    if (!target) return;
+    let active = true;
+    const meta = catalog?.variables[activeVar];
+    const hasDate = meta?.timesteps.includes(selectedTime.slice(0, 10));
+    setTileState('loading');
+    if (!meta || !hasDate) {
+      setTile(null);
+      setTileState('nodata');
+      return;
     }
-  }, [sliceDepth]);
+    fetchOceanTile(activeVar, selectedTime, meta.depths[0])
+      .then((t) => { if (active) { setTile(t); setTileState('ok'); } })
+      .catch(() => { if (active) { setTile(null); setTileState('nodata'); } });
+    return () => { active = false; };
+  }, [target, activeVar, selectedTime, catalog]);
 
-  // Toggle Visibility of Particles & Strata
+  const range: [number, number] = activeVar === storeVariable ? colorRange : (catalog?.variables[activeVar]?.display_range ?? [0, 1]);
+  const palette = activeVar === storeVariable ? colorPalette : activeVar === 'salinity' || activeVar === 'mld' ? 'viridis' : activeVar === 'chlorophyll' ? 'gfdl_chl' : activeVar === 'currents' ? 'turbo' : 'noaa_sst';
+  const isLog = activeVar === storeVariable ? scaleType === 'log' : activeVar === 'chlorophyll';
+
+  // Apply the field texture to the top face and to the depth plane when it sits on a real level.
   useEffect(() => {
-    if (particlesRef.current) {
-      particlesRef.current.visible = showFlowParticles;
+    const sc = sceneRef.current;
+    if (!sc || !target) return;
+    const oldTop = sc.topMat.map;
+    const sliceMat = sc.slice.material as THREE.MeshBasicMaterial;
+    const oldSlice = sliceMat.map;
+    if (tile) {
+      const full = renderTileToCanvas(tile, { palette, customRange: range, scaleType: isLog ? 'log' : 'linear', opacity: 1 });
+      const tex = new THREE.CanvasTexture(cropWindow(full, target.lon, target.lat));
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.magFilter = THREE.NearestFilter;
+      sc.topMat.map = tex;
+      sc.topMat.color.set(0xffffff);
+      const onLevel = catalog?.variables[activeVar]?.depths.some((d) => Math.abs(d - sliceDepth) < 1e-6);
+      sliceMat.map = onLevel ? tex : null;
+      sliceMat.color.set(onLevel ? 0xffffff : 0x737373);
+      sliceMat.opacity = onLevel ? 0.9 : 0.18;
+    } else {
+      sc.topMat.map = null;
+      sc.topMat.color.set(0x262626);
+      sliceMat.map = null;
+      sliceMat.color.set(0x737373);
+      sliceMat.opacity = 0.18;
     }
-  }, [showFlowParticles]);
+    sc.topMat.needsUpdate = true;
+    sliceMat.needsUpdate = true;
+    if (oldTop && oldTop !== sc.topMat.map) oldTop.dispose();
+    if (oldSlice && oldSlice !== oldTop && oldSlice !== sliceMat.map) oldSlice.dispose();
+    sc.slice.position.y = depthToY(sliceDepth);
+  }, [tile, sliceDepth, palette, range[0], range[1], isLog, target, activeVar, catalog]);
 
+  // Real Argo profile: the target float, or the nearest catalogued float (distance is reported).
   useEffect(() => {
-    if (strataGroupRef.current) {
-      strataGroupRef.current.visible = showStrataPlanes;
-    }
-  }, [showStrataPlanes]);
-
-  // Reset Camera View
-  const handleResetCamera = () => {
-    if (cameraRef.current && controlsRef.current) {
-      cameraRef.current.position.set(16, 11, 20);
-      controlsRef.current.target.set(0, 0, 0);
-      controlsRef.current.update();
-    }
-  };
-
-  // Fetch authentic gridded ocean model depth slice (Strict real-data zero-synthetic policy)
-  useEffect(() => {
-    let isMounted = true;
-    setModelTileLoading(true);
-    setModelTileError(null);
-
-    // In CMEMS and INCOIS-BIO-ROMS, only depth 0.0-0.5m is authentically present in source NetCDFs
-    const targetDepth = sliceDepth <= 0.5 ? 0.5 : sliceDepth;
-
-    fetchOceanTile(activeVar, '2024-06-01', targetDepth)
-      .then((tile) => {
-        if (!isMounted) return;
-        setModelTileData(tile);
-        setModelTileLoading(false);
-        if (activeWaterBlockTarget) {
-          const sample = sampleOceanDataAt(tile, activeWaterBlockTarget.lon, activeWaterBlockTarget.lat);
-          setModelSampledValue(sample.value);
-        }
-        // Render authentic tile directly onto Three.js laser plane and surface mesh
-        try {
-          const canvas = renderTileToCanvas(tile);
-          const tileTex = new THREE.CanvasTexture(canvas);
-          tileTex.wrapS = THREE.ClampToEdgeWrapping;
-          tileTex.wrapT = THREE.ClampToEdgeWrapping;
-          if (laserPlaneMeshRef.current) {
-            (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).map = tileTex;
-            (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).color.setHex(0xffffff);
-            (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).opacity = 0.95;
-            (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).needsUpdate = true;
-          }
-          if (cubeMeshRef.current && Array.isArray(cubeMeshRef.current.material)) {
-            const topMat = cubeMeshRef.current.material[2] as THREE.MeshStandardMaterial;
-            topMat.map = tileTex;
-            topMat.needsUpdate = true;
-          }
-          if (typeof window !== 'undefined') {
-            (window as any).__OCEAN_VERIFICATION__ = (window as any).__OCEAN_VERIFICATION__ || {};
-            (window as any).__OCEAN_VERIFICATION__.modalTileData = tile;
-            (window as any).__OCEAN_VERIFICATION__.laserPlaneMesh = laserPlaneMeshRef.current;
-            (window as any).__OCEAN_VERIFICATION__.cubeMesh = cubeMeshRef.current;
-            (window as any).__OCEAN_VERIFICATION__.renderer = rendererRef.current;
-            (window as any).__OCEAN_VERIFICATION__.scene = sceneRef.current;
-            (window as any).__OCEAN_VERIFICATION__.camera = cameraRef.current;
-          }
-        } catch (e) {
-          console.error('[ThreeJS] Colormap texture generation error:', e);
-        }
-      })
-      .catch(() => {
-        if (!isMounted) return;
-        setModelTileData(null);
-        setModelSampledValue(null);
-        setModelTileLoading(false);
-        const errMsg = `No authentic gridded model slice at depth ${sliceDepth}m (Source NetCDF contains depth: 1 at 0.0m). Synthetic subsurface interpolation strictly forbidden.`;
-        setModelTileError(errMsg);
-        if (typeof window !== 'undefined') {
-          (window as any).__OCEAN_VERIFICATION__ = (window as any).__OCEAN_VERIFICATION__ || {};
-          (window as any).__OCEAN_VERIFICATION__.modalTileData = null;
-          (window as any).__OCEAN_VERIFICATION__.modalTileError = errMsg;
-        }
-        if (laserPlaneMeshRef.current) {
-          (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).map = null;
-          (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).color.setHex(0x00e5ff);
-          (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).opacity = 0.20;
-          (laserPlaneMeshRef.current.material as THREE.MeshBasicMaterial).needsUpdate = true;
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [activeVar, sliceDepth, activeWaterBlockTarget]);
-
-  // Fetch authentic instrument profile for this water column target (NO synthetic generation)
-  useEffect(() => {
-    if (!activeWaterBlockTarget) return;
-
-    let isMounted = true;
+    if (!target) return;
+    const controller = new AbortController();
     setProfileLoading(true);
-
-    const loadProfile = async () => {
-      try {
-        let instId = activeWaterBlockTarget.instrumentId;
-        if (!instId) {
-          const res = await fetch('/api/instruments');
-          if (res.ok) {
-            const data = await res.json();
-            const features = data.features || [];
-            let bestDist = 4.0;
-            let bestId = null;
-            for (const f of features) {
-              const [fLon, fLat] = f.geometry?.coordinates || [0, 0];
-              const dist = Math.hypot(fLon - activeWaterBlockTarget.lon, fLat - activeWaterBlockTarget.lat);
-              if (dist < bestDist) {
-                bestDist = dist;
-                bestId = f.properties?.external_id || f.properties?.id;
-              }
-            }
-            instId = bestId;
-          }
+    setProfile(null);
+    (async () => {
+      let id = target.instrumentId ? canonicalInstrumentId(target.instrumentId) : null;
+      let note = '';
+      if (!id) {
+        const fc = await fetchInstruments();
+        let best: { id: string; km: number } | null = null;
+        for (const f of fc.features) {
+          const [lo, la] = f.geometry.coordinates;
+          const dLat = ((la - target.lat) * Math.PI) / 180;
+          const dLon = ((lo - target.lon) * Math.PI) / 180;
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos((la * Math.PI) / 180) * Math.cos((target.lat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+          const km = 12742 * Math.asin(Math.sqrt(a));
+          if (!best || km < best.km) best = { id: f.id, km };
         }
-
-        if (instId) {
-          const res = await fetch(`/api/instruments/${encodeURIComponent(instId)}/profile`);
-          if (res.ok) {
-            const data = await res.json();
-            if (isMounted) {
-              setAuthenticProfile(data);
-              setProfileLoading(false);
-              return;
-            }
-          }
-        }
-
-        if (isMounted) {
-          setAuthenticProfile(null);
-          setProfileLoading(false);
-        }
-      } catch {
-        if (isMounted) {
-          setAuthenticProfile(null);
-          setProfileLoading(false);
+        if (best && best.km <= 500) {
+          id = best.id;
+          note = `Nearest catalogued float, ${best.km.toFixed(0)} km from the selected point`;
+        } else {
+          note = best ? `No float within 500 km (nearest ${best.km.toFixed(0)} km)` : 'No floats catalogued';
         }
       }
-    };
-
-    loadProfile();
-    return () => {
-      isMounted = false;
-    };
-  }, [activeWaterBlockTarget]);
-
-  if (!activeWaterBlockTarget) return null;
-
-  // Authentic Observations: Sample closest in-situ measurement without mathematical synthesis
-  const measurements: any[] = authenticProfile?.measurements || [];
-  let closestMeas: any = null;
-  if (measurements.length > 0) {
-    let minDiff = 100.0;
-    for (const m of measurements) {
-      const diff = Math.abs(m.depth - sliceDepth);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestMeas = m;
+      if (id) {
+        const p = await fetchInstrumentProfile(id, controller.signal);
+        setProfile(p);
       }
+      setProfileNote(note);
+    })()
+      .catch((err) => { if (err?.name !== 'AbortError') setProfileNote('Profile could not be loaded'); })
+      .finally(() => setProfileLoading(false));
+    return () => controller.abort();
+  }, [target]);
+
+  // Draw the measured profile as a vertical column of coloured levels, plus its observed MLD.
+  // The column uses its own (labelled) range: a surface colour range would saturate at depth.
+  const argoKey = ARGO_KEY[activeVar];
+  const columnRange = useMemo<[number, number] | null>(() => {
+    if (!profile || !argoKey) return null;
+    const vals = profile.measurements.map((m) => m[argoKey]).filter((v): v is number => v !== null && v !== undefined);
+    return vals.length ? [Math.min(...vals), Math.max(...vals)] : null;
+  }, [profile, argoKey]);
+  useEffect(() => {
+    const sc = sceneRef.current;
+    if (!sc || !target) return;
+    disposeObject(sc.argo);
+    sc.argo.clear();
+    sc.mld.visible = false;
+    if (!profile) return;
+    const x = ((profile.longitude - target.lon) / HALF_WINDOW_DEG) * (CUBE_W / 2);
+    const z = ((profile.latitude - target.lat) / HALF_WINDOW_DEG) * (CUBE_L / 2);
+    const px = Math.max(-CUBE_W / 2 + 0.3, Math.min(CUBE_W / 2 - 0.3, x));
+    const pz = Math.max(-CUBE_L / 2 + 0.3, Math.min(CUBE_L / 2 - 0.3, z));
+    const levels = profile.measurements.filter((m) => argoKey && m[argoKey] !== null && m[argoKey] !== undefined && m.depth <= MAX_DEPTH);
+    const geo = new THREE.BoxGeometry(0.35, 0.06, 0.35);
+    for (const m of levels) {
+      const v = m[argoKey!] as number;
+      const t = scalePosition(v, columnRange![0], columnRange![1], isLog) ?? 0;
+      const c = sampleColormap(t, palette);
+      const mesh = new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({ color: new THREE.Color(c.r / 255, c.g / 255, c.b / 255) }));
+      mesh.position.set(px, depthToY(m.depth), pz);
+      sc.argo.add(mesh);
     }
-  }
+    geo.dispose();
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(px, CUBE_H / 2, pz), new THREE.Vector3(px, depthToY(profile.measurements[profile.measurements.length - 1]?.depth ?? 0), pz)]),
+      new THREE.LineBasicMaterial({ color: 0xfcd34d })
+    );
+    sc.argo.add(line);
+    const mldM = profile.analysis?.mld_meters;
+    if (mldM !== null && mldM !== undefined) {
+      sc.mld.position.y = depthToY(mldM);
+      sc.mld.visible = true;
+    }
+  }, [profile, target, argoKey, columnRange, isLog, palette]);
 
-  const tempAtDepth: number | null = closestMeas?.temperature ?? null;
-  const salinityAtDepth: number | null = closestMeas?.salinity ?? null;
-  const currentSpeedAtDepth: number | null = closestMeas?.currentSpeed ?? null;
-  const chlAtDepth: number | null = closestMeas?.chlorophyll ?? null;
+  const closest = useMemo(() => {
+    if (!profile) return null;
+    let best: InstrumentProfileResponse['measurements'][number] | null = null;
+    for (const m of profile.measurements) {
+      if (m.temperature === null || m.temperature === undefined) continue;
+      if (!best || Math.abs(m.depth - sliceDepth) < Math.abs(best.depth - sliceDepth)) best = m;
+    }
+    return best && Math.abs(best.depth - sliceDepth) <= 50 ? best : null;
+  }, [profile, sliceDepth]);
 
-  // Sound speed (Mackenzie equation) computed strictly on authentic in-situ readings
-  const soundSpeed: number | null = (tempAtDepth !== null && salinityAtDepth !== null)
-    ? 1448.96 + 4.591 * tempAtDepth - 0.05304 * Math.pow(tempAtDepth, 2) + 1.34 * (salinityAtDepth - 35) + 0.0163 * (closestMeas?.depth ?? sliceDepth)
+  if (!target) return null;
+
+  const meta = catalog?.variables[activeVar];
+  const units = meta?.units ?? '';
+  const modelValue = tile ? sampleOceanDataAt(tile, target.lon, target.lat).value : null;
+  const levelExists = meta?.depths.some((d) => Math.abs(d - sliceDepth) < 1e-6) ?? false;
+  const sound = closest && closest.salinity !== null && closest.salinity !== undefined && closest.temperature !== null && closest.temperature !== undefined
+    ? { c: mackenzieSoundSpeed(closest.temperature, closest.salinity, closest.depth), ok: mackenzieInRange(closest.temperature, closest.salinity, closest.depth) }
     : null;
+  const variables = catalog ? Object.keys(catalog.variables) : ['temperature'];
 
   return (
     <>
-      {/* Phase 10: Deep-blue overlay fade for Cesium -> Three.js dive transition */}
-      <div className="fixed inset-0 bg-ocean-bg z-40 animate-in fade-in duration-[800ms] ease-nasa-slow opacity-85" />
-
-      <div className={`fixed z-50 transition-all duration-[800ms] ease-nasa-slow flex flex-col glass-panel shadow-2xl overflow-hidden border border-white/15 ${
-        isFullscreen
-          ? 'inset-2 rounded-2xl'
-          : 'right-6 top-16 bottom-16 w-[940px] max-w-[calc(100vw-3rem)] rounded-2xl'
-      }`}>
-      {/* 1. Studio Header */}
-      <div className="p-3.5 border-b border-white/10 flex items-center justify-between bg-black/40">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 shadow-md">
-            <Box className="w-5 h-5 animate-pulse text-emerald-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/40">
-                3D Volumetric Ocean Block Studio
-              </span>
-              <span className="text-[10px] text-ocean-muted font-mono">
-                [0m Surface ➔ -2000m Abyssal Floor]
-              </span>
-            </div>
-            <h2 className="text-sm font-bold text-white tracking-wide mt-0.5 flex items-center gap-2">
-              <span>{activeWaterBlockTarget.name || 'Ocean Water Column'}</span>
-              <span className="text-xs font-mono text-emerald-400 font-normal">
-                ({activeWaterBlockTarget.lat.toFixed(2)}°N, {activeWaterBlockTarget.lon.toFixed(2)}°E)
+      <div className="fixed inset-0 bg-neutral-950/85 z-40 animate-in fade-in duration-[500ms]" aria-hidden="true" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Water-column view"
+        className={`fixed z-50 flex flex-col glass-panel shadow-2xl overflow-hidden border border-white/15 ${
+          isFullscreen ? 'inset-2 rounded-2xl' : 'right-6 top-16 bottom-16 w-[940px] max-w-[calc(100vw-3rem)] rounded-2xl'
+        }`}
+      >
+        <div className="p-3.5 border-b border-white/10 flex items-center justify-between bg-black/40 gap-3">
+          <div className="min-w-0">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider bg-ocean-accent/15 text-ocean-accent px-2 py-0.5 rounded-full border border-ocean-accent/30">
+              Water-column view · 0–2000 m frame
+            </span>
+            <h2 className="text-sm font-bold text-white mt-1 truncate">
+              {target.name || 'Water column'}{' '}
+              <span className="text-xs font-mono text-ocean-muted font-normal">
+                ({target.lat.toFixed(2)}°N, {target.lon.toFixed(2)}°E · top face ±{HALF_WINDOW_DEG}°)
               </span>
             </h2>
           </div>
-        </div>
-
-        {/* Window Controls */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setIsAutoRotating(!isAutoRotating)}
-            className={`p-1.5 rounded-lg border text-xs font-mono flex items-center gap-1 transition ${
-              isAutoRotating
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                : 'text-ocean-muted hover:text-white border-white/10 hover:bg-white/5'
-            }`}
-            title="Toggle continuous 3D auto-rotation"
-          >
-            {isAutoRotating ? <Pause className="w-3.5 h-3.5 text-emerald-400" /> : <Play className="w-3.5 h-3.5 text-emerald-400" />}
-            <span className="hidden sm:inline text-[10px]">Auto-Orbit</span>
-          </button>
-
-          <button
-            onClick={handleResetCamera}
-            className="p-1.5 rounded-lg border border-white/10 hover:border-emerald-400 text-ocean-muted hover:text-white transition"
-            title="Reset 3D camera angle"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 rounded-lg border border-white/10 hover:border-emerald-400 text-ocean-muted hover:text-white transition"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Expand Fullscreen'}
-          >
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-          </button>
-
-          <button
-            onClick={closeWaterBlock}
-            className="p-1.5 rounded-lg hover:bg-red-500/20 text-ocean-muted hover:text-red-400 border border-transparent hover:border-red-500/40 transition ml-1"
-            title="Close 3D Block View"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Main Body: 3D Viewport + Telemetry Panel */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-        {/* Three.js 3D Viewport */}
-        <div className="flex-1 relative h-64 md:h-auto bg-gradient-to-b from-[#020713] to-[#01040a]">
-          <canvas ref={canvasRef} className="w-full h-full cursor-grab active:cursor-grabbing outline-none" />
-
-          {/* Mouse Orbit Hint */}
-          <div className="absolute top-3 left-3 pointer-events-none bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10 text-[10px] text-ocean-text-secondary font-mono flex items-center gap-1.5 shadow-md">
-            <Compass className="w-3 h-3 text-teal-400 animate-spin" />
-            <span>Drag mouse to 3D Orbit • Scroll to Zoom</span>
-          </div>
-
-          {/* Slicing Laser Plane Float Badge */}
-          <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-lg border border-teal-400/60 text-xs font-mono text-teal-300 flex items-center gap-2 shadow-lg">
-            <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
-            <span>LASER SCAN DEPTH: <strong className="text-white font-bold">{sliceDepth}m</strong></span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button onClick={() => setAutoRotate(!autoRotate)} aria-pressed={autoRotate} aria-label="Toggle auto-rotation"
+              className="p-1.5 rounded-lg border border-white/10 text-ocean-text-secondary hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-ocean-accent">
+              {autoRotate ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            </button>
+            <button aria-label="Reset camera" onClick={() => {
+              const sc = sceneRef.current;
+              if (sc) { sc.camera.position.set(16, 11, 20); sc.controls.target.set(0, 0, 0); sc.group.rotation.y = 0; }
+            }} className="p-1.5 rounded-lg border border-white/10 text-ocean-text-secondary hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-ocean-accent">
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+            <button aria-label={isFullscreen ? 'Exit full screen' : 'Full screen'} onClick={() => setIsFullscreen(!isFullscreen)}
+              className="p-1.5 rounded-lg border border-white/10 text-ocean-text-secondary hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-ocean-accent">
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
+            <button aria-label="Close water-column view" onClick={closeWaterBlock}
+              className="p-1.5 rounded-lg text-ocean-muted hover:text-red-400 hover:bg-red-500/15 focus:outline-none focus-visible:ring-1 focus-visible:ring-ocean-accent">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {/* Right Side: Oceanographic Telemetry & Physical Stratification */}
-        <div className="w-full md:w-72 border-t md:border-t-0 md:border-l border-white/10 bg-black/40 backdrop-blur-md p-3.5 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar">
-          {/* 1. ROMS / CMEMS Gridded Numerical Model Volume */}
-          <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 shadow-sm">
-            <div className="flex items-center justify-between text-xs font-bold text-ocean-text-secondary">
-              <span className="flex items-center gap-1.5 text-emerald-400">
-                <Database className="w-3.5 h-3.5 text-emerald-400" />
-                ROMS/CMEMS Gridded Model
-              </span>
-              <span className="font-mono text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500/20 text-[10px]">
-                {sliceDepth <= 0.5 ? '0.0m Surface' : `${sliceDepth}m Subsurface`}
-              </span>
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          <div className="flex-1 relative h-64 md:h-auto bg-neutral-950">
+            <canvas ref={canvasRef} className="w-full h-full block cursor-grab active:cursor-grabbing outline-none" />
+            <div className="absolute bottom-3 left-3 bg-black/70 px-3 py-1.5 rounded-lg border border-ocean-accent/40 text-xs font-mono text-ocean-accent">
+              Depth plane: <strong className="text-white">{sliceDepth} m</strong> {levelExists ? '' : '· no gridded level'}
             </div>
-
-            {modelTileLoading ? (
-              <div className="p-2 rounded-lg bg-teal-500/10 border border-teal-500/30 text-[10px] font-mono text-teal-300 flex items-center gap-1.5 animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
-                <span>Loading C++ ocean_core gridded tile...</span>
-              </div>
-            ) : modelSampledValue !== null && modelTileData ? (
-              <div className="space-y-1.5">
-                <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono text-emerald-300 flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    Authentic C++ Model Grid Cell
-                  </span>
-                  <span className="font-bold text-white">
-                    {modelSampledValue.toFixed(4)} {activeVar === 'temperature' ? '°C' : activeVar === 'salinity' ? 'PSU' : activeVar === 'currents' ? 'm/s' : 'mg/m³'}
-                  </span>
-                </div>
-                <div className="text-[9px] font-mono text-ocean-muted flex items-center justify-between px-1">
-                  <span>Grid: {modelTileData.header.width}×{modelTileData.header.height} ({modelTileData.header.width * modelTileData.header.height} cells)</span>
-                  <span>Source: {activeVar === 'chlorophyll' ? 'INCOIS-BIO-ROMS' : 'CMEMS.nc'}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/40 text-[10px] font-mono text-amber-200 space-y-1">
-                <div className="flex items-start gap-1.5 font-bold text-amber-300">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                  <span>No Gridded Model Level at {sliceDepth}m</span>
-                </div>
-                <p className="text-[9px] text-ocean-text-secondary leading-relaxed">
-                  {modelTileError || (
-                    <>Source NetCDF contains single surface level (<code className="text-amber-300">depth: 1</code> at 0.0m). Per strict scientific integrity policy, subsurface model levels are <strong>never fabricated or interpolated</strong>.</>
-                  )}
-                </p>
-              </div>
-            )}
           </div>
 
-          {/* 2. Autonomous In-Situ Argo CTD Profiler Observations */}
-          <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 shadow-sm">
-            <div className="flex items-center justify-between text-xs font-bold text-ocean-text-secondary">
-              <span className="flex items-center gap-1.5 text-emerald-300">
-                <Radio className="w-3.5 h-3.5 text-emerald-400" />
-                Argo In-Situ CTD Observations
-              </span>
-              <span className="font-mono text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-500/20 text-[10px]">
-                {sliceDepth}m Target
-              </span>
-            </div>
-
-            {/* Authentic Provenance Status */}
-            {profileLoading ? (
-              <div className="p-2 rounded-lg bg-teal-500/10 border border-teal-500/30 text-[10px] font-mono text-teal-300 flex items-center gap-1.5 animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
-                <span>Querying authentic in-situ CTD profile...</span>
-              </div>
-            ) : authenticProfile ? (
-              <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono text-emerald-300 flex items-center gap-1.5">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="truncate">
-                  Float: {authenticProfile.external_id} (QC Flags 1 &amp; 2)
-                </span>
-              </div>
-            ) : (
-              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] font-mono text-amber-300 flex items-start gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                <span>
-                  No in-situ CTD float collocated at this coordinate.
-                </span>
-              </div>
-            )}
-
-            <div className="space-y-1 text-xs font-mono">
-              <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                <span className="text-ocean-muted flex items-center gap-1 text-[11px]">
-                  <Waves className="w-3 h-3 text-red-400" /> Temperature:
-                </span>
-                {tempAtDepth !== null ? (
-                  <span className="text-red-400 font-bold">{tempAtDepth.toFixed(3)} °C <span className="text-[9px] text-ocean-muted font-normal">(@{closestMeas?.depth?.toFixed(1)}m)</span></span>
-                ) : (
-                  <span className="text-neutral-500 italic text-[10px]">No authentic data</span>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                <span className="text-ocean-muted flex items-center gap-1 text-[11px]">
-                  <Droplets className="w-3 h-3 text-teal-400" /> Salinity:
-                </span>
-                {salinityAtDepth !== null ? (
-                  <span className="text-teal-300 font-bold">{salinityAtDepth.toFixed(3)} PSU <span className="text-[9px] text-ocean-muted font-normal">(@{closestMeas?.depth?.toFixed(1)}m)</span></span>
-                ) : (
-                  <span className="text-neutral-500 italic text-[10px]">No authentic data</span>
-                )}
-              </div>
-
-              {currentSpeedAtDepth !== null && (
-                <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                  <span className="text-ocean-muted flex items-center gap-1 text-[11px]">
-                    <Wind className="w-3 h-3 text-lime-400" /> Current Velocity:
-                  </span>
-                  <span className="text-lime-400 font-bold">{currentSpeedAtDepth.toFixed(2)} m/s</span>
+          <div className="w-full md:w-72 border-t md:border-t-0 md:border-l border-white/10 bg-black/40 p-3.5 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar text-xs">
+            <section className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2">
+              <h3 className="flex items-center gap-1.5 font-bold text-ocean-accent"><Database className="w-3.5 h-3.5" /> Gridded field</h3>
+              {tileState === 'loading' ? (
+                <p className="text-[10px] font-mono text-ocean-muted" role="status">Loading…</p>
+              ) : tileState === 'ok' && modelValue !== null ? (
+                <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 font-mono text-[10px] text-emerald-200 flex items-center justify-between">
+                  <span className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> surface value</span>
+                  <span className="font-bold text-white">{modelValue.toFixed(activeVar === 'chlorophyll' ? 3 : 2)} {units}</span>
+                </div>
+              ) : (
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/40 text-[10px] text-amber-200 flex gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{tileState === 'ok' ? 'No data at this point (land or outside the source grid).' : `No ${activeVar} field for ${selectedTime.slice(0, 10)}.`}</span>
                 </div>
               )}
+              <p className="text-[9px] text-ocean-muted leading-snug">
+                {meta ? `${catalog?.sources[meta.source_id]?.title ?? meta.source_id} · ${meta.vertical_coverage ?? ''}. ` : ''}
+                Below the surface the frame is empty on purpose: no subsurface model levels exist and none are interpolated.
+              </p>
+            </section>
 
-              {chlAtDepth !== null && (
-                <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                  <span className="text-ocean-muted flex items-center gap-1 text-[11px]">
-                    <Activity className="w-3 h-3 text-emerald-400" /> Chlorophyll-a:
-                  </span>
-                  <span className="text-emerald-400 font-bold">{chlAtDepth.toFixed(2)} mg/m³</span>
-                </div>
+            <section className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2">
+              <h3 className="flex items-center gap-1.5 font-bold text-amber-300"><Radio className="w-3.5 h-3.5" /> Argo profile</h3>
+              {profileLoading ? (
+                <p className="text-[10px] font-mono text-ocean-muted" role="status">Loading…</p>
+              ) : profile ? (
+                <>
+                  <p className="text-[10px] font-mono text-ocean-text-secondary">
+                    WMO {profile.metadata?.wmo} · cycle {profile.cycle_number} · {profile.timestamp.slice(0, 10)}
+                  </p>
+                  {profileNote && <p className="text-[10px] text-amber-200">{profileNote}</p>}
+                  <p className="text-[10px] text-ocean-muted">
+                    Column colour: {argoKey && columnRange
+                      ? `${activeVar}, profile range ${columnRange[0].toFixed(2)}–${columnRange[1].toFixed(2)} ${units}`
+                      : `no Argo measurement of ${activeVar}`}.
+                    Amber plane: observed MLD {profile.analysis?.mld_meters ?? 'n/a'} m.
+                  </p>
+                  <dl className="space-y-1 font-mono">
+                    <div className="flex justify-between"><dt className="text-ocean-muted">Nearest level</dt><dd>{closest ? `${closest.depth.toFixed(1)} m` : `none within 50 m of ${sliceDepth} m`}</dd></div>
+                    <div className="flex justify-between"><dt className="text-ocean-muted">Temperature</dt><dd>{closest?.temperature != null ? `${closest.temperature.toFixed(3)} °C` : '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-ocean-muted">Salinity</dt><dd>{closest?.salinity != null ? `${closest.salinity.toFixed(3)} PSU` : '—'}</dd></div>
+                    <div className="flex justify-between" title="Mackenzie (1981) from the measured T, S and depth">
+                      <dt className="text-ocean-muted">Sound speed</dt>
+                      <dd>{sound ? `${sound.c.toFixed(1)} m/s${sound.ok ? '' : ' (outside formula range)'}` : '—'}</dd>
+                    </div>
+                  </dl>
+                </>
+              ) : (
+                <p className="text-[10px] text-amber-200">{profileNote || 'No profile.'}</p>
               )}
-
-              <div className="flex items-center justify-between p-1.5 rounded bg-black/40 border border-white/5">
-                <span className="text-ocean-muted flex items-center gap-1 text-[11px]">
-                  <Sparkles className="w-3 h-3 text-amber-400" /> Sound Speed:
-                </span>
-                {soundSpeed !== null ? (
-                  <span className="text-amber-300 font-bold">{soundSpeed.toFixed(1)} m/s</span>
-                ) : (
-                  <span className="text-neutral-500 italic text-[10px]">No authentic data</span>
-                )}
-              </div>
-            </div>
-
-            <p className="text-[9px] text-ocean-muted italic pt-1 border-t border-white/5">
-              * Scientifically Distinct: In-situ Argo CTD profiles measure authentic physical depth (0–2000m), whereas Eulerian model in cmems.nc is surface-only (0.0m).
-            </p>
-          </div>
-
-          {/* Vertical Stratification Layers */}
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-mono uppercase text-ocean-muted font-bold tracking-wider">
-              Water Mass Stratification
-            </span>
-            <div className="space-y-1 text-[10px] font-mono">
-              <div className={`p-1.5 rounded border transition ${
-                sliceDepth <= 50 ? 'bg-teal-500/20 border-teal-400 text-teal-200 font-bold' : 'bg-black/30 border-white/5 text-ocean-muted'
-              }`}>
-                0 – 50m: Euphotic Mixed Layer (Sunlit &amp; Warm)
-              </div>
-              <div className={`p-1.5 rounded border transition ${
-                sliceDepth > 50 && sliceDepth <= 200 ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold' : 'bg-black/30 border-white/5 text-ocean-muted'
-              }`}>
-                50 – 200m: Thermocline Rapid Gradient
-              </div>
-              <div className={`p-1.5 rounded border transition ${
-                sliceDepth > 200 && sliceDepth <= 1000 ? 'bg-purple-500/20 border-purple-400 text-purple-200 font-bold' : 'bg-black/30 border-white/5 text-ocean-muted'
-              }`}>
-                200 – 1000m: Intermediate Oxygen Minimum Layer
-              </div>
-              <div className={`p-1.5 rounded border transition ${
-                sliceDepth > 1000 ? 'bg-teal-500/20 border-teal-400 text-teal-200 font-bold' : 'bg-black/30 border-white/5 text-ocean-muted'
-              }`}>
-                1000 – 2000m: Deep Abyssal Cold Water (3.2°C)
-              </div>
-            </div>
-          </div>
-
-          {/* 3D Visual Feature Toggles */}
-          <div className="pt-2 border-t border-white/10 space-y-2">
-            <span className="text-[10px] font-mono uppercase text-ocean-muted font-bold tracking-wider">
-              3D Cube Overlays
-            </span>
-            <div className="grid grid-cols-2 gap-1.5 text-xs">
-              <button
-                onClick={() => setShowFlowParticles(!showFlowParticles)}
-                className={`py-1 px-2 rounded-lg border text-[10px] font-mono transition ${
-                  showFlowParticles
-                    ? 'bg-teal-500/20 text-teal-300 border-teal-500/50'
-                    : 'bg-black/40 text-neutral-500 border-white/5 hover:text-ocean-text-secondary'
-                }`}
-              >
-                🌊 Particles: {showFlowParticles ? 'ON' : 'OFF'}
-              </button>
-              <button
-                onClick={() => setShowStrataPlanes(!showStrataPlanes)}
-                className={`py-1 px-2 rounded-lg border text-[10px] font-mono transition ${
-                  showStrataPlanes
-                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
-                    : 'bg-black/40 text-neutral-500 border-white/5 hover:text-ocean-text-secondary'
-                }`}
-              >
-                📊 Strata: {showStrataPlanes ? 'ON' : 'OFF'}
-              </button>
-            </div>
+            </section>
           </div>
         </div>
-      </div>
 
-      {/* 3. Bottom Controls: Variable Tabs + Interactive Depth Slider */}
-      <div className="p-3 border-t border-white/10 bg-black/40 flex flex-col gap-2.5">
-        {/* Variable Switcher Tabs */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setActiveVar('temperature')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                activeVar === 'temperature'
-                  ? 'bg-red-500/20 text-red-300 border border-red-500/50 shadow-sm'
-                  : 'text-ocean-muted hover:text-white glass-pill'
-              }`}
-            >
-              <Waves className="w-3.5 h-3.5 text-red-400" />
-              <span>Temperature</span>
-            </button>
-
-            <button
-              onClick={() => setActiveVar('salinity')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                activeVar === 'salinity'
-                  ? 'bg-teal-500/20 text-teal-300 border border-teal-500/50 shadow-sm'
-                  : 'text-ocean-muted hover:text-white glass-pill'
-              }`}
-            >
-              <Droplets className="w-3.5 h-3.5 text-teal-400" />
-              <span>Salinity</span>
-            </button>
-
-            <button
-              onClick={() => setActiveVar('currents')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                activeVar === 'currents'
-                  ? 'bg-lime-500/20 text-lime-300 border border-lime-500/50 shadow-sm'
-                  : 'text-ocean-muted hover:text-white glass-pill'
-              }`}
-            >
-              <Wind className="w-3.5 h-3.5 text-lime-400" />
-              <span>Current Vectors</span>
-            </button>
-
-            <button
-              onClick={() => setActiveVar('chlorophyll')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                activeVar === 'chlorophyll'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm'
-                  : 'text-ocean-muted hover:text-white glass-pill'
-              }`}
-            >
-              <Activity className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Chlorophyll-a</span>
-            </button>
-          </div>
-
-          {/* Quick Depth Presets */}
-          <div className="hidden lg:flex items-center gap-1 text-[10px] font-mono text-ocean-muted">
-            <span>Quick:</span>
-            {[0, 50, 150, 500, 1000, 2000].map((d) => (
-              <button
-                key={d}
-                onClick={() => setSliceDepth(d)}
-                className={`px-1.5 py-0.5 rounded border transition ${
-                  sliceDepth === d
-                    ? 'bg-teal-500/30 border-teal-400 text-teal-200 font-bold'
-                    : 'bg-black/30 border-white/5 hover:border-white/20'
-                }`}
-              >
-                {d === 0 ? '0m' : `${d}m`}
+        <div className="p-3 border-t border-white/10 bg-black/40 flex flex-col gap-2.5">
+          <div role="tablist" aria-label="Variable" className="flex flex-wrap items-center gap-1.5">
+            {variables.map((v) => (
+              <button key={v} role="tab" aria-selected={activeVar === v} onClick={() => setActiveVar(v)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold focus:outline-none focus-visible:ring-1 focus-visible:ring-ocean-accent ${
+                  activeVar === v ? 'bg-ocean-accent/20 text-ocean-accent border border-ocean-accent/50' : 'text-ocean-muted hover:text-white glass-pill'
+                }`}>
+                {catalog?.variables[v]?.long_name ?? v}
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Depth Slicing Slider */}
-        <div className="flex items-center gap-3 bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">
-          <span className="text-xs font-mono text-teal-400 flex items-center gap-1 shrink-0">
-            <ArrowDown className="w-3.5 h-3.5" />
-            3D Vertical Laser Slice:
-          </span>
-          <input
-            type="range"
-            min="0"
-            max="2000"
-            step="10"
-            value={sliceDepth}
-            onChange={(e) => setSliceDepth(parseFloat(e.target.value))}
-            className="flex-1 accent-teal-400 cursor-pointer h-1.5 bg-neutral-700 rounded-lg"
-          />
-          <span className="text-xs font-mono text-white font-bold w-16 text-right">
-            {sliceDepth === 0 ? '0m' : `-${sliceDepth}m`}
-          </span>
+          <label className="flex items-center gap-3 bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">
+            <span className="text-xs font-mono text-ocean-accent flex items-center gap-1 shrink-0"><ArrowDown className="w-3.5 h-3.5" /> Depth plane</span>
+            <input type="range" min={0} max={MAX_DEPTH} step={10} value={sliceDepth}
+              onChange={(e) => setSliceDepth(parseFloat(e.target.value))}
+              aria-label="Depth plane in metres" className="flex-1 accent-teal-400 cursor-pointer" />
+            <span className="text-xs font-mono text-white font-bold w-16 text-right">{sliceDepth} m</span>
+          </label>
         </div>
       </div>
-    </div>
     </>
   );
 };

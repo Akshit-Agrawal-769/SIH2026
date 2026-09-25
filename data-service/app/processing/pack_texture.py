@@ -12,8 +12,8 @@ except ImportError:
     S3Error = None
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
-MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "")
 MINIO_BUCKET = os.getenv("MINIO_BUCKET", "ocean-data")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
 ENABLE_MINIO = os.getenv("ENABLE_MINIO", "false").lower() == "true"
@@ -93,7 +93,7 @@ def upload_tile_to_minio(
     client = get_minio_client()
     ensure_bucket_exists(client)
 
-    object_name = f"tiles/{variable}/{date_str}/{depth}.bin"
+    object_name = f"tiles/{variable}/{date_str}/{float(depth):.1f}.bin"
     data_stream = io.BytesIO(binary_data)
     client.put_object(
         MINIO_BUCKET,
@@ -121,28 +121,12 @@ def upload_manifest_to_minio(variable: str, manifest_data: Dict[str, Any]):
 
 def download_tile_from_minio(variable: str, date_str: str, depth: float) -> Optional[bytes]:
     """
-    Retrieves authentic binary tile directly from the local authoritative C++ tile repository,
-    or from MinIO S3 object storage if deployed.
+    Retrieves a tile from MinIO S3 object storage when ENABLE_MINIO=true.
+    Local tiles are resolved by app.analytics_engine.tile_path() against the data
+    catalog; this function never searches ad-hoc local directories.
     """
-    # 1. Check local authoritative real tile repository produced by C++ ocean_core FIRST
-    search_paths = [
-        os.path.join(os.getcwd(), "tiles", variable, date_str, f"{depth}.bin"),
-        os.path.join(os.path.dirname(__file__), "..", "..", "..", "tiles", variable, date_str, f"{depth}.bin"),
-        os.path.join(os.path.dirname(__file__), "..", "..", "tiles", variable, date_str, f"{depth}.bin"),
-        os.path.abspath(f"tiles/{variable}/{date_str}/{depth}.bin"),
-        os.path.join(os.getenv("TILES_DIR", "tiles"), variable, date_str, f"{depth}.bin")
-    ]
-    for p in search_paths:
-        if os.path.exists(p):
-            try:
-                with open(p, "rb") as f:
-                    return f.read()
-            except Exception as e:
-                print(f"[TileStore] Error reading {p}: {e}")
-
-    # 2. Try MinIO S3 object storage if explicitly enabled
     if ENABLE_MINIO:
-        object_name = f"tiles/{variable}/{date_str}/{depth}.bin"
+        object_name = f"tiles/{variable}/{date_str}/{float(depth):.1f}.bin"
         try:
             client = get_minio_client()
             response = client.get_object(MINIO_BUCKET, object_name)

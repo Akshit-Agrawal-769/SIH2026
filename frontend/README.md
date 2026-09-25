@@ -1,20 +1,18 @@
 # INCOIS Frontend Client
 
-React 18 + Vite + TypeScript + CesiumJS 3D visualization client for the INCOIS Ocean Data Visualization Platform.
+React 18 + Vite + TypeScript, CesiumJS globe and a Three.js water-column view.
 
-## Features
-- **Keyless 3D Globe**: Renders Earth with high-resolution Esri World Imagery with **zero API keys** required.
-- **Ocean-first Layout**: Focused over the Indian Ocean & Indian EEZ with quick-fly presets.
-- **Data Layers Panel**: Toggles for 3D numerical model variables (temperature, salinity, currents, chlorophyll) and in-situ instruments (Argo floats, gliders).
-- **Interactive Controls**: Colorbar editor (palettes, min/max), layer opacity slider, vertical exaggeration multiplier.
-- **Depth & Time Scrubber**: Depth-slice level selector and temporal playback.
-- **Dual Modes**: Operational (advanced analytics) vs. Outreach (guided public tours).
-
-## Development
+- Globe with Esri World Imagery (attribution shown), India EEZ, graticule, Argo markers.
+- Gridded fields from the data catalog: Bio-ROMS SST, SSS, chlorophyll-a, MLD (2019 monthly,
+  surface only) and ARMOR3D surface geostrophic currents (2024-12-31).
+- Timeline over the real catalog timesteps (custom UTC range, step, playback speed, keyboard).
+- Argo profile panel, model-vs-observation matchups, point analytics, water-column view.
+- Works on static hosting using the files in `public/`; set `VITE_API_BASE_URL` at build time to
+  use a remote API (needed for point analytics, WMS and NetCDF export).
 
 ```bash
-npm install
-npm run dev
+npm ci
+npm run dev          # http://localhost:3000, proxies /api to VITE_GATEWAY_URL (default :4000)
+npx vitest run       # unit tests
+npm run build
 ```
-
-Runs on port `3000` by default.

@@ -3,7 +3,8 @@ import { useOceanStore } from '../store/useOceanStore';
 import { Thermometer, Droplets, Activity, Compass, Wind } from 'lucide-react';
 
 export const OceanHoverHUD: React.FC = () => {
-  const { hoveredOceanInfo } = useOceanStore();
+  const hoveredOceanInfo = useOceanStore((s) => s.hoveredOceanInfo);
+  const selectedTime = useOceanStore((s) => s.selectedTime);
 
   if (!hoveredOceanInfo) return null;
 
@@ -14,7 +15,7 @@ export const OceanHoverHUD: React.FC = () => {
     if (latVal > 8.0 && lonVal < 77.0) return 'Arabian Sea Basin';
     if (latVal > 8.0 && lonVal >= 77.0 && lonVal <= 93.0) return 'Bay of Bengal Basin';
     if (lonVal > 93.0) return 'Andaman Sea Basin';
-    if (latVal <= 8.0 && latVal >= 0.0 && lonVal >= 68.0 && lonVal <= 82.0) return 'Laccadive / India EEZ';
+    if (latVal <= 8.0 && latVal >= 0.0 && lonVal >= 68.0 && lonVal <= 82.0) return 'Laccadive Sea (approx.)';
     if (latVal < 0.0) return 'Southern Indian Ocean';
     return 'Equatorial Indian Ocean';
   };
@@ -50,14 +51,14 @@ export const OceanHoverHUD: React.FC = () => {
           <span>{variable}</span>
         </div>
         <span className="font-mono text-emerald-400">
-          {depth === 0.5 ? '0m (Surface)' : `${depth}m`}
+          {depth === 0 ? 'surface' : `${depth} m`} · {selectedTime.slice(0, 10)}
         </span>
       </div>
 
       {/* Numerical Temperature Value */}
       <div className="flex items-baseline gap-1 my-0.5">
         <span className="font-mono text-2xl font-black text-white tracking-tight">
-          {value.toFixed(1)}
+          {value.toFixed(variable === 'chlorophyll' ? 3 : variable === 'mld' ? 0 : 2)}
         </span>
         <span className={`font-mono text-sm font-bold ${styleMeta.text}`}>
           {unit}
@@ -80,7 +81,7 @@ export const OceanHoverHUD: React.FC = () => {
         <div className="pt-1.5 border-t border-white/10 flex items-center justify-between text-[10px] font-mono">
           <div className="flex items-center gap-1 text-emerald-300">
             <Wind className="w-3 h-3 text-emerald-400" />
-            <span>Current:</span>
+            <span>Geostrophic current:</span>
           </div>
           <span className="font-bold text-white">
             {currentSpeed.toFixed(2)} m/s

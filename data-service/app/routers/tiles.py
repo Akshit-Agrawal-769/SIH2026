@@ -1,46 +1,52 @@
 from fastapi import APIRouter, Response, HTTPException
-from typing import Optional
+
+from app import analytics_engine as ae
 from app.processing.pack_texture import download_tile_from_minio
 
 router = APIRouter(prefix="/tiles", tags=["tiles"])
 
-VAR_CODES = {
-    "temperature": 1,
-    "salinity": 2,
-    "currents": 3,
-    "chlorophyll": 4
-}
 
 @router.get("/{variable}/{date}/{depth}")
 def get_tile(variable: str, date: str, depth: float):
     """
-    Retrieve authentic binary packed voxel depth slice from authoritative C++ pipeline.
-    Layout: 32-byte header ('INCO' magic) + Float32Array payload.
-    STRICT REAL DATA POLICY: Returns HTTP 404 if no real data is available. ZERO synthetic generation.
+    Binary depth-slice tile: 32-byte 'INCO' header + little-endian Float32 payload
+    (row 0 = southernmost latitude, NaN = no data).
+    Only (variable, date, depth) combinations listed in the data catalog are served;
+    anything else is an explicit 404. No synthetic fallback.
     """
-    if variable not in VAR_CODES:
+    meta = ae.variable_meta(variable)
+    if meta is None:
+        raise HTTPException(status_code=404, detail=f"Unknown variable '{variable}'.")
+    d = ae.normalize_date(date)
+    if d is None:
+        raise HTTPException(status_code=400, detail=f"Invalid date '{date}' (expected YYYY-MM-DD).")
+
+    path = ae.tile_path(variable, d, depth)
+    tile_bytes = None
+    if path:
+        with open(path, "rb") as f:
+            tile_bytes = f.read()
+    elif d in meta["timesteps"]:
+        tile_bytes = download_tile_from_minio(variable, d, depth)
+
+    if not tile_bytes:
         raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported variable '{variable}'. Authentic variables supported: temperature, salinity, currents, chlorophyll."
+            status_code=404,
+            detail=(f"No '{variable}' data at {d}, depth {depth} m. Available depths: {meta['depths']}; "
+                    f"timesteps: {meta['timesteps'][0]} .. {meta['timesteps'][-1]}."),
         )
+    try:
+        ae.parse_tile(tile_bytes, meta["var_code"])
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=f"Corrupt tile for '{variable}' {d}: {exc}")
 
-    # 1. Retrieve authentic packed tile from C++ tile store or MinIO
-    tile_bytes = download_tile_from_minio(variable, date, depth)
-
-    if tile_bytes:
-        return Response(
-            content=tile_bytes,
-            media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'inline; filename="{variable}_{date}_{depth}.bin"',
-                "Cache-Control": "public, max-age=86400",
-                "X-Data-Source": "Authentic-NetCDF",
-                "X-Data-Policy": "STRICT_REAL_DATA_ZERO_SYNTHETIC"
-            }
-        )
-
-    # 2. Strict policy: NO synthetic fallback. Return explicit HTTP 404
-    raise HTTPException(
-        status_code=404,
-        detail=f"No authentic oceanographic tile available for variable '{variable}' at date '{date}', depth {depth}m. Strictly NO synthetic/mock data permitted per project policy."
+    return Response(
+        content=tile_bytes,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'inline; filename="{variable}_{d}_{ae.depth_key(depth)}.bin"',
+            "Cache-Control": "public, max-age=86400",
+            "X-Data-Source": meta["source_id"],
+            "X-Data-Policy": "STRICT_REAL_DATA_ZERO_SYNTHETIC",
+        },
     )

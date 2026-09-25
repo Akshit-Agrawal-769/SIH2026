@@ -1,4 +1,6 @@
 import { OceanTileData } from '../api/client';
+import { gridIndex } from './grid';
+import { scalePosition } from './scale';
 
 export type ColormapPalette = 'noaa_sst' | 'gfdl_chl' | 'turbo' | 'viridis' | 'chlorophyll' | 'thermal' | 'coolwarm';
 
@@ -176,65 +178,6 @@ export function sampleColormap(t: number, palette: string): RgbColor {
   }
 }
 
-export const LAND_POLYGONS: [number, number][][] = [
-  // India Mainland & Northern Landmass
-  [
-    [68.0, 30.0], [91.0, 30.0], [91.0, 24.0], [89.8, 22.2], [88.5, 21.6],
-    [87.0, 21.4], [85.0, 19.5], [83.3, 17.7], [80.3, 13.1], [79.8, 10.5],
-    [78.2, 9.2], [77.5, 8.1], [76.5, 9.5], [75.0, 12.5], [74.0, 14.5],
-    [73.5, 16.5], [72.8, 18.9], [72.8, 21.2], [70.0, 21.0], [69.0, 22.4],
-    [68.2, 23.8], [68.0, 30.0]
-  ],
-  // Sri Lanka
-  [
-    [79.6, 9.8], [81.9, 9.8], [81.9, 5.9], [79.6, 5.9]
-  ],
-  // Arabian Peninsula & Iran/Pakistan
-  [
-    [45.0, 30.0], [68.2, 30.0], [68.2, 23.8], [66.5, 25.0], [61.5, 25.2],
-    [57.0, 25.5], [56.3, 26.2], [58.5, 23.6], [59.8, 22.5], [58.0, 20.5],
-    [54.0, 16.5], [51.0, 12.0], [45.0, 12.5]
-  ],
-  // Horn of Africa / Somalia / Kenya
-  [
-    [45.0, 11.5], [51.3, 12.0], [50.0, 8.0], [47.5, 4.0], [45.0, 1.5],
-    [45.0, -15.0], [39.0, -15.0], [39.0, 11.5]
-  ],
-  // Southeast Asia (Myanmar, Thailand, Malaysia)
-  [
-    [92.5, 30.0], [100.0, 30.0], [100.0, 1.0], [98.5, 3.0], [98.5, 8.0],
-    [98.5, 12.0], [96.5, 16.5], [94.5, 16.0], [94.0, 18.0], [92.5, 21.0]
-  ],
-  // Sumatra
-  [
-    [95.2, 5.6], [100.0, 1.5], [100.0, -6.0], [97.0, 1.0]
-  ]
-];
-
-export function pointInPolygon(x: number, y: number, poly: [number, number][]): boolean {
-  let inside = false;
-  let j = poly.length - 1;
-  for (let i = 0; i < poly.length; i++) {
-    const [xi, yi] = poly[i];
-    const [xj, yj] = poly[j];
-    const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
-    if (intersect) {
-      inside = !inside;
-    }
-    j = i;
-  }
-  return inside;
-}
-
-export function isLand(lon: number, lat: number): boolean {
-  for (let i = 0; i < LAND_POLYGONS.length; i++) {
-    if (pointInPolygon(lon, lat, LAND_POLYGONS[i])) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export interface RenderTileOptions {
   palette?: string;
   opacity?: number;
@@ -262,11 +205,6 @@ export function renderTileToCanvas(
 
   const minRange = options.customRange ? options.customRange[0] : minVal;
   const maxRange = options.customRange ? options.customRange[1] : maxVal;
-  const rangeDelta = maxRange - minRange > 0.0001 ? maxRange - minRange : 1.0;
-
-  const logMin = Math.log10(Math.max(1e-4, minRange));
-  const logMax = Math.log10(Math.max(1e-4, maxRange));
-  const logDelta = logMax - logMin > 0.0001 ? logMax - logMin : 1.0;
 
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -278,7 +216,7 @@ export function renderTileToCanvas(
   const data = imgData.data;
   const values = tileData.values;
 
-  // Map each pixel: flip latitude so row 0 = North (+30°N)
+  // Tile rows run south -> north; canvas rows run north -> south.
   for (let y = 0; y < height; y++) {
     const srcY = height - 1 - y;
 
@@ -287,8 +225,7 @@ export function renderTileToCanvas(
       const targetIdx = (y * width + x) * 4;
       const rawVal = values[srcIdx];
 
-      // 1. High-Resolution Land Masking:
-      // In the backend voxelizer, land pixels are marked with NaN from the 0.1° polygon mask.
+      // 1. No-data cells (land or missing in the source NetCDF) are fully transparent.
       if (isNaN(rawVal)) {
         data[targetIdx] = 0;
         data[targetIdx + 1] = 0;
@@ -297,14 +234,8 @@ export function renderTileToCanvas(
         continue;
       }
 
-      // 2. Value normalization (Linear or Log10)
-      let norm = 0;
-      if (isLog) {
-        const logVal = Math.log10(Math.max(1e-4, rawVal));
-        norm = Math.max(0, Math.min(1, (logVal - logMin) / logDelta));
-      } else {
-        norm = Math.max(0, Math.min(1, (rawVal - minRange) / rangeDelta));
-      }
+      // 2. Value normalization (linear or log10), identical to the colourbar geometry
+      const norm = scalePosition(rawVal, minRange, maxRange, isLog) ?? 0;
 
       const color = sampleColormap(norm, palette);
 
@@ -335,29 +266,22 @@ export function renderTileToCanvas(
 }
 
 /**
- * Samples the scalar physical ocean value at arbitrary geographic coordinates (lon, lat)
+ * Nearest-cell value at (lon, lat) using the served grid's cell-centre registration.
+ * NaN cells (land / no data in the source) return null; nothing is inferred.
  */
 export function sampleOceanDataAt(
   tileData: OceanTileData,
   lon: number,
   lat: number
 ): { value: number | null; isLand: boolean } {
-  if (lon < 35.0 || lon > 100.0 || lat < -10.0 || lat > 25.0) {
+  const idx = gridIndex(lon, lat);
+  if (!idx) {
     return { value: null, isLand: false };
   }
-
-  const { width, height } = tileData.header;
-  const x = Math.round(((lon - 35.0) / 65.0) * (width - 1));
-  const y = Math.round(((lat - (-10.0)) / 35.0) * (height - 1));
-
-  if (x < 0 || x >= width || y < 0 || y >= height) {
-    return { value: null, isLand: false };
-  }
-
-  const idx = y * width + x;
-  const val = tileData.values[idx];
-  const isPointLand = isNaN(val) || isLand(lon, lat);
-  return { value: isPointLand ? null : val, isLand: isPointLand };
+  const { width } = tileData.header;
+  const val = tileData.values[Math.round(idx.row) * width + Math.round(idx.col)];
+  const noData = !Number.isFinite(val);
+  return { value: noData ? null : val, isLand: noData };
 }
 
 if (typeof window !== 'undefined') {

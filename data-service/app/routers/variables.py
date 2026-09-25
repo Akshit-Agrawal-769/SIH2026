@@ -1,56 +1,33 @@
-from fastapi import APIRouter
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+from fastapi import APIRouter, HTTPException
+
+from app import analytics_engine as ae
 
 router = APIRouter(prefix="/variables", tags=["variables"])
 
-VARIABLES_METADATA: List[Dict[str, Any]] = [
-    {
-        "id": "temperature",
-        "name": "Sea Water Temperature",
-        "standard_name": "sea_water_potential_temperature",
-        "units": "°C",
-        "min_value": 0.0,
-        "max_value": 34.0,
-        "default_palette": "turbo",
-        "description": "3D potential temperature field across depth levels",
-        "category": "model_field"
-    },
-    {
-        "id": "salinity",
-        "name": "Sea Water Salinity",
-        "standard_name": "sea_water_practical_salinity",
-        "units": "PSU",
-        "min_value": 30.0,
-        "max_value": 38.0,
-        "default_palette": "haline",
-        "description": "3D practical salinity field across depth levels",
-        "category": "model_field"
-    },
-    {
-        "id": "currents",
-        "name": "Ocean Current Velocity",
-        "standard_name": "sea_water_velocity",
-        "units": "m/s",
-        "min_value": 0.0,
-        "max_value": 2.5,
-        "default_palette": "viridis",
-        "description": "Vector field of eastward (u) and northward (v) water velocity",
-        "category": "vector_field"
-    },
-    {
-        "id": "chlorophyll",
-        "name": "Chlorophyll-a",
-        "standard_name": "mass_concentration_of_chlorophyll_a_in_sea_water",
-        "units": "mg/m³",
-        "min_value": 0.01,
-        "max_value": 15.0,
-        "default_palette": "algae",
-        "description": "Surface and subsurface chlorophyll-a concentration",
-        "category": "model_field"
-    }
-]
 
 @router.get("", response_model=List[Dict[str, Any]])
 def get_variables():
-    """List all available physical and biogeochemical ocean model variables."""
-    return VARIABLES_METADATA
+    """Variables present in the data catalog, with their real source, units, depths and timesteps."""
+    catalog = ae.get_catalog()
+    if not catalog:
+        raise HTTPException(status_code=503, detail="Data catalog missing; run scripts/build_authentic_dataset.py.")
+    out = []
+    for var, meta in catalog["variables"].items():
+        src = catalog["sources"].get(meta["source_id"], {})
+        out.append({
+            "id": var,
+            "name": meta["long_name"],
+            "standard_name": meta["standard_name"],
+            "units": meta["units"],
+            "source_id": meta["source_id"],
+            "source": src.get("title"),
+            "source_type": src.get("type"),
+            "min_value": meta["value_range"][0],
+            "max_value": meta["value_range"][1],
+            "display_range": meta["display_range"],
+            "depths": meta["depths"],
+            "timesteps": meta["timesteps"],
+        })
+    return out

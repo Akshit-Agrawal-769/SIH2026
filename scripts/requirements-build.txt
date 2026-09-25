@@ -1,0 +1,5 @@
+# Offline data build (scripts/build_authentic_dataset.py). Not needed at runtime.
+numpy>=1.26.4
+scipy>=1.13.1
+netCDF4>=1.6.5
+gsw>=3.6.17

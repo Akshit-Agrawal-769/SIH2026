@@ -9,8 +9,7 @@ export interface InstrumentsLayerManager {
 }
 
 /**
- * Initializes and manages high-aesthetic in-situ observation markers
- * (Argo floats and gliders) on the Cesium viewer.
+ * Argo float markers (latest QC-filtered profile position of each float).
  */
 export async function createInstrumentsLayer(
   viewer: Cesium.Viewer,
@@ -22,7 +21,10 @@ export async function createInstrumentsLayer(
 
   try {
     const data = await fetchInstruments();
-    console.log(`[InstrumentsLayer] Fetched ${data.features.length} platforms from backend.`);
+    if (viewer.isDestroyed()) {
+      handler.destroy();
+      return { updateVisibility: () => {}, destroy: () => {} };
+    }
 
     for (const feature of data.features) {
       const [lon, lat] = feature.geometry.coordinates;
@@ -30,25 +32,10 @@ export async function createInstrumentsLayer(
       const extId = feature.properties.external_id;
       const meta = feature.properties.metadata || {};
 
-      const isArgo = type === 'argo';
-      const isGlider = type === 'glider';
-      const isMoored = type === 'moored_buoy';
-
-      let labelBadge = '';
-      let labelColor = '#ffffff';
-      if (isArgo) {
-        labelBadge = `ARGO • #${meta.wmo || extId.replace('INCOIS_ARGO_', '')}`;
-        labelColor = '#FFD54F';
-      } else if (isGlider) {
-        labelBadge = `GLIDER • ${meta.glider_model || 'SLOCUM'}`;
-        labelColor = '#FF80DF';
-      } else if (isMoored) {
-        labelBadge = `OMNI BUOY • #${meta.wmo || extId.replace('INCOIS_OMNI_', '')}`;
-        labelColor = '#69F0AE';
-      } else {
-        labelBadge = `${type.toUpperCase()} • ${extId}`;
-        labelColor = '#ffffff';
-      }
+      const labelBadge = type === 'argo'
+        ? `ARGO ${meta.wmo || extId} · ${String(feature.properties.last_report || '').slice(0, 10)}`
+        : `${type.toUpperCase()} ${extId}`;
+      const labelColor = '#fcd34d';
 
       const iconUrl = getPlatformMarkerIconUrl(type, false);
 
@@ -71,7 +58,7 @@ export async function createInstrumentsLayer(
           style: Cesium.LabelStyle.FILL,
           fillColor: Cesium.Color.fromCssColorString(labelColor),
           showBackground: true,
-          backgroundColor: Cesium.Color.fromCssColorString('rgba(2, 11, 24, 0.90)'),
+          backgroundColor: Cesium.Color.fromCssColorString('rgba(12, 12, 12, 0.88)'),
           backgroundPadding: new Cesium.Cartesian2(7, 4),
           verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
           pixelOffset: new Cesium.Cartesian2(0, -26),
@@ -94,9 +81,14 @@ export async function createInstrumentsLayer(
     console.error('[InstrumentsLayer] Error loading instruments:', err);
   }
 
-  // Handle hover effect: pointer cursor and icon glowing state
-  handler.setInputAction((movement: { endPosition: Cesium.Cartesian2 }) => {
-    const pickedObject = viewer.scene.pick(movement.endPosition);
+  // Hover effect; picking is throttled to one pick per animation frame.
+  let pendingHover: Cesium.Cartesian2 | null = null;
+  let hoverFrame = 0;
+  const runHover = () => {
+    hoverFrame = 0;
+    if (!pendingHover || viewer.isDestroyed()) return;
+    const pickedObject = viewer.scene.pick(pendingHover);
+    pendingHover = null;
     if (Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.properties?.hasProperty('externalId')) {
       viewer.canvas.style.cursor = 'pointer';
       const entity = pickedObject.id as Cesium.Entity;
@@ -120,6 +112,10 @@ export async function createInstrumentsLayer(
         hoveredEntity = null;
       }
     }
+  };
+  handler.setInputAction((movement: { endPosition: Cesium.Cartesian2 }) => {
+    pendingHover = Cesium.Cartesian2.clone(movement.endPosition, pendingHover ?? undefined);
+    if (!hoverFrame) hoverFrame = requestAnimationFrame(runHover);
   }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
   // Handle click on instrument marker
@@ -130,8 +126,6 @@ export async function createInstrumentsLayer(
       if (props.hasProperty('externalId')) {
         const extId = props.externalId.getValue();
         const coords = props.coordinates.getValue();
-        console.log(`[InstrumentsLayer] Clicked platform: ${extId}`, coords);
-
         onSelectInstrument(extId);
 
         // Smoothly fly camera to center over selected instrument at close inspection altitude
@@ -156,11 +150,12 @@ export async function createInstrumentsLayer(
       });
     },
     destroy: () => {
+      if (hoverFrame) cancelAnimationFrame(hoverFrame);
       handler.destroy();
       viewer.canvas.style.cursor = 'default';
-      entityMap.forEach((entity) => {
-        viewer.entities.remove(entity);
-      });
+      if (!viewer.isDestroyed()) {
+        entityMap.forEach((entity) => viewer.entities.remove(entity));
+      }
       entityMap.clear();
     }
   };

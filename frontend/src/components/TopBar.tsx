@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useOceanStore } from '../store/useOceanStore';
+import { useShallow } from 'zustand/react/shallow';
+import { useOceanStore, DEFAULT_OCEAN_POINT } from '../store/useOceanStore';
 import {
   Search,
   Share2,
@@ -42,7 +43,7 @@ const REGION_PRESETS: LocationPreset[] = [
   { name: 'Andaman & Nicobar', category: 'Island Zone', lon: 93.0, lat: 10.5, height: 1800000, pitch: -65.0 },
   { name: 'Lakshadweep Sea', category: 'Island Zone', lon: 72.5, lat: 10.5, height: 1200000, pitch: -65.0 },
   { name: 'Equatorial Indian Ocean', category: 'Ocean Basin', lon: 78.0, lat: 0.0, height: 4800000, pitch: -75.0 },
-  { name: 'Chennai Coast (INCOIS Data)', category: 'Coastline', lon: 80.3, lat: 13.1, height: 50000, pitch: -55.0 },
+  { name: 'Chennai Coast', category: 'Coastline', lon: 80.3, lat: 13.1, height: 50000, pitch: -55.0 },
   { name: 'Mumbai Offshore', category: 'Coastline', lon: 72.5, lat: 18.9, height: 50000, pitch: -55.0 },
   { name: 'Kochi (Malabar Coast)', category: 'Coastline', lon: 76.2, lat: 9.9, height: 50000, pitch: -55.0 },
   { name: 'Visakhapatnam Coast', category: 'Coastline', lon: 83.3, lat: 17.7, height: 50000, pitch: -55.0 }
@@ -50,15 +51,13 @@ const REGION_PRESETS: LocationPreset[] = [
 
 export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
   const {
-    mode,
-    setMode,
-    showLeftPanel,
-    toggleLeftPanel,
-    showRightPanel,
-    toggleRightPanel,
-    openWaterBlock,
-    openAnalyticsModal
-  } = useOceanStore();
+    mode, setMode, showLeftPanel, toggleLeftPanel, showRightPanel, toggleRightPanel, openWaterBlock,
+    openAnalyticsModal, clickedGlobePoint
+  } = useOceanStore(useShallow((s) => ({
+    mode: s.mode, setMode: s.setMode, showLeftPanel: s.showLeftPanel, toggleLeftPanel: s.toggleLeftPanel,
+    showRightPanel: s.showRightPanel, toggleRightPanel: s.toggleRightPanel, openWaterBlock: s.openWaterBlock,
+    openAnalyticsModal: s.openAnalyticsModal, clickedGlobePoint: s.clickedGlobePoint
+  })));
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<LocationPreset[]>([]);
@@ -179,7 +178,7 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
         <div
           onClick={() => setMode('operational')}
           className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-ocean-panel border border-ocean-border backdrop-blur-sm cursor-pointer group shadow-xl transition-transform hover:scale-[1.02]"
-          title="INCOIS Indian Ocean 3D Volumetric Digital Twin"
+          title="Oceanix — ocean data visualisation for the INCOIS problem statement"
         >
           <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-ocean-accent/30 to-ocean-accent/30 border border-ocean-accent/40 flex items-center justify-center text-ocean-accent shadow-md">
             <Waves className="w-3.5 h-3.5 text-ocean-accent" />
@@ -209,7 +208,8 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
               }
               setShowDropdown(true);
             }}
-            placeholder="Search ocean data, regions, or parameters..."
+            placeholder="Search regions or places (Enter = OpenStreetMap search)"
+            aria-label="Search regions or places"
             className="w-full bg-ocean-panel border border-ocean-border backdrop-blur-sm text-white placeholder:text-ocean-muted pl-9 pr-14 py-2 rounded-full text-xs focus:outline-none focus:ring-1 focus:ring-ocean-accent/50 transition-all duration-[150ms] ease-nasa shadow-xl"
           />
           <Search className="w-3.5 h-3.5 text-ocean-muted absolute left-3 pointer-events-none" />
@@ -307,17 +307,14 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
         <div className="w-[1px] h-3.5 bg-white/10 mx-0.5" />
         <button
           onClick={() => {
-            openWaterBlock({
-              lon: 78.0,
-              lat: 12.0,
-              name: 'Indian Ocean Water Column'
-            });
+            const p = clickedGlobePoint ?? DEFAULT_OCEAN_POINT;
+            openWaterBlock({ lon: p.lon, lat: p.lat, name: clickedGlobePoint?.basin ?? DEFAULT_OCEAN_POINT.name });
           }}
           className="px-2.5 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-ocean-accent/30 to-ocean-accent/30 border border-ocean-accent/50 text-ocean-accent hover:from-ocean-accent/40 hover:to-ocean-accent/50 transition-all duration-[150ms] ease-nasa flex items-center gap-1 shadow-sm"
-          title="Open 3D Volumetric Water Column Cube Studio (0–2000m)"
+          title="Open the Three.js water-column view at the last clicked ocean point"
         >
           <Box className="w-3 h-3 text-ocean-accent" />
-          <span>3D Ocean Cube</span>
+          <span>3D Water Column</span>
         </button>
 
         <button
@@ -325,7 +322,7 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
             openAnalyticsModal();
           }}
           className="px-2.5 py-1 text-xs font-semibold rounded bg-gradient-to-r from-ocean-accent/20 to-ocean-accent/30 border border-ocean-accent/50 text-ocean-text-main hover:from-ocean-accent/35 hover:to-ocean-accent/45 transition-all duration-[150ms] ease-nasa flex items-center gap-1.5 shadow-md shadow-ocean-accent/20"
-          title="Open Scientific Ocean Analytics Studio (Trends, Stratification, Anomalies, Correlations)"
+          title="Open analytics (time series, spatial z-score, correlation) at the last clicked ocean point"
         >
           <BarChart3 className="w-3.5 h-3.5 text-ocean-accent" />
           <span>Ocean Analytics</span>
@@ -358,6 +355,8 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
           <div className="hidden sm:flex items-center gap-1 bg-ocean-panel border border-ocean-border backdrop-blur-sm px-1.5 py-1 rounded-full text-xs shadow-lg">
             <button
               onClick={toggleLeftPanel}
+              aria-label={showLeftPanel ? 'Hide layers panel' : 'Show layers panel'}
+              aria-pressed={showLeftPanel}
               title={showLeftPanel ? 'Hide Layers Panel' : 'Show Layers Panel'}
               className={`p-1.5 rounded-full transition-all duration-[150ms] ease-nasa ${
                 showLeftPanel ? 'text-ocean-accent bg-white/10' : 'text-ocean-muted hover:text-ocean-text-secondary'
@@ -367,6 +366,8 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
             </button>
             <button
               onClick={toggleRightPanel}
+              aria-label={showRightPanel ? 'Hide controls panel' : 'Show controls panel'}
+              aria-pressed={showRightPanel}
               title={showRightPanel ? 'Hide Controls Panel' : 'Show Controls Panel'}
               className={`p-1.5 rounded-full transition-all duration-[150ms] ease-nasa ${
                 showRightPanel ? 'text-ocean-accent bg-white/10' : 'text-ocean-muted hover:text-ocean-text-secondary'
@@ -381,6 +382,7 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
         {/* Reset Camera Button */}
         <button
           onClick={handleResetHome}
+          aria-label="Reset camera to entire globe"
           title="Reset to Entire Globe"
           className="w-9 h-9 rounded-full bg-ocean-panel border border-ocean-border backdrop-blur-sm flex items-center justify-center text-ocean-text-secondary hover:text-white transition-all duration-[150ms] ease-nasa shadow-lg"
         >

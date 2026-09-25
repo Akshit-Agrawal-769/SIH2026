@@ -1,102 +1,51 @@
-import sys
+"""
+Optional: load the catalogued (QC-filtered) Argo profiles into PostGIS and mirror
+catalogued tiles into MinIO. The API works without either; this only populates
+the optional storage backends from the same authentic build artefacts.
+"""
 import os
+import sys
 from datetime import datetime, timezone
 
-# Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app.db.session import SessionLocal, engine
-from app.db.models import Base, Instrument, Profile, Measurement
-from app.ingestion.argo import ArgoIngestionAdapter
-from app.ingestion.glider import GliderIngestionAdapter
-from app.ingestion.moored_buoy import MooredBuoyIngestionAdapter
-from app.ingestion.copernicus import CopernicusIngestionAdapter
+from app import analytics_engine as ae  # noqa: E402
+from app.db.session import SessionLocal, engine  # noqa: E402
+from app.db.models import Base, Instrument, Profile, Measurement  # noqa: E402
+from app.ingestion.argo import ArgoIngestionAdapter  # noqa: E402
+from app.ingestion.copernicus import CopernicusIngestionAdapter  # noqa: E402
 
-def fetch_datasets_from_hf():
-    try:
-        from huggingface_hub import snapshot_download
-        print("\n[0/4] Fetching datasets from Hugging Face...")
-        snapshot_download(
-            repo_id="ScaryCobra/incois",
-            repo_type="dataset",
-            local_dir=os.path.join(os.getcwd(), "datasets"),
-            allow_patterns=["argo/*", "glider/*", "moored_buoy/*", "*.json"],
-            ignore_patterns=["*.nc*"] if os.name == 'posix' else ["model/*", "INCOIS-BIO-ROMS.nc"]
-            # To be safe, we allow the small ones and ignore the huge ones explicitly.
-        )
-        print("-> Datasets fetched successfully from Hugging Face!")
-    except Exception as e:
-        print(f"-> Could not fetch from Hugging Face (might already exist or network error): {e}")
 
 def seed_all():
-    print("=== INCOIS Data Service: Ingestion & Seeding ===")
-    fetch_datasets_from_hf()
+    print("=== INCOIS Data Service: seeding optional storage from the data catalog ===")
+    print(f"data root: {ae.get_data_root()}")
+    if not ae.get_catalog():
+        raise SystemExit("No data catalog found. Run scripts/build_authentic_dataset.py first.")
+    if engine is None or SessionLocal is None:
+        raise SystemExit("DATABASE_URL is not configured.")
 
-    # Ensure tables exist
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
-
     try:
-        # 1. Ingest Real Argo Floats
-        print("\n[1/3] Running Argo Float Ingestion...")
-        argo_adapter = ArgoIngestionAdapter()
-        raw_argo = argo_adapter.fetch(
-            start_date=datetime(2024, 6, 1, tzinfo=timezone.utc),
-            end_date=datetime(2024, 6, 5, tzinfo=timezone.utc),
-            bbox=[65.0, 5.0, 95.0, 22.0]
-        )
-        norm_argo = argo_adapter.normalize(raw_argo)
-        argo_count = argo_adapter.store(norm_argo, db)
-        print(f"-> Ingested {argo_count} Argo float stations into PostGIS!")
+        adapter = ArgoIngestionAdapter()
+        raw = adapter.fetch(datetime(1997, 1, 1, tzinfo=timezone.utc), datetime.now(timezone.utc), None)
+        count = adapter.store(adapter.normalize(raw), db)
+        print(f"[1/2] Argo floats stored in PostGIS: {count}")
 
-        # 2. Ingest Autonomous Gliders
-        print("\n[2/4] Running Autonomous Glider Ingestion...")
-        glider_adapter = GliderIngestionAdapter()
-        raw_gliders = glider_adapter.fetch(
-            start_date=datetime(2024, 6, 1, tzinfo=timezone.utc),
-            end_date=datetime(2024, 6, 5, tzinfo=timezone.utc),
-            bbox=[65.0, 5.0, 95.0, 22.0]
-        )
-        norm_gliders = glider_adapter.normalize(raw_gliders)
-        glider_count = glider_adapter.store(norm_gliders, db)
-        print(f"-> Ingested {glider_count} Glider transect missions into PostGIS!")
+        if os.getenv("ENABLE_MINIO", "false").lower() == "true":
+            stats = CopernicusIngestionAdapter().generate_and_store_tiles()
+            print(f"[2/2] Tiles mirrored to MinIO: {stats}")
+        else:
+            print("[2/2] ENABLE_MINIO is not true; skipping MinIO mirror.")
 
-        # 3. Ingest Moored MetOcean Buoys
-        print("\n[3/4] Running Moored MetOcean Buoy Ingestion...")
-        buoy_adapter = MooredBuoyIngestionAdapter()
-        raw_buoys = buoy_adapter.fetch(
-            start_date=datetime(2024, 6, 1, tzinfo=timezone.utc),
-            end_date=datetime(2024, 6, 5, tzinfo=timezone.utc),
-            bbox=[45.0, -15.0, 100.0, 30.0]
-        )
-        norm_buoys = buoy_adapter.normalize(raw_buoys)
-        buoy_count = buoy_adapter.store(norm_buoys, db)
-        print(f"-> Ingested {buoy_count} Moored Buoy stations into PostGIS!")
-
-        # 4. Model Voxelization & Binary Tile Storage (MinIO)
-        print("\n[4/4] Running Model Voxelization & MinIO Texture Upload...")
-        model_adapter = CopernicusIngestionAdapter()
-        tile_stats = model_adapter.generate_and_store_tiles(["temperature", "salinity", "chlorophyll", "currents"])
-        for var, count in tile_stats.items():
-            print(f"-> Variable '{var}': {count} binary tiles uploaded to MinIO!")
-
-        # Summary verification
-        total_instruments = db.query(Instrument).count()
-        total_profiles = db.query(Profile).count()
-        total_measurements = db.query(Measurement).count()
-        print("\n=== Ingestion Completed Successfully ===")
-        print(f"Total Instruments in PostGIS: {total_instruments}")
-        print(f"Total Profiles in PostGIS:    {total_profiles}")
-        print(f"Total Depth Measurements:    {total_measurements}")
-        print("MinIO Binary Voxel Store:     Populated with temperature, salinity, currents, chlorophyll!")
-
-    except Exception as e:
-        print(f"\n[Error] Ingestion failed: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"Instruments: {db.query(Instrument).count()}, profiles: {db.query(Profile).count()}, "
+              f"measurements: {db.query(Measurement).count()}")
+    except Exception:
         db.rollback()
+        raise
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     seed_all()

@@ -80,8 +80,16 @@ html, body, #root {
   background: transparent !important;
 }
 
+/* Data/imagery attributions must stay visible (Esri World Imagery, Cesium). Kept small and
+   tucked bottom-left above the timeline instead of hidden. */
 .cesium-viewer-bottom {
-  display: none !important; /* Hide default Cesium credit banner for clean UI */
+  left: 8px !important;
+  bottom: 4px !important;
+  opacity: 0.7;
+  font-size: 9px;
+}
+.cesium-credit-logoContainer img {
+  height: 14px !important;
 }
 
 .cesium-widget canvas {

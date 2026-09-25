@@ -20,13 +20,12 @@ interface OutreachTourOverlayProps {
 }
 
 export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer }) => {
-  const {
-    setMode,
-    setSelectedVariable,
-    setDepthLevel,
-    setLayers,
-    setSelectedInstrumentId
-  } = useOceanStore();
+  // Actions only: stable references, so hover/time updates never re-render the overlay.
+  const setMode = useOceanStore((s) => s.setMode);
+  const setSelectedVariable = useOceanStore((s) => s.setSelectedVariable);
+  const setDepthLevel = useOceanStore((s) => s.setDepthLevel);
+  const setLayers = useOceanStore((s) => s.setLayers);
+  const setSelectedInstrumentId = useOceanStore((s) => s.setSelectedInstrumentId);
 
   const [activeTour, setActiveTour] = useState<ScienceTour | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -59,10 +58,11 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
     setLayers(step.activeLayers);
 
     if (step.time) {
-      
+      // Tour times are real catalog timesteps; the store ignores anything else.
+      useOceanStore.getState().setSelectedTime(`${step.time}T00:00:00Z`);
     }
     if (step.isPlaying !== undefined) {
-      
+      useOceanStore.getState().setIsPlaying(step.isPlaying);
     }
     if (step.selectedInstrumentId !== undefined) {
       setSelectedInstrumentId(step.selectedInstrumentId);
