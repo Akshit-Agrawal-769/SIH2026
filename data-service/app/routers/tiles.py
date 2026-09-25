@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Response, HTTPException
 
 from app import analytics_engine as ae
+from app import model_store as ms
 from app.processing.pack_texture import download_tile_from_minio
 
 router = APIRouter(prefix="/tiles", tags=["tiles"])
@@ -21,7 +22,11 @@ def get_tile(variable: str, date: str, depth: float):
     if d is None:
         raise HTTPException(status_code=400, detail=f"Invalid date '{date}' (expected YYYY-MM-DD).")
 
-    path = ae.tile_path(variable, d, depth)
+    try:
+        path = ae.tile_path(variable, d, depth)
+    except ms.StoreError as exc:
+        raise HTTPException(status_code=exc.status if exc.status >= 500 else 502,
+                            detail=f"Could not regrid '{variable}' {d} from the model source: {exc}")
     tile_bytes = None
     if path:
         with open(path, "rb") as f:

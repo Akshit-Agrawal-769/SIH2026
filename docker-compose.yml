@@ -83,6 +83,12 @@ services:
       MINIO_SECURE: "false"
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-}
+      HF_DATASET_REPO: ${HF_DATASET_REPO:-ScaryCobra/incois}
+      HF_DATASET_REVISION: ${HF_DATASET_REVISION:-main}
+      HF_TOKEN: ${HF_TOKEN:-}
+      MODEL_NETCDF_DIR: /app/datasets/model
+    volumes:
+      - ./datasets:/app/datasets:ro
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

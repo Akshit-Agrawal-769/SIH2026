@@ -127,8 +127,9 @@ app.use(
     target: DATA_SERVICE_URL,
     changeOrigin: true,
     pathFilter: '/api',
-    proxyTimeout: 30_000,
-    timeout: 30_000,
+    // First read of a model volume streams slabs from Hugging Face; allow for it.
+    proxyTimeout: 180_000,
+    timeout: 180_000,
     on: {
       proxyReq: (proxyReq, req) => {
         proxyReq.removeHeader('authorization');

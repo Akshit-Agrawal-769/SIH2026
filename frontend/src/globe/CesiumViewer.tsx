@@ -369,8 +369,9 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       });
     }
     if (depthSliceManagerRef.current) {
-      depthSliceManagerRef.current.updateVisibility(activeLayers);
-      depthSliceManagerRef.current.setOpacity(opacity);
+      // updateSlice must run first: it switches the manager to the new variable synchronously,
+      // and updateVisibility decides visibility for *that* variable. The reverse order hid the
+      // new layer after a parameter change until something else (e.g. the timeline) re-ran this.
       depthSliceManagerRef.current.updateSlice({
         variable: selectedVariable,
         date: selectedTime,
@@ -380,6 +381,8 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
         customRange: colorRange,
         scaleType
       });
+      depthSliceManagerRef.current.updateVisibility(activeLayers);
+      depthSliceManagerRef.current.setOpacity(opacity);
     }
     if (volumetricBlockManagerRef.current) {
       volumetricBlockManagerRef.current.update({

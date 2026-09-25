@@ -191,10 +191,15 @@ function resolveTimeline(catalog: DataCatalog | null, variable: string, previous
     : previous
       ? (nearestTime(times, toMs(previous)) as string)
       : times[times.length - 1];
+  // The full IBR record is 480 monthly steps (1980-2019): open on the 12 steps ending at the
+  // selection; the Start/End pickers still reach any available month.
+  const selIdx = times.indexOf(selected);
+  const endIdx = Math.max(selIdx, Math.min(times.length - 1, selIdx + 11), Math.min(times.length - 1, 11));
+  const startIdx = Math.max(0, Math.min(selIdx, endIdx - 11));
   return {
     availableTimes: times,
-    timelineStart: times[0],
-    timelineEnd: times[times.length - 1],
+    timelineStart: times[startIdx],
+    timelineEnd: times[endIdx],
     selectedTime: selected,
     lastRequestedTime: previous && previous !== selected ? previous : null
   };

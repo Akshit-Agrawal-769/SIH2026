@@ -73,3 +73,6 @@ cpp_visualizer/build/
 build/
 .vercel
 skills/
+
+# hf_hub_download(local_dir=...) bookkeeping from scripts/fetch_hf_datasets.py
+datasets/**/.cache/

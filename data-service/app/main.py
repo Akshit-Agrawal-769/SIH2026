@@ -6,7 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app import analytics_engine as ae
-from app.routers import variables, manifest, instruments, tiles, wms, export, comparison, analytics
+from app import ibr_live
+from app.routers import variables, manifest, instruments, tiles, wms, export, comparison, analytics, model
 from app.db.session import engine
 
 app = FastAPI(
@@ -24,10 +25,10 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "X-Admin-Token"],
-    expose_headers=["X-Data-Source", "X-Data-Policy"],
+    expose_headers=["X-Data-Source", "X-Data-Policy", "X-Volume-Shape", "X-Volume-Z-Axis"],
 )
 
-ROUTERS = (variables, manifest, instruments, tiles, wms, export, comparison, analytics)
+ROUTERS = (variables, manifest, instruments, tiles, wms, export, comparison, analytics, model)
 for r in ROUTERS:
     app.include_router(r.router, prefix="/api")
 # Un-prefixed aliases kept for deployments that proxy without the /api prefix.
@@ -35,6 +36,13 @@ for r in ROUTERS:
     app.include_router(r.router, include_in_schema=False)
 
 start_time = time.time()
+
+
+@app.on_event("startup")
+def _warm_ibr_record():
+    # Opens INCOIS-BIO-ROMS.nc (local copy or Hugging Face) in the background so the first
+    # /api/catalog already lists the full 1980-2019 record.
+    ibr_live.warm_up()
 
 
 def _health():
@@ -52,6 +60,7 @@ def _health():
         "service": "data-service",
         "database": db_status,
         "data": data,
+        "ibr_full_record": ibr_live.status(),
         "uptime_seconds": round(time.time() - start_time, 2),
     }
 

@@ -676,6 +676,7 @@ def write_static_api(catalog, instrument_ids):
     # Precomputed comparison + profile analysis for static hosting, produced by the
     # SAME engine the FastAPI service runs (single source of truth).
     sys.path.insert(0, os.path.join(REPO, "data-service"))
+    os.environ.setdefault("IBR_LIVE_TILES", "0")  # precompute from the static export only
     from app import analytics_engine as ae  # noqa: E402
     ae.set_data_root(OUT)
     comp_dir = os.path.join(api, "comparison")

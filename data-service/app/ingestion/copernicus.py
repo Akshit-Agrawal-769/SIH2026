@@ -33,7 +33,7 @@ class CopernicusIngestionAdapter(IngestionAdapter):
 
     def generate_and_store_tiles(self, variables: List[str] = None) -> Dict[str, int]:
         """Upload every catalogued tile (and a manifest per variable) to MinIO."""
-        catalog = ae.get_catalog()
+        catalog = ae.get_catalog(live=False)  # mirror the static export, not the on-demand record
         if not catalog:
             print("[Model Ingestion] No data catalog found; run scripts/build_authentic_dataset.py first.")
             return {}

@@ -73,7 +73,47 @@ def get_data_root() -> str:
     return _state["root"]
 
 
-def get_catalog() -> Optional[Dict[str, Any]]:
+def get_catalog(live: bool = True) -> Optional[Dict[str, Any]]:
+    """The served catalog. With ``live`` (default) the IBR variables list every timestep of
+    the source file (tiles generated on demand by app.ibr_live); otherwise only the static export."""
+    static = _static_catalog()
+    if static is None or not live:
+        return static
+    return _with_full_ibr_record(static)
+
+
+_live_cache: Dict[str, Any] = {"key": None, "catalog": None}
+
+
+def _with_full_ibr_record(static: Dict[str, Any]) -> Dict[str, Any]:
+    from app import ibr_live
+    times = ibr_live.timesteps()
+    if not times:
+        return static
+    key = (id(static), len(times))
+    if _live_cache["key"] == key:
+        return _live_cache["catalog"]
+    full = sorted(times)
+    cat = dict(static)
+    cat["variables"] = {}
+    for name, meta in static["variables"].items():
+        if meta.get("source_id") == "ibr" and meta.get("source_variable"):
+            meta = dict(meta)
+            meta["static_timesteps"] = list(meta["timesteps"])
+            meta["timesteps"] = sorted(set(full) | set(meta["timesteps"]))
+        cat["variables"][name] = meta
+    if "ibr" in static.get("sources", {}):
+        cat["sources"] = dict(static["sources"])
+        src = dict(cat["sources"]["ibr"])
+        src["exported_window"] = (f"full record, {full[0]} .. {full[-1]} ({len(full)} timesteps); "
+                                  f"static export {src.get('exported_window', '')}, other months regridded "
+                                  f"on demand from {ibr_live.IBR_FILE} with the same method")
+        cat["sources"]["ibr"] = src
+    _live_cache.update(key=key, catalog=cat)
+    return cat
+
+
+def _static_catalog() -> Optional[Dict[str, Any]]:
     path = os.path.join(get_data_root(), "api", "catalog.json")
     try:
         mtime = os.path.getmtime(path)
@@ -145,8 +185,10 @@ def resolve_date(variable: str, date: Optional[str]) -> Tuple[Optional[str], Opt
     return d, None
 
 
-def tile_path(variable: str, date: str, depth: float) -> Optional[str]:
-    """Validated on-disk tile path, or None when the tile is not part of the catalog."""
+def tile_path(variable: str, date: str, depth: float, generate: bool = True) -> Optional[str]:
+    """Validated on-disk tile path, or None when the tile is not part of the catalog.
+    IBR months outside the static export are regridded from the source file on demand
+    (``generate``); that may raise model_store.StoreError when the source is unreachable."""
     meta = variable_meta(variable)
     d = normalize_date(date)
     if meta is None or d is None or d not in meta["timesteps"]:
@@ -154,7 +196,15 @@ def tile_path(variable: str, date: str, depth: float) -> Optional[str]:
     if not any(abs(float(depth) - float(x)) < 1e-6 for x in meta["depths"]):
         return None
     path = os.path.join(get_data_root(), "tiles", variable, d, f"{depth_key(depth)}.bin")
-    return path if os.path.isfile(path) else None
+    if os.path.isfile(path):
+        return path
+    if meta.get("source_id") == "ibr" and abs(float(depth)) < 1e-6:
+        from app import ibr_live
+        cached = ibr_live.cached_tile_path(variable, d)
+        if cached or not generate:
+            return cached
+        return ibr_live.tile_path(variable, d, meta, grid())
+    return None
 
 
 def parse_tile(buf: bytes, expected_var_code: Optional[int] = None) -> Tuple[Dict[str, Any], np.ndarray]:
@@ -177,8 +227,12 @@ def parse_tile(buf: bytes, expected_var_code: Optional[int] = None) -> Tuple[Dic
     return header, arr
 
 
-def load_tile(variable: str, date: str, depth: float = 0.0) -> Optional[np.ndarray]:
-    path = tile_path(variable, date, depth)
+def load_tile(variable: str, date: str, depth: float = 0.0, generate: bool = True) -> Optional[np.ndarray]:
+    try:
+        path = tile_path(variable, date, depth, generate)
+    except Exception as exc:  # source unreachable while generating an on-demand IBR tile
+        print(f"[analytics] tile {variable} {date} unavailable: {exc}", flush=True)
+        return None
     if path is None:
         return None
     key = (variable, normalize_date(date), depth_key(depth), os.path.getmtime(path))
@@ -477,9 +531,14 @@ def compute_timeseries(variable: str, lat: float, lon: float, depth: float = 0.0
     if err:
         return _unavailable(variable, err, lat=lat, lon=lon, depth=depth, timeseries_points=[])
     points, days, vals, missing = [], [], [], []
-    ts = timesteps(variable)
+    # Only months that already exist as tiles (static export + ones generated on demand);
+    # regridding all 480 IBR months for one point request would take minutes.
+    ts = [d for d in timesteps(variable) if tile_path(variable, d, depth, generate=False)]
+    if not ts:
+        return _unavailable(variable, "No materialised tiles for this variable yet.", lat=lat, lon=lon,
+                            depth=depth, timeseries_points=[])
     for d in ts:
-        arr = load_tile(variable, d, depth)
+        arr = load_tile(variable, d, depth, generate=False)
         v = sample_grid(arr, lat, lon) if arr is not None else None
         if v is None:
             missing.append(d)
@@ -659,7 +718,7 @@ def compute_vertical_profile_analysis(lat: float, lon: float, variable: str = "t
 
 
 def health() -> Dict[str, Any]:
-    cat = get_catalog()
+    cat = get_catalog(live=False)  # never block a health check on the remote source
     return {
         "catalog": bool(cat),
         "catalog_generated_at": cat.get("generated_at") if cat else None,

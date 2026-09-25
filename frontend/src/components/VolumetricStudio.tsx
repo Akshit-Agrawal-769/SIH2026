@@ -145,6 +145,7 @@ export default function VolumetricStudio({ open, onClose, authToken, initialFile
 
   /* ------------------------ geometry hints ------------------------ */
   const autoBottomFirst = useMemo(() => {
+    if (meta?.zAxis === "time") return true; // earliest month at the bottom, latest on top
     const d = meta?.depthLevels;
     return d ? d[0] > d[d.length - 1] : false;
   }, [meta]);
@@ -218,10 +219,12 @@ export default function VolumetricStudio({ open, onClose, authToken, initialFile
     (f: number) => (stats ? stats.min + f * (stats.max - stats.min) : f),
     [stats]
   );
+  const isTime = meta?.zAxis === "time";
   const depthLabel = (() => {
+    const idx = bottomFirst ? nz - 1 - depthLevel : depthLevel;
+    if (meta?.zLabels) return meta.zLabels[idx] ?? `Level ${depthLevel + 1} of ${nz}`;
     const d = meta?.depthLevels;
     if (!d) return `Level ${depthLevel + 1} of ${nz}`;
-    const idx = bottomFirst ? nz - 1 - depthLevel : depthLevel;
     return `${Math.round(d[idx]).toLocaleString()} m`;
   })();
   const lonLabel = meta?.lon ? `${(meta.lon[0] + lonCut * (meta.lon[1] - meta.lon[0])).toFixed(2)}°E` : `${Math.round(lonCut * 100)}%`;
@@ -368,7 +371,7 @@ export default function VolumetricStudio({ open, onClose, authToken, initialFile
           <fieldset className="space-y-4">
             <legend className="text-cyan-100 font-medium mb-2">Slices</legend>
             <Slider
-              label="Depth slice"
+              label={isTime ? "Time slice" : "Depth slice"}
               value={depthLevel} min={0} max={Math.max(0, nz - 1)} step={1}
               display={depthLabel}
               onChange={setDepthLevel}
@@ -406,9 +409,15 @@ export default function VolumetricStudio({ open, onClose, authToken, initialFile
                 onChange={(e) => setFlipVertical(e.target.checked)}
                 className="accent-cyan-400"
               />
-              First level is the seabed
+              {isTime ? "Earliest month at the bottom" : "First level is the seabed"}
             </label>
-            {!meta?.depthLevels && (
+            {isTime && (
+              <p className="text-cyan-300/50 leading-snug">
+                {meta?.filename} has no depth axis, so the vertical axis is time: {nz} monthly
+                surface fields stacked {meta?.zLabels ? `${meta.zLabels[0]} → ${meta.zLabels[nz - 1]}` : ""}.
+              </p>
+            )}
+            {!isTime && !meta?.depthLevels && (
               <p className="text-cyan-300/50 leading-snug">
                 No depth coordinates in metadata, so levels are evenly spaced and orientation can't be detected.
               </p>

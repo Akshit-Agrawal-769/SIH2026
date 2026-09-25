@@ -13,8 +13,9 @@
  * instead of silently rendering garbage.
  */
 
-export const API_BASE: string =
-  (import.meta as any).env?.VITE_API_BASE?.replace(/\/$/, "") ?? "";
+// Same variable the rest of the app uses (src/api/config.ts); empty = same origin (Vite proxy / gateway).
+const env = (import.meta as any).env ?? {};
+export const API_BASE: string = String(env.VITE_API_BASE_URL ?? env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 export interface GridDims {
   nx: number; // longitude count (fastest-varying in the buffer)
@@ -30,6 +31,13 @@ export interface VolumeMeta {
   lat?: [number, number];
   depthLevels?: number[]; // metres, positive down, in buffer order
   units?: Record<string, string>;
+  /** What the volume's third axis is. INCOIS-BIO-ROMS.nc is surface-only, so it is a monthly time stack. */
+  zAxis: "depth" | "time";
+  /** One label per z level in buffer order (dates for time, "5 m" for depth). */
+  zLabels?: string[];
+  /** Server-chosen sampling; sent back verbatim with volume3d so dims always match. */
+  sampling: Record<string, number>;
+  source?: string; // "local" | "huggingface"
   raw: unknown; // untouched payload, for debugging
 }
 
@@ -105,13 +113,20 @@ export async function fetchDatasets(token: string | null | undefined, signal?: A
   const res = await request(`${API_BASE}/api/v1/model/datasets`, token, "application/json", signal);
   const j: any = await res.json();
   const list: any[] = Array.isArray(j) ? j : j.datasets ?? j.files ?? j.items ?? null;
+  if (Array.isArray(j?.skipped) && j.skipped.length) {
+    console.info("[VolumetricStudio] files without a renderable volume:", j.skipped);
+  }
+  if (j?.hf_error) console.error("[VolumetricStudio] Hugging Face listing failed:", j.hf_error);
   if (!Array.isArray(list)) {
     throw new VolumeApiError(`Unrecognised /model/datasets response. Keys: ${Object.keys(j ?? {}).join(", ")}`);
   }
   const names = list
     .map((d) => (typeof d === "string" ? d : d.filename ?? d.name ?? d.file ?? null))
     .filter((n): n is string => typeof n === "string");
-  if (names.length === 0) throw new VolumeApiError("The server reports no model NetCDF files in datasets/model/.");
+  if (names.length === 0) {
+    const why = (j?.skipped ?? []).map((x: any) => `${x.filename}: ${x.reason}`).join("; ");
+    throw new VolumeApiError(`No model NetCDF file with a renderable volume.${why ? " " + why : ""}${j?.hf_error ? " " + j.hf_error : ""}`);
+  }
   return names;
 }
 
@@ -186,9 +201,18 @@ export function normalizeMetadata(filename: string, j: any): VolumeMeta {
   const depthArr = j?.depth_levels ?? j?.depths ?? j?.coords?.depth ?? j?.depth;
   const depthLevels = Array.isArray(depthArr) && typeof depthArr[0] === "number" ? depthArr.map(Math.abs) : undefined;
 
+  const zAxis: "depth" | "time" = j?.z_axis === "time" ? "time" : "depth";
+  const zLabels = Array.isArray(j?.z_labels) && j.z_labels.length === nz ? j.z_labels.map(String) : undefined;
+  const sampling: Record<string, number> = {};
+  for (const [k, val] of Object.entries<any>(j?.sampling ?? {})) if (typeof val === "number") sampling[k] = val;
+
   return {
     filename,
     variables,
+    zAxis,
+    zLabels,
+    sampling,
+    source: j?.source,
     dims: { nx, ny, nz },
     lon: pickRange(bounds, ["lon", "longitude", "lon_range"]),
     lat: pickRange(bounds, ["lat", "latitude", "lat_range"]),
@@ -219,9 +243,17 @@ export async function fetchVolume(
 ): Promise<VolumePayload> {
   const url =
     `${API_BASE}/api/v1/model/volume3d?filename=${encodeURIComponent(meta.filename)}` +
-    `&variable=${encodeURIComponent(variable)}`;
+    `&variable=${encodeURIComponent(variable)}` +
+    Object.entries(meta.sampling).map(([k, v]) => `&${k}=${v}`).join("");
 
   const res = await request(url, token, "application/octet-stream", signal);
+  const shapeHdr = res.headers.get("x-volume-shape");
+  if (shapeHdr) {
+    const [hz, hy, hx] = shapeHdr.split(",").map(Number);
+    if (hz !== meta.dims.nz || hy !== meta.dims.ny || hx !== meta.dims.nx) {
+      console.error(`[VolumetricStudio] X-Volume-Shape ${shapeHdr} disagrees with metadata`, meta.dims);
+    }
+  }
 
   const ctype = res.headers.get("content-type") ?? "";
   if (ctype.includes("json") || ctype.includes("html")) {

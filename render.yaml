@@ -13,6 +13,8 @@ services:
         sync: false            # e.g. https://<your-app>.vercel.app
       - key: ADMIN_API_TOKEN
         sync: false            # leave unset to keep ingestion disabled
+      - key: HF_DATASET_REPO
+        value: ScaryCobra/incois   # model NetCDF files, read lazily for /api/v1/model/*
 
   - type: web
     name: incois-gateway
