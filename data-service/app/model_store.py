@@ -16,9 +16,14 @@ missing_value -> NaN and scale_factor / add_offset uniformly.
 """
 from __future__ import annotations
 
+import itertools
+import logging
 import os
 import struct
 import threading
+import time
+import zlib
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -27,7 +32,13 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 HF_REPO = os.getenv("HF_DATASET_REPO", "ScaryCobra/incois")
 HF_REVISION = os.getenv("HF_DATASET_REVISION", "main")
-HF_BLOCK_SIZE = int(os.getenv("HF_BLOCK_SIZE", str(4 * 1024 * 1024)))
+# h5py's file object only reads metadata (headers, chunk B-trees): chunk data is fetched by
+# fetch_plan with exact ranges. Small read-ahead keeps scattered B-tree reads cheap.
+HF_BLOCK_SIZE = int(os.getenv("HF_BLOCK_SIZE", str(512 * 1024)))
+HF_PARALLEL = int(os.getenv("HF_PARALLEL", "16"))  # concurrent chunk range requests
+CACHE_DIR = os.getenv("VOLUME_CACHE_DIR", os.path.join(__import__("tempfile").gettempdir(), "incois_volume_cache"))
+
+log = logging.getLogger("model_store")
 
 
 def _local_dirs() -> List[str]:
@@ -110,9 +121,10 @@ class LocalNetCDF4Reader(Reader):
 class H5Reader(Reader):
     """NetCDF-4 (HDF5) over any seekable file object."""
 
-    def __init__(self, fobj, source: str):
+    def __init__(self, fobj, source: str, remote_path: Optional[str] = None):
         import h5netcdf
         self.f = fobj
+        self.remote_path = remote_path  # HfFileSystem path, enables parallel chunk fetches
         self.ds = h5netcdf.File(fobj, "r", decode_vlen_strings=False)
         self.source = source
         self.fmt = "NETCDF4"
@@ -142,11 +154,147 @@ class H5Reader(Reader):
         except Exception as exc:
             return {"error": str(exc)}
 
+    # ---- parallel chunk fetch -------------------------------------------------------------
+    # h5py holds a global lock for every HDF5 call, including the Python file-object reads,
+    # so reading a slab through h5py issues its range requests one at a time. Here h5py is
+    # only asked WHERE the needed chunks are (small, cached index reads); the chunk bytes are
+    # then fetched concurrently and decoded in numpy. Supported filters: deflate, shuffle,
+    # fletcher32. Anything else returns None and the caller uses the ordinary h5py read.
+
+    def layout(self, name: str) -> Optional[Dict[str, Any]]:
+        """Chunk shape / filters / dtype of a variable, or None if the fast path can't handle it."""
+        if self.remote_path is None:
+            return None
+        d = self.ds.variables[name]._h5ds
+        if d.chunks is None:
+            return None
+        dcpl = d.id.get_create_plist()
+        filters = []
+        for i in range(dcpl.get_nfilters()):
+            code = dcpl.get_filter(i)[0]
+            if code not in (1, 2, 3):
+                return None
+            filters.append(code)
+        fill = d.fillvalue
+        return {"shape": tuple(d.shape), "chunk_shape": tuple(d.chunks), "dtype": d.dtype,
+                "filters": filters, "fill": 0 if fill is None else fill}
+
+    def build_chunk_index(self, name: str) -> Dict[Tuple[int, ...], Tuple[int, int, int]]:
+        """Every stored chunk of a variable: chunk offset -> (byte offset, size, filter mask)."""
+        dsid = self.ds.variables[name]._h5ds.id
+        idx: Dict[Tuple[int, ...], Tuple[int, int, int]] = {}
+
+        def add(si):
+            if si.byte_offset is not None and si.size:
+                idx[tuple(int(x) for x in si.chunk_offset)] = (int(si.byte_offset), int(si.size), int(si.filter_mask))
+
+        if hasattr(dsid, "chunk_iter"):
+            try:
+                dsid.chunk_iter(add)
+                return idx
+            except Exception:
+                idx.clear()
+        for i in range(dsid.get_num_chunks()):
+            add(dsid.get_chunk_info(i))
+        return idx
+
+    def plan_chunks(self, name: str, key: Tuple) -> Optional[Dict[str, Any]]:
+        lay = self.layout(name)
+        if lay is None:
+            return None
+        return _plan(lay, key, None, self.ds.variables[name]._h5ds)
+
+    def fetch_plan(self, plan: Dict[str, Any]) -> np.ndarray:
+        return _fetch_plan(self.remote_path, plan)
+
     def close(self):
         try:
             self.ds.close()
         finally:
             self.f.close()
+
+
+def _plan(lay: Dict[str, Any], key: Tuple, index: Optional[Dict[Tuple[int, ...], Tuple[int, int, int]]],
+          h5ds=None) -> Optional[Dict[str, Any]]:
+    """Chunks needed for name[key]; looked up in `index` when given, else via h5py per chunk."""
+    shape, ch = lay["shape"], lay["chunk_shape"]
+    if not isinstance(key, tuple):
+        key = (key,)
+    key = key + (slice(None),) * (len(shape) - len(key))
+    sel = []
+    for k, n in zip(key, shape):
+        if isinstance(k, (int, np.integer)):
+            k = int(k) + (n if k < 0 else 0)
+            sel.append((k, k + 1, 1, True))
+        elif isinstance(k, slice):
+            a, b, s = k.indices(n)
+            if s < 1:
+                return None
+            sel.append((a, b, s, False))
+        else:
+            return None
+    lo = [a for a, _, _, _ in sel]
+    hi = [b for _, b, _, _ in sel]
+    if any(b <= a for a, b in zip(lo, hi)):
+        return None
+    grids = [range(l // c, (h - 1) // c + 1) for l, h, c in zip(lo, hi, ch)]
+    chunks = []
+    for coord in itertools.product(*grids):
+        off = tuple(g * c for g, c in zip(coord, ch))
+        if index is not None:
+            chunks.append((off, index.get(off)))
+            continue
+        si = h5ds.id.get_chunk_info_by_coord(off)
+        if si.byte_offset is None or not si.size:
+            chunks.append((off, None))
+        else:
+            chunks.append((off, (int(si.byte_offset), int(si.size), int(si.filter_mask))))
+    return {"sel": sel, "lo": lo, "hi": hi, "chunks": chunks, "chunk_shape": tuple(ch),
+            "dtype": lay["dtype"], "filters": lay["filters"], "fill": lay["fill"]}
+
+
+
+def _fetch_plan(remote_path: str, plan: Dict[str, Any]) -> np.ndarray:
+    fs = hf_fs()
+    dt, ch, lo, hi = plan["dtype"], plan["chunk_shape"], plan["lo"], plan["hi"]
+    box = np.full([h - l for l, h in zip(lo, hi)], plan["fill"], dtype=dt)
+
+    def get(item):
+        off, info = item
+        if info is None:
+            return off, None, 0
+        bo, size, mask = info
+        return off, fs.cat_file(remote_path, start=bo, end=bo + size), mask
+
+    with ThreadPoolExecutor(max_workers=max(1, min(HF_PARALLEL, len(plan["chunks"])))) as ex:
+        for off, raw, mask in ex.map(get, plan["chunks"]):
+            if raw is None:
+                continue
+            arr = _decode_chunk(raw, plan["filters"], mask, dt, ch)
+            src, dst = [], []
+            for o, c, l, h in zip(off, ch, lo, hi):
+                a, b = max(o, l), min(o + c, h)
+                src.append(slice(a - o, b - o))
+                dst.append(slice(a - l, b - l))
+            box[tuple(dst)] = arr[tuple(src)]
+    return box[tuple(0 if sq else slice(None, None, s) for _, _, s, sq in plan["sel"])]
+
+
+def _decode_chunk(buf: bytes, filters: List[int], mask: int, dtype: np.dtype, chunk_shape: Tuple) -> np.ndarray:
+    """Undo the HDF5 filter pipeline (applied in order on write, so undone in reverse)."""
+    b = buf
+    for i in reversed(range(len(filters))):
+        if mask & (1 << i):
+            continue  # filter was skipped for this chunk
+        code = filters[i]
+        if code == 3:      # fletcher32: 4-byte checksum appended
+            b = b[:-4]
+        elif code == 1:    # deflate
+            b = zlib.decompress(b)
+        elif code == 2:    # shuffle: byte k of every element stored contiguously
+            n = len(b) // dtype.itemsize
+            b = np.frombuffer(b, np.uint8).reshape(dtype.itemsize, n).T.tobytes()
+    return np.frombuffer(b, dtype).reshape(chunk_shape)
 
 
 # ---- NetCDF-3 classic / 64-bit offset / CDF-5 range reader --------------------------------
@@ -330,7 +478,7 @@ def _open_remote(filename: str) -> Reader:
     magic = f.read(8)
     f.seek(0)
     if magic.startswith(b"\x89HDF"):
-        return H5Reader(f, "huggingface")
+        return H5Reader(f, "huggingface", remote_path=path)
     if magic[:3] == b"CDF":
         return NC3Reader(f, "huggingface")
     f.close()
@@ -366,11 +514,103 @@ def open_reader(filename: str) -> Reader:
     return r
 
 
+def read_array(filename: str, name: str, key: Tuple, engine: str = "auto") -> Tuple[np.ndarray, str]:
+    """Raw values of name[key]. The file lock is held only for h5py work; remote chunk bytes
+    are fetched in parallel outside it. Returns (array, engine actually used)."""
+    t0 = time.time()
+    with file_lock(filename):
+        r = open_reader(filename)
+        lay = None
+        if engine != "direct" and isinstance(r, H5Reader):
+            try:
+                lay = r.layout(name)
+            except Exception as exc:
+                log.warning("chunk layout failed for %s:%s (%s); using h5py", filename, name, exc)
+        if lay is None:
+            return np.asarray(r.read(name, key)), "direct"
+    try:
+        plan = _plan(lay, key, chunk_index(filename, name))
+    except Exception as exc:
+        log.warning("chunk index unavailable for %s:%s (%s); using h5py", filename, name, exc)
+        with file_lock(filename):
+            return np.asarray(r.read(name, key)), "direct-fallback"
+    if plan is None:
+        with file_lock(filename):
+            return np.asarray(r.read(name, key)), "direct"
+    try:
+        out = r.fetch_plan(plan)
+        log.info("%s:%s %d chunks in %.1fs (parallel)", filename, name, len(plan["chunks"]), time.time() - t0)
+        return out, f"parallel:{len(plan['chunks'])}"
+    except Exception as exc:
+        log.warning("parallel fetch failed for %s:%s (%s); falling back to h5py", filename, name, exc)
+        with file_lock(filename):
+            return np.asarray(r.read(name, key)), "direct-fallback"
+
+
+_index_mem: Dict[str, Dict[Tuple[int, ...], Tuple[int, int, int]]] = {}
+_index_locks: Dict[str, threading.Lock] = {}
+
+
+def chunk_index(filename: str, name: str) -> Dict[Tuple[int, ...], Tuple[int, int, int]]:
+    """Complete chunk index of a remote HDF5 variable. Built once with a dedicated file handle
+    (so other requests are not blocked behind it) and persisted under CACHE_DIR."""
+    import hashlib
+    if local_path(filename):
+        raise StoreError("local copy present; chunk index is only used for remote reads", 409)
+    key = f"{filename}|{name}|{source_fingerprint(filename)}"
+    if key in _index_mem:
+        return _index_mem[key]
+    with _open_lock:
+        lock = _index_locks.setdefault(key, threading.Lock())
+    with lock:
+        if key in _index_mem:
+            return _index_mem[key]
+        path = os.path.join(CACHE_DIR, "chunk_index", hashlib.sha1(key.encode()).hexdigest() + ".npz")
+        if os.path.isfile(path):
+            try:
+                z = np.load(path)
+                idx = {tuple(int(x) for x in o): (int(b), int(s), int(m))
+                       for o, b, s, m in zip(z["offsets"], z["byte"], z["size"], z["mask"])}
+                _index_mem[key] = idx
+                return idx
+            except Exception:
+                pass
+        t0 = time.time()
+        r = _open_remote(filename)
+        try:
+            if not isinstance(r, H5Reader):
+                raise StoreError("chunk index only applies to HDF5 files", 415)
+            idx = r.build_chunk_index(name)
+        finally:
+            r.close()
+        log.info("chunk index %s:%s: %d chunks in %.1fs", filename, name, len(idx), time.time() - t0)
+        print(f"[model_store] chunk index {filename}:{name}: {len(idx)} chunks in {time.time() - t0:.1f}s", flush=True)
+        if idx:
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                items = list(idx.items())
+                tmp = f"{path}.{os.getpid()}.tmp.npz"
+                np.savez(tmp, offsets=np.array([o for o, _ in items], dtype=np.int64),
+                         byte=np.array([v[0] for _, v in items], dtype=np.int64),
+                         size=np.array([v[1] for _, v in items], dtype=np.int64),
+                         mask=np.array([v[2] for _, v in items], dtype=np.int64))
+                os.replace(tmp, path)
+            except OSError:
+                pass
+        _index_mem[key] = idx
+        return idx
+
+
 def source_fingerprint(filename: str) -> str:
     lp = local_path(filename)
     if lp:
         st = os.stat(lp)
         return f"local-{st.st_size}-{int(st.st_mtime)}"
+    if _listing is None:
+        try:
+            hf_listing()
+        except StoreError:
+            pass
     size = next((e["size"] for e in (_listing or []) if e["filename"] == filename), "na")
     return f"hf-{HF_REPO.replace('/', '_')}-{HF_REVISION}-{size}"
 

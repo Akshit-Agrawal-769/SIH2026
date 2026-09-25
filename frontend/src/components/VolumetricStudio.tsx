@@ -113,11 +113,17 @@ export default function VolumetricStudio({ open, onClose, authToken, initialFile
       .catch((err) => {
         if (err.name === "AbortError") return;
         console.error("[VolumetricStudio] dataset discovery failed", err);
+        if (initialFilename) {
+          // Discovery is only needed for the file picker; the requested file can still load.
+          setDatasets([initialFilename]);
+          setFilename(initialFilename);
+          return;
+        }
         setError(err instanceof VolumeApiError ? err.message : String(err));
         setStage("error");
       });
     return () => ac.abort();
-  }, [open, authToken]);
+  }, [open, authToken, initialFilename]);
 
   /* ------------------------ metadata ------------------------ */
   useEffect(() => {

@@ -137,16 +137,14 @@ def tile_path(variable: str, date: str, meta: Dict[str, Any], grid: Dict[str, An
     scale = 1.0e6 if "1e6" in str(meta.get("unit_conversion") or "") else 1.0
 
     with ms.file_lock(IBR_FILE):
-        p = cached_tile_path(variable, date)  # another request may have produced it meanwhile
-        if p:
-            return p
         r = ms.open_reader(IBR_FILE)
         v = r.variables.get(src)
         if v is None:
             raise ms.StoreError(f"{IBR_FILE} has no variable '{src}'", 500)
-        k = times[date]
         regrid = _regridder(r, grid)
-        tile = regrid(lambda js, is_: ms.decode(np.asarray(r.read(src, (k, js, is_))), v.attrs).astype(float) * scale)
+    k = times[date]
+    # read_array fetches the chunks in parallel outside the file lock (remote HDF5).
+    tile = regrid(lambda js, is_: ms.decode(ms.read_array(IBR_FILE, src, (k, js, is_))[0], v.attrs).astype(float) * scale)
 
     out = _path(variable, date)
     os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -157,5 +155,19 @@ def tile_path(variable: str, date: str, meta: Dict[str, Any], grid: Dict[str, An
     return out
 
 
+WARM_VARIABLES = [v for v in os.getenv("IBR_WARM_VARIABLES", "SST,SSS,CHL,MLD").split(",") if v]
+
+
+def _warm() -> None:
+    if not timesteps():
+        return
+    # Chunk indexes make every later read of these variables pure parallel range requests.
+    for name in WARM_VARIABLES:
+        try:
+            ms.chunk_index(IBR_FILE, name)
+        except Exception as exc:  # local copy / netCDF3 / network: reads fall back to h5py
+            log.info("chunk index for %s not built: %s", name, exc)
+
+
 def warm_up() -> None:
-    threading.Thread(target=timesteps, name="ibr-warmup", daemon=True).start()
+    threading.Thread(target=_warm, name="ibr-warmup", daemon=True).start()

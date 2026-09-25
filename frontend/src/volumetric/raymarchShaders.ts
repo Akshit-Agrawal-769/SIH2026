@@ -17,6 +17,9 @@ precision highp sampler3D;
 in vec3 vOrigin;
 in vec3 vDirection;
 
+// GLSL3 ShaderMaterial: three.js does not alias gl_FragColor, so declare the output.
+out vec4 fragColor;
+
 uniform sampler3D uVolume;
 uniform vec3  uVolSize;     // voxel counts (nx, ny, nz)
 uniform vec3  uFlip;        // 1.0 on an axis if the buffer runs opposite to u-space
@@ -110,7 +113,7 @@ void main() {
       bool show = (uMode == 0) || (s.x >= uIso);
       if (show) {
         vec3 c = turbo(uMode == 0 ? (s.x - uWindow.x) / max(uWindow.y - uWindow.x, 1e-4) : s.x);
-        gl_FragColor = vec4(c * 0.92, 1.0);
+        fragColor = vec4(c * 0.92, 1.0);
         return;
       }
     }
@@ -140,7 +143,7 @@ void main() {
         vec3 hit = vOrigin + dir * b;
         vec3 g = gradientAt(hit);
         vec3 n = length(g) > 1e-6 ? normalize(g) : -dir;
-        gl_FragColor = vec4(shade(turbo(uIso), n, dir), 1.0);
+        fragColor = vec4(shade(turbo(uIso), n, dir), 1.0);
         return;
       }
       prev = cur;
@@ -164,6 +167,6 @@ void main() {
     tt += delta;
   }
   if (acc.a < 0.004) discard;
-  gl_FragColor = acc;
+  fragColor = acc;
 }
 `;

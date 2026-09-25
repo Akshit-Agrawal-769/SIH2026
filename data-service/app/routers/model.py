@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import glob
 import hashlib
+import json
 import math
 import os
 import tempfile
@@ -121,9 +122,38 @@ def _time_labels(r: ms.Reader, dim: str, vals: np.ndarray) -> List[str]:
 
 _probe_cache: Dict[str, Dict[str, Any]] = {}
 _probe_lock = threading.Lock()
+_PROBE_FILE = os.path.join(CACHE_DIR, "probe_cache.json")
+_TUPLE_KEYS = ("dims", "shape", "axes")
+
+
+def _load_probe_cache() -> None:
+    try:
+        with open(_PROBE_FILE, encoding="utf-8") as f:
+            for k, v in json.load(f).items():
+                for t in _TUPLE_KEYS:
+                    if t in v:
+                        v[t] = tuple(v[t])
+                _probe_cache[k] = v
+    except (OSError, ValueError):
+        pass
+
+
+def _save_probe_cache() -> None:
+    try:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        tmp = f"{_PROBE_FILE}.{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(_probe_cache, f)
+        os.replace(tmp, _PROBE_FILE)
+    except OSError:
+        pass
+
+
+_load_probe_cache()
 
 
 def _probe(filename: str) -> Dict[str, Any]:
+    """Classify a file (cached in memory and on disk, keyed by the source fingerprint)."""
     key = f"{filename}|{ms.source_fingerprint(filename)}"
     with _probe_lock:
         if key in _probe_cache:
@@ -146,6 +176,7 @@ def _probe(filename: str) -> Dict[str, Any]:
                 "axes": axes, "variables": names, "z_axis": _z_axis(axes, shape)}
     with _probe_lock:
         _probe_cache[key] = info
+        _save_probe_cache()
     return info
 
 
@@ -229,6 +260,9 @@ def list_datasets():
         raise HTTPException(503, f"No model NetCDF files found locally or on Hugging Face ({hf_error}).")
     datasets, skipped = [], []
     for fn in sorted(files, key=lambda f: (f != "INCOIS-BIO-ROMS.nc", f)):
+        if fn.endswith("_prof.nc") or "argo" in fn.lower():
+            skipped.append({"filename": fn, "reason": "Argo profile file, not a gridded model field"})
+            continue
         try:
             info = _probe(fn)
         except ms.StoreError as exc:
@@ -314,7 +348,8 @@ def metadata(filename: str, stride: Optional[int] = Query(None), z_start: Option
 @router.get("/volume3d")
 def volume3d(filename: str, variable: str, stride: Optional[int] = Query(None),
              z_start: Optional[int] = Query(None), z_count: Optional[int] = Query(None),
-             time_index: Optional[int] = Query(None)):
+             time_index: Optional[int] = Query(None), engine: str = Query("auto")):
+    """engine=direct forces the plain h5py read and bypasses the cache (for verification)."""
     try:
         info = _probe(filename)
         if not info["volumetric"]:
@@ -328,7 +363,8 @@ def volume3d(filename: str, variable: str, stride: Optional[int] = Query(None),
         cache_file = os.path.join(CACHE_DIR, hashlib.sha1(tag.encode()).hexdigest() + ".npy")
 
         data = None
-        if os.path.isfile(cache_file):
+        used = "cache"
+        if engine == "auto" and os.path.isfile(cache_file):
             try:
                 data = np.load(cache_file)
                 if data.shape != shape:
@@ -339,17 +375,15 @@ def volume3d(filename: str, variable: str, stride: Optional[int] = Query(None),
         if data is None:
             import time as _t
             t0 = _t.time()
-            with ms.file_lock(filename):
-                t1 = _t.time()
-                r = ms.open_reader(filename)
-                v = r.variables[variable]
-                raw = np.asarray(r.read(variable, _index(info, s)))
-            print(f"[volume3d] {filename}:{variable} {shape} lock-wait {t1 - t0:.1f}s read {_t.time() - t1:.1f}s "
-                  f"({r.source})", flush=True)
+            raw, used = ms.read_array(filename, variable, _index(info, s), engine)
+            v = ms.open_reader(filename).variables[variable]
+            print(f"[volume3d] {filename}:{variable} {shape} {_t.time() - t0:.1f}s via {used}", flush=True)
             data = ms.decode(raw, v.attrs)
             if data.shape != shape:
                 raise HTTPException(500, f"Read shape {data.shape} != expected {shape} for {variable}")
             try:
+                if engine != "auto":
+                    raise OSError("verification read, not cached")
                 os.makedirs(CACHE_DIR, exist_ok=True)
                 tmp = cache_file + f".{os.getpid()}.tmp.npy"
                 np.save(tmp, data)
@@ -367,6 +401,7 @@ def volume3d(filename: str, variable: str, stride: Optional[int] = Query(None),
             "X-Volume-Shape": ",".join(map(str, shape)),
             "X-Volume-Z-Axis": info["z_axis"],
             "X-Volume-Cache": "hit" if cached else "miss",
+            "X-Volume-Engine": used,
             "X-Data-Source": f"{info['source']}:{filename}",
             "X-Data-Policy": "STRICT_REAL_DATA_ZERO_SYNTHETIC",
             "Cache-Control": "public, max-age=3600",
