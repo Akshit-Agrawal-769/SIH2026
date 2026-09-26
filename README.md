@@ -4,7 +4,7 @@ A web-based 3D ocean data visualization platform that combines INCOIS Bio-ROMS m
 
 Developed for the **Smart India Hackathon 2026 (SIH 2026)**.
 
-> **Frontend (static hosting):** https://sih-zeta-gilt.vercel.app
+> **Frontend (static hosting):**  https://sih2026-drab.vercel.app
 >
 > Static hosting serves the same authentic artefacts (tiles, Argo profiles, precomputed
 > comparisons). Point analytics, WMS and NetCDF export need the API: deploy
