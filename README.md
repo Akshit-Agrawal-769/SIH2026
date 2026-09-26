@@ -63,6 +63,12 @@ India's vast Exclusive Economic Zone (EEZ) and coastline demand continuous, high
 | Point analytics | time series (OLS), spatial z-score, correlation | requires the API |
 | Water-column view (Three.js) | real surface field + nearest Argo profile | no subsurface gridded data exists |
 | WMS 1.3.0 / NetCDF export | catalogued tiles | exact subsets, real time/depth |
+| Marine heatwaves (daily) + coral DHW | NOAA OISST v2.1, 1982–present | Hobday (2016) ≥5-day events, 1991–2020 baseline; CRW DHW |
+| Marine heatwaves (monthly) + chlorophyll bloom | IBR 1980–2019 | 1990–2019 baseline and a detrended variant; HAB screening |
+| Cyclone heat potential, GPI, eddy convergence | HYCOM 3-D temperature / currents, NCEP R1, OISST | indicators, not forecasts |
+| Cyclone tracks + validation | IBTrACS v04r01 | layers checked at genesis points |
+| Drift projection (spill / SAR) | HYCOM currents (3-hourly) + GFS wind | ensemble cone; assumptions labelled; skill vs GDP drifters |
+| Advisory export | all hazard layers | GeoJSON and CAP 1.2 XML |
 
 Depth slicing below the surface shows no gridded data by design: the available model and
 analysis products are surface-only, and subsurface values are never interpolated or invented.
@@ -83,7 +89,7 @@ analysis products are surface-only, and subsurface values are never interpolated
 
 ## 6. Architecture
 
-See [docs/architecture.md](docs/architecture.md) for the complete architectural specification.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the complete architectural specification.
 
 ```text
 [ SOURCE NETCDF (datasets/, not in git) ]
@@ -117,28 +123,23 @@ the served tiles come from the Python build script.
 
 ```text
 INCOIS-3D-OCEAN-VISUALIZATION/
-├── README.md                      # Project overview (13 sections)
-├── SUBMISSION_GUIDE.md            # SIH 2026 checklist & evaluation criteria
-├── submission/                    # Evaluation deliverables
-│   ├── PRESENTATION.md            # Slide deck & cloud viewer links
-│   └── DEMO.md                    # Working demo video link & outline
-├── docs/                          # Technical documentation
-│   ├── architecture.md            # Detailed system & data architecture
-│   ├── PROBLEM_STATEMENT.md       # Official MoES/INCOIS problem description
-│   ├── DATA_STANDARDS.md          # CF-1.8 NetCDF & OGC WMS specifications
-│   └── ADDING_A_LAYER.md          # Extensible plugin guide for new sensors
-├── assets/                        # Visual media and screenshots
-│   └── screenshots/               # Interface previews and naming guide
-│       └── README.md              # Screenshot catalog
+├── README.md                      # Project overview
+├── ARCHITECTURE.md                # System & data architecture
+├── METHODOLOGY.md                 # Implemented methods, hazard layers, references
+├── DATA_POLICY.md                 # Sources and no-synthetic-data rules
+├── submission/                    # Evaluation deliverables (PRESENTATION.md, DEMO.md)
+├── docs/                          # PROBLEM_STATEMENT, DATA_STANDARDS, ADDING_A_LAYER
+├── assets/screenshots/            # Interface previews
 ├── frontend/                      # React 18 + CesiumJS + Three.js web visualizer
-├── data-service/                  # FastAPI ocean microservice
+├── data-service/                  # FastAPI ocean microservice (incl. /api/hazards)
+├── gateway/                       # Node.js API gateway
 ├── cpp_visualizer/                # C++ ocean_core engine & tile exporter
-├── gateway/                       # Node.js API Gateway reverse proxy
-├── datasets/                      # Authentic scientific NetCDF archives
-├── tiles/                         # Authoritative binary voxel tiles
-├── requirements.txt               # Top-level Python environment requirements
+├── scripts/                       # Data build, external downloads, HF upload/fetch, NRT update
+├── datasets/                      # Source data (untracked; mirrored on Hugging Face)
+├── infra/                         # PostGIS / nginx for docker compose
+├── requirements.txt               # Python requirements used by CI
+├── render.yaml                    # Render blueprint (data-service + gateway)
 ├── docker-compose.yml             # Container orchestration
-├── .gitignore                     # Git ignore rules
 └── LICENSE                        # MIT License
 ```
 
@@ -150,6 +151,7 @@ INCOIS-3D-OCEAN-VISUALIZATION/
 | `data-service/` | FastAPI backend, OGC WMS, CF-1.8 exporter, and NetCDF ingestion adapters |
 | `cpp_visualizer/` | C++ computational core, QC filtering, depth conversion, standalone tile exporter |
 | `scripts/build_authentic_dataset.py` | Builds every served artefact from the source NetCDF files |
+| `scripts/build_ext_products.py` | Builds the Disaster Early Warning products from external public datasets |
 | `gateway/` | Node.js reverse proxy (public GET, JWT for mutating requests), rate limiting |
 | `datasets/` | Authentic source NetCDF files (CMEMS, Bio-ROMS, Argo) |
 | `docs/` | Comprehensive technical architecture and scientific standards |
@@ -173,7 +175,7 @@ The team's final SIH PowerPoint presentation is documented in [submission/PRESEN
 A video demonstration of the working 3D visualizer is documented in [submission/DEMO.md](submission/DEMO.md).
 
 - **Demonstration Link:** Accessible via YouTube / Google Drive in [submission/DEMO.md](submission/DEMO.md).
-- **Note:** the demo video was recorded with an earlier build whose subsurface fields, glider/buoy platforms and current animation used synthetic data that has since been removed (see AUDIT_REPORT.md).
+- **Note:** the demo video was recorded with an earlier build whose subsurface fields, glider/buoy platforms and current animation used synthetic data that has since been removed.
 
 ---
 
@@ -213,6 +215,17 @@ pip install -r scripts/requirements-build.txt
 python scripts/build_authentic_dataset.py --ibr-year 2019
 ```
 
+### Disaster Early Warning products (external public datasets, no login)
+```bash
+python scripts/fetch_hf_datasets.py --with-ext-raw      # or: python scripts/download_external.py all
+python scripts/build_ext_products.py all                 # -> datasets/ext_products + static copies
+HF_TOKEN=... python scripts/upload_to_hf.py --ext-products --ext-raw
+python scripts/nrt_update.py --upload                    # daily refresh (also .github/workflows/nrt-ingest.yml)
+```
+The data-service downloads `ext_products/*` from the Hugging Face dataset repo on first use and
+re-checks it every `EXT_PRODUCTS_REFRESH_HOURS` (default 6). The daily GitHub Action needs the
+repository secret `HF_TOKEN` to publish.
+
 ### Option 1: Docker
 ```bash
 docker compose up --build -d
@@ -239,7 +252,7 @@ npm run dev
 
 # Tests
 cd data-service && pytest tests/            # engine + API on the real catalog
-cd frontend && npx vitest run               # timeline, colour scale, sound speed
+cd frontend && npx vitest run               # timeline, colour scale
 
 # Optional C++ build
 cmake -S cpp_visualizer -B cpp_visualizer/build && cmake --build cpp_visualizer/build
@@ -269,4 +282,4 @@ ctest --test-dir cpp_visualizer/build
 ## Important Security & Integrity Notice
 
 - **Credentials:** no secrets are committed. `docker-compose.yml` only has local-development defaults for PostGIS/MinIO, bound to 127.0.0.1. The gateway has no built-in login; mutating endpoints stay disabled unless `JWT_SECRET` (gateway) and `ADMIN_API_TOKEN` (data-service) are set.
-- **Scientific data policy:** see [DATA_POLICY.md](DATA_POLICY.md) and [METHODOLOGY.md](METHODOLOGY.md). The 2026-09 audit is summarised in [AUDIT_REPORT.md](AUDIT_REPORT.md).
+- **Scientific data policy:** see [DATA_POLICY.md](DATA_POLICY.md) and [METHODOLOGY.md](METHODOLOGY.md).

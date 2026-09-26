@@ -144,10 +144,12 @@ def depth_key(depth):
 
 # --------------------------------------------------------------------------- tiles
 
-# Codes 1-5 are the original served fields; 6-10 are derived hazard layers (catalog["derived"]).
+# Codes 1-5 are the original served fields; 6+ are derived hazard layers (catalog["derived"]).
 # Mirrored in frontend/src/api/client.ts VAR_CODES. Never renumber existing codes.
 VAR_CODES = {"temperature": 1, "salinity": 2, "currents": 3, "chlorophyll": 4, "mld": 5,
-             "mhw_intensity": 6, "current_u": 7, "current_v": 8, "vorticity": 9, "eddy_convergence": 10}
+             "mhw_intensity": 6, "current_u": 7, "current_v": 8, "vorticity": 9, "eddy_convergence": 10,
+             "chl_bloom": 11, "mhw_detrended": 12, "mhw_daily": 13, "dhw": 14, "tchp": 15, "gpi": 16,
+             "eddy_convergence_nrt": 17}
 
 
 def pack_tile(var_code, data):
@@ -654,7 +656,13 @@ def build_argo(collocator):
 # data-service/app/analytics_engine.py (mhw_intensity, relative_vorticity,
 # eddy_convergence_indicator) so the service and this build share one implementation.
 
-MHW_BASELINE = (1982, 2011)  # 30-year baseline recommended by Hobday et al. (2016)
+# 30-year baseline. 1990-2019 is the latest 30 years of the IBR record (1980-2019); Hobday et al. (2016)
+# recommend a 30-year period. A 1982-2011 baseline let the long-term warming trend itself count as
+# "heatwave" (43-67 % of the ocean flagged in every 2019 month), so the fixed baseline moved to the most
+# recent 30 years and a detrended variant (Jacox et al. 2020 style shifting baseline) is built alongside.
+MHW_BASELINE = (1990, 2019)
+CHL_BASELINE = (1990, 2019)
+CHL_FLOOR_MG_M3 = 1.0e-3  # log10 needs a positive value
 
 
 def _engine():
@@ -666,9 +674,10 @@ def _engine():
 
 
 class IBRSST:
-    """Monthly IBR SST on its native grid: local netCDF4 file, else the data-service HF reader."""
+    """Monthly IBR surface fields on the native grid: local netCDF4 file, else the data-service HF reader."""
 
-    def __init__(self):
+    def __init__(self, names=("SST",)):
+        self.names = tuple(names)
         if os.path.exists(IBR_PATH):
             self.ds = nc.Dataset(IBR_PATH)
             t = self.ds["TIME"]
@@ -676,33 +685,33 @@ class IBRSST:
             self.lat = np.ma.filled(self.ds["LAT"][:].astype(float), np.nan)
             self.lon = np.ma.filled(self.ds["LON"][:].astype(float), np.nan)
             self.source = rel(IBR_PATH)
-            self._read = lambda k0, k1: np.ma.filled(self.ds["SST"][k0:k1, :, :].astype(float), np.nan)
+            self._read = lambda name, k0, k1: np.ma.filled(self.ds[name][k0:k1, :, :].astype(np.float32), np.nan)
         else:
             sys.path.insert(0, os.path.join(REPO, "data-service"))
             from app import model_store as ms  # noqa: E402
             fn = os.path.basename(IBR_PATH)
-            log(f"[MHW] {rel(IBR_PATH)} not found locally; reading SST from Hugging Face {ms.HF_REPO} "
-                f"(~1 GB over 480 months; first run also builds the SST chunk index)")
+            log(f"[MHW] {rel(IBR_PATH)} not found locally; reading {', '.join(self.names)} from Hugging Face "
+                f"{ms.HF_REPO} (~1 GB per variable over 480 months; first run also builds the chunk index)")
             r = ms.open_reader(fn)
             dec = lambda name: ms.decode(np.asarray(r.read(name, (slice(None),))), r.variables[name].attrs)
             tv = r.variables["TIME"]
             self.times = nc.num2date(dec("TIME").astype(float), tv.attrs["units"], tv.attrs.get("calendar", "standard"))
             self.lat, self.lon = dec("LAT").astype(float), dec("LON").astype(float)
             self.source = f"huggingface:{ms.HF_REPO}/{fn}"
-            attrs = r.variables["SST"].attrs
-            self._read = lambda k0, k1: ms.decode(ms.read_array(fn, "SST", (slice(k0, k1),))[0], attrs).astype(float)
+            self._read = lambda name, k0, k1: ms.decode(ms.read_array(fn, name, (slice(k0, k1),))[0],
+                                                        r.variables[name].attrs).astype(np.float32)
             self.ds = None
 
-    def months(self, batch=12):
-        """Yield (index, cftime date, native field) for every timestep."""
+    def months(self, batch=80):
+        """Yield (index, cftime date, {name: native field}) for every timestep (batch = file chunk length)."""
         t0 = time.time()
         for k0 in range(0, len(self.times), batch):
             k1 = min(len(self.times), k0 + batch)
-            block = self._read(k0, k1)
-            log(f"[MHW] SST {self.times[k0].strftime('%Y-%m')}..{self.times[k1 - 1].strftime('%Y-%m')} "
+            blocks = {name: self._read(name, k0, k1) for name in self.names}
+            log(f"[MHW] {'/'.join(self.names)} {self.times[k0].strftime('%Y-%m')}..{self.times[k1 - 1].strftime('%Y-%m')} "
                 f"({k1}/{len(self.times)}, {time.time() - t0:.0f}s)")
             for i in range(k1 - k0):
-                yield k0 + i, self.times[k0 + i], block[i]
+                yield k0 + i, self.times[k0 + i], {name: blocks[name][i] for name in self.names}
 
     def close(self):
         if self.ds is not None:
@@ -724,51 +733,117 @@ def _regridder_for(lat, lon):
     return regrid
 
 
-def build_sst_climatology(ibr_year):
+def _monthly_stats(stack, years, baseline):
+    """Per-cell, per-calendar-month mean and 90th percentile over ``baseline`` of a (12, Y, H, W) stack.
+    A cell's statistic is NaN unless every baseline year is finite there (no partial-record statistics)."""
+    import warnings
+    y0, y1 = baseline
+    sel = [i for i, y in enumerate(years) if y0 <= y <= y1]
+    base = stack[:, sel]
+    count = np.isfinite(base).sum(axis=1).astype(np.int16)
+    complete = count == len(sel)
+    with warnings.catch_warnings(), np.errstate(all="ignore"):
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN (land) cells; masked just below
+        clim = np.nanmean(base, axis=1).astype(np.float32)
+        p90 = np.nanpercentile(base, 90, axis=1).astype(np.float32)
+    clim[~complete] = np.nan
+    p90[~complete] = np.nan
+    return clim, p90, count
+
+
+def _decimal_years(years):
+    return np.asarray(years, dtype=np.float32)[None, :, None, None] + (np.arange(12)[:, None, None, None] + 0.5) / 12
+
+
+def _linear_trend(stack, years):
+    """Per-cell least-squares trend (units per year) of the deseasonalised monthly series (12, Y, H, W).
+    NaN unless every month of the record is finite at that cell (no partial-record statistics)."""
+    import warnings
+    with warnings.catch_warnings(), np.errstate(all="ignore"):
+        warnings.simplefilter("ignore", RuntimeWarning)
+        complete = np.isfinite(stack).all(axis=(0, 1))
+        t = _decimal_years(years)[:, :, 0, 0].astype(np.float64)       # (12, Y)
+        tc = (t - t.mean()).astype(np.float32)
+        slope = np.zeros(stack.shape[2:], dtype=np.float64)
+        for m in range(12):  # month by month keeps the temporaries small
+            anom = stack[m] - np.nanmean(stack[m], axis=0, keepdims=True)  # (Y, H, W)
+            slope += np.tensordot(tc[m], np.nan_to_num(anom), axes=(0, 0))
+        slope /= float((tc.astype(np.float64) ** 2).sum())
+    slope = slope.astype(np.float32)
+    slope[~complete] = np.nan
+    return slope
+
+
+def build_ibr_climatologies(ibr_year):
     """
-    Per-cell, per-calendar-month SST mean and 90th percentile over MHW_BASELINE (served grid),
-    plus the regridded SST of the display year. A cell's climatology is NaN unless every
-    baseline year is finite there (no partial-record statistics).
+    One pass over the IBR record building:
+      * sst_climatology.npz - fixed-baseline (MHW_BASELINE) monthly SST mean / p90, plus the detrended
+        variant: per-cell linear trend removed relative to the baseline midpoint, then mean / p90;
+      * chl_climatology.npz - monthly log10(CHL) mean / p90 over CHL_BASELINE (bloom anomaly index).
+    Returns ({date: {"sst": tile, "chl": tile}} for the display year, metadata).
     """
-    src = IBRSST()
+    src = IBRSST(("SST", "CHL"))
     regrid = _regridder_for(src.lat, src.lon)
-    y0, y1 = MHW_BASELINE
-    nyears = y1 - y0 + 1
-    stack = np.full((12, nyears, GRID["height"], GRID["width"]), np.nan, dtype=np.float32)
+    years = sorted({t.year for t in src.times})
+    sst = np.full((12, len(years), GRID["height"], GRID["width"]), np.nan, dtype=np.float32)
+    chl = np.full_like(sst, np.nan)
     seen = set()
     display = {}
-    for k, t, field in src.months():
+    for k, t, fields in src.months():
         key = (t.year, t.month)
         if key in seen:
             raise SystemExit(f"IBR has two timesteps in {t.year}-{t.month:02d}; monthly climatology is ambiguous.")
         seen.add(key)
-        if y0 <= t.year <= y1 or t.year == ibr_year:
-            tile = regrid(field)
-            if y0 <= t.year <= y1:
-                stack[t.month - 1, t.year - y0] = tile
-            if t.year == ibr_year:
-                display[t.strftime("%Y-%m-%d")] = tile
+        s_tile = regrid(fields["SST"])
+        c_mg = regrid(fields["CHL"] * 1.0e6)  # kg/m3 -> mg/m3, as served
+        with np.errstate(all="ignore"):
+            c_tile = np.log10(np.maximum(c_mg, CHL_FLOOR_MG_M3)).astype(np.float32)
+        c_tile[~np.isfinite(c_mg)] = np.nan
+        yi = years.index(t.year)
+        sst[t.month - 1, yi] = s_tile
+        chl[t.month - 1, yi] = c_tile
+        if t.year == ibr_year:
+            display[t.strftime("%Y-%m-%d")] = {"sst": s_tile, "chl": c_tile}
     src_name = src.source
     src.close()
-    missing = [(m + 1, y0 + y) for m in range(12) for y in range(nyears) if not np.isfinite(stack[m, y]).any()]
-    if missing:
-        raise SystemExit(f"Baseline months missing from IBR: {missing[:6]}{'...' if len(missing) > 6 else ''}")
-    count = np.isfinite(stack).sum(axis=1).astype(np.int16)          # (12, H, W)
-    complete = count == nyears
-    import warnings
-    with warnings.catch_warnings(), np.errstate(all="ignore"):
-        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN (land) cells; masked just below
-        clim = np.nanmean(stack, axis=1).astype(np.float32)
-        p90 = np.nanpercentile(stack, 90, axis=1).astype(np.float32)
-    clim[~complete] = np.nan
-    p90[~complete] = np.nan
+    for (y0, y1), what in ((MHW_BASELINE, "SST"), (CHL_BASELINE, "CHL")):
+        missing = [(m + 1, y) for m in range(12) for y in range(y0, y1 + 1) if (y, m + 1) not in seen]
+        if missing:
+            raise SystemExit(f"{what} baseline months missing from IBR: {missing[:6]}")
+
+    clim, p90, count = _monthly_stats(sst, years, MHW_BASELINE)
+    slope = _linear_trend(sst, years)
+    t_ref = 0.5 * (MHW_BASELINE[0] + MHW_BASELINE[1] + 1)  # baseline midpoint (decimal year)
+    sst -= slope[None, None] * (_decimal_years(years) - t_ref)  # in place: detrended from here on
+    clim_d, p90_d, _ = _monthly_stats(sst, years, MHW_BASELINE)
     path = os.path.join(OUT, "data", "sst_climatology.npz")
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    np.savez_compressed(path, clim=clim, p90=p90, count=count, baseline=np.array(MHW_BASELINE, dtype=np.int16))
-    log(f"[MHW] climatology {y0}-{y1} -> {rel(path)} ({int(complete[0].sum())} complete ocean cells)")
-    return display, {"file": rel(path), "baseline": list(MHW_BASELINE), "source": src_name,
-                     "percentile_method": "numpy nanpercentile (linear interpolation) over the 30 baseline years",
-                     "window": "calendar month (no day-of-year smoothing; monthly data)"}
+    np.savez_compressed(path, clim=clim, p90=p90, count=count, baseline=np.array(MHW_BASELINE, dtype=np.int16),
+                        clim_detrended=clim_d, p90_detrended=p90_d, trend_per_year=slope,
+                        trend_ref_year=np.array([t_ref], dtype=np.float32))
+    trend_dec = float(np.nanmedian(slope) * 10)
+    log(f"[MHW] SST climatology {MHW_BASELINE} (+ detrended) -> {rel(path)}; median trend {trend_dec:.3f} degC/decade")
+
+    cclim, cp90, ccount = _monthly_stats(chl, years, CHL_BASELINE)
+    cpath = os.path.join(OUT, "data", "chl_climatology.npz")
+    np.savez_compressed(cpath, clim=cclim, p90=cp90, count=ccount, baseline=np.array(CHL_BASELINE, dtype=np.int16),
+                        floor_mg_m3=np.array([CHL_FLOOR_MG_M3], dtype=np.float32))
+    log(f"[CHL] log10(CHL) climatology {CHL_BASELINE} -> {rel(cpath)}")
+    del sst, chl
+    meta = {
+        "sst": {"file": rel(path), "baseline": list(MHW_BASELINE), "source": src_name,
+                "percentile_method": "numpy nanpercentile (linear interpolation) over the 30 baseline years",
+                "window": "calendar month (no day-of-year smoothing; monthly data)",
+                "detrended": {"method": "per-cell least-squares linear trend of the deseasonalised "
+                                        f"{years[0]}-{years[-1]} monthly SST removed relative to the baseline "
+                                        f"midpoint {t_ref:.1f}; mean and p90 then recomputed over the baseline",
+                              "reference": "Jacox et al. (2020), Nature 584, 82-86 (shifting baseline)",
+                              "median_trend_degC_per_decade": round(trend_dec, 4)}},
+        "chl": {"file": rel(cpath), "baseline": list(CHL_BASELINE), "source": src_name,
+                "transform": f"log10(max(CHL mg/m3, {CHL_FLOOR_MG_M3}))",
+                "percentile_method": "numpy nanpercentile (linear interpolation) over the 30 baseline years"},
+    }
+    return display, meta
 
 
 def build_armor_derived():
@@ -795,28 +870,49 @@ def build_armor_derived():
 
 
 def build_hazard_layers(ibr_year):
-    """Write derived tiles + climatology; return the catalog 'derived' section."""
+    """Write derived tiles + climatologies; return the catalog 'derived' section."""
     ae = _engine()
     armor_date, zeta = build_armor_derived()
-    display, clim_meta = build_sst_climatology(ibr_year)
-    with np.load(os.path.join(OUT, "data", "sst_climatology.npz")) as z:
-        clim, p90 = z["clim"], z["p90"]
+    display, clim_meta = build_ibr_climatologies(ibr_year)
+    sclim = dict(np.load(os.path.join(OUT, "data", "sst_climatology.npz")))
+    cclim = dict(np.load(os.path.join(OUT, "data", "chl_climatology.npz")))
     dates = sorted(display)
     for d in dates:
         m = int(d[5:7]) - 1
-        write_tile("mhw_intensity", d, ae.mhw_intensity(display[d], clim[m], p90[m]))
-        ind, ref = ae.eddy_convergence_indicator(display[d], zeta, TGT_LATS)
+        sst, chl = display[d]["sst"], display[d]["chl"]
+        write_tile("mhw_intensity", d, ae.mhw_intensity(sst, sclim["clim"][m], sclim["p90"][m]))
+        write_tile("mhw_detrended", d, ae.mhw_detrended(sst, d, sclim))
+        write_tile("chl_bloom", d, ae.mhw_intensity(chl, cclim["clim"][m], cclim["p90"][m]))
+        ind, ref = ae.eddy_convergence_indicator(sst, zeta, TGT_LATS)
         write_tile("eddy_convergence", d, ind)
-    log(f"[Hazards] MHW + eddy-convergence tiles for {len(dates)} months of {ibr_year}")
-    fixed = {"fixed_date": armor_date, "source_id": "armor3d", "depths": [SURFACE_DEPTH]}
-    return {
+    log(f"[Hazards] MHW (fixed + detrended), chlorophyll bloom and eddy-convergence tiles for "
+        f"{len(dates)} months of {ibr_year}")
+    cats = {"1": "Moderate", "2": "Strong", "3": "Severe", "4": "Extreme"}
+    ibr_layers = {
         "mhw_intensity": {
             "var_code": VAR_CODES["mhw_intensity"], "units": "ratio", "source_id": "ibr",
-            "long_name": "Monthly-mean marine heatwave intensity ratio (SST - clim) / (p90 - clim)",
+            "long_name": "Monthly-mean marine heatwave intensity ratio (SST - clim) / (p90 - clim), "
+                         f"fixed {MHW_BASELINE[0]}-{MHW_BASELINE[1]} baseline",
             "static_timesteps": dates, "on_demand": "any IBR timestep (derived from its SST tile)",
-            "categories": {"1": "Moderate", "2": "Strong", "3": "Severe", "4": "Extreme"},
-            "climatology": clim_meta, "caveat": ae.MHW_CAVEAT,
+            "categories": cats, "climatology": clim_meta["sst"], "caveat": ae.MHW_CAVEAT,
         },
+        "mhw_detrended": {
+            "var_code": VAR_CODES["mhw_detrended"], "units": "ratio", "source_id": "ibr",
+            "long_name": "Monthly-mean marine heatwave intensity ratio on linearly detrended SST",
+            "static_timesteps": dates, "on_demand": "any IBR timestep (derived from its SST tile)",
+            "categories": cats, "climatology": clim_meta["sst"], "caveat": ae.MHW_DETRENDED_CAVEAT,
+        },
+        "chl_bloom": {
+            "var_code": VAR_CODES["chl_bloom"], "units": "ratio", "source_id": "ibr",
+            "long_name": "Chlorophyll bloom anomaly index (log10 CHL - clim) / (p90 - clim)",
+            "static_timesteps": dates, "on_demand": "any IBR timestep (derived from its chlorophyll tile)",
+            "categories": {"1": "Elevated", "2": "High", "3": "Very high", "4": "Extreme"},
+            "climatology": clim_meta["chl"], "caveat": ae.CHL_BLOOM_CAVEAT,
+        },
+    }
+    fixed = {"fixed_date": armor_date, "source_id": "armor3d", "depths": [SURFACE_DEPTH]}
+    return {
+        **ibr_layers,
         "current_u": {**fixed, "var_code": VAR_CODES["current_u"], "units": "m/s",
                       "long_name": "Eastward surface geostrophic velocity (ugo)", "caveat": ae.GEOSTROPHIC_CAVEATS[0]},
         "current_v": {**fixed, "var_code": VAR_CODES["current_v"], "units": "m/s",

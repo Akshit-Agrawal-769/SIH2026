@@ -1,0 +1,36 @@
+name: Near-real-time hazard products
+
+# Daily refresh of the Disaster Early Warning products from public sources (NOAA OISST, HYCOM, GFS,
+# IBTrACS) and publication to the Hugging Face dataset repo read by the data-service.
+# Requires the repository secret HF_TOKEN (a Hugging Face token with write access to HF_DATASET_REPO);
+# without it the products are built but not uploaded.
+
+on:
+  schedule:
+    - cron: '30 7 * * *'   # 07:30 UTC, after the NOAA OISST preliminary day is posted
+  workflow_dispatch:
+
+concurrency:
+  group: nrt-ingest
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ScaryCobra/incois
+      IBR_LIVE_TILES: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install build dependencies
+        run: pip install -r scripts/requirements-build.txt
+      - name: Update products
+        run: python scripts/nrt_update.py --days 7 --upload

@@ -1,5 +1,11 @@
-# Offline data build (scripts/build_authentic_dataset.py). Not needed at runtime.
+# Offline data builds (scripts/build_authentic_dataset.py, scripts/build_ext_products.py,
+# scripts/download_external.py, scripts/nrt_update.py). Not needed at runtime.
 numpy>=1.26.4
 scipy>=1.13.1
 netCDF4>=1.6.5
 gsw>=3.6.17
+requests>=2.31
+pandas>=2.0
+huggingface_hub>=0.24.0
+# Genesis Potential Index only (potential intensity, Bister & Emanuel 2002 via Gilford 2021)
+tcpyPI>=1.3

@@ -1,13 +1,16 @@
 import * as Cesium from 'cesium';
-import { DisasterLayerId, DriftResult, fetchHazardTile } from '../api/hazardsClient';
+import {
+  CycloneTrackStorm, DisasterLayerId, DriftResult, EXT_LAYERS, ExtLayerId, MONTHLY_LAYERS, fetchHazardTile, isExtLayer
+} from '../api/hazardsClient';
 import { NoDataError, OceanTileData } from '../api/client';
 import { GRID } from './grid';
 
 /**
  * Disaster Early Warning overlays on the Cesium globe:
- *  - MHW index (Hobday category colours) and the warm-water & eddy convergence indicator
- *    (amber->orange by indicator value) as semi-transparent, glow-softened imagery layers;
- *  - drift paths as glowing polylines (neon green forward, magenta reverse).
+ *  - ratio indices (monthly MHW fixed / detrended, chlorophyll bloom, daily MHW) in category colours;
+ *  - DHW, TCHP, GPI and the eddy convergence indicators on their own scales;
+ *  - drift paths as glowing polylines with the ensemble uncertainty cone (2-sigma ellipses);
+ *  - IBTrACS best tracks coloured by intensity.
  * Cells that are NaN in the tile (land / no data / undefined) are fully transparent.
  */
 
@@ -19,7 +22,25 @@ export const MHW_COLORS: Record<number, [number, number, number]> = {
   4: [45, 0, 0]       // Extreme
 };
 export const MHW_LABELS: Record<number, string> = { 1: 'Moderate', 2: 'Strong', 3: 'Severe', 4: 'Extreme' };
+export const BLOOM_COLORS: Record<number, [number, number, number]> = {
+  1: [190, 240, 120], 2: [90, 200, 60], 3: [20, 140, 40], 4: [0, 80, 30]
+};
+export const BLOOM_LABELS: Record<number, string> = { 1: 'Elevated', 2: 'High', 3: 'Very high', 4: 'Extreme' };
+// NOAA Coral Reef Watch DHW style: yellow -> orange -> red -> dark red
+export const DHW_STOPS: [number, [number, number, number]][] = [
+  [0.5, [255, 240, 120]], [4, [255, 150, 0]], [8, [220, 0, 0]], [12, [120, 0, 0]]
+];
 export const DRIFT_COLORS = { forward: '#39FF14', reverse: '#FF00FF' } as const;
+/** Saffir-Simpson-like colours by maximum sustained wind (kt). */
+export const TRACK_BANDS: [number, string, string][] = [
+  [0, '#5ebaff', '< 34 kt (depression)'],
+  [34, '#00faf4', '34-63 kt (cyclonic storm)'],
+  [64, '#ffffcc', '64-82 kt'],
+  [83, '#ffe775', '83-95 kt'],
+  [96, '#ffc140', '96-112 kt'],
+  [113, '#ff8f20', '113-136 kt'],
+  [137, '#ff6060', '>= 137 kt']
+];
 
 export interface HazardStatus {
   layer: DisasterLayerId;
@@ -28,23 +49,69 @@ export interface HazardStatus {
 }
 
 export interface HazardLayersManager {
-  update: (active: DisasterLayerId[], date: string | null) => void;
+  update: (active: DisasterLayerId[], monthlyDate: string | null, extDates: Partial<Record<ExtLayerId, string>>) => void;
   setDrift: (result: DriftResult | null) => void;
+  setTracks: (storms: CycloneTrackStorm[] | null) => void;
   destroy: () => void;
 }
 
+function ramp(stops: [number, [number, number, number]][], v: number): [number, number, number] {
+  if (v <= stops[0][0]) return stops[0][1];
+  for (let i = 1; i < stops.length; i++) {
+    if (v <= stops[i][0]) {
+      const [a, ca] = stops[i - 1];
+      const [b, cb] = stops[i];
+      const t = (v - a) / (b - a);
+      return [0, 1, 2].map((k) => Math.round(ca[k] + t * (cb[k] - ca[k]))) as [number, number, number];
+    }
+  }
+  return stops[stops.length - 1][1];
+}
+
+export const TCHP_STOPS: [number, [number, number, number]][] = [
+  [20, [60, 60, 160]], [50, [255, 200, 0]], [90, [255, 90, 0]], [130, [200, 0, 60]]
+];
+export const GPI_STOPS: [number, [number, number, number]][] = [
+  [0.5, [80, 60, 160]], [2, [150, 70, 200]], [5, [230, 90, 200]], [10, [255, 200, 240]]
+];
+
 function colourFor(layer: DisasterLayerId, v: number): [number, number, number, number] | null {
   if (!Number.isFinite(v)) return null;
-  if (layer === 'mhw_intensity') {
-    if (v < 1) return null;
-    const cat = Math.min(4, Math.floor(v));
-    const [r, g, b] = MHW_COLORS[cat];
-    return [r, g, b, 190];
+  switch (layer) {
+    case 'mhw_intensity':
+    case 'mhw_detrended':
+    case 'mhw_daily': {
+      if (v < 1) return null;
+      const [r, g, b] = MHW_COLORS[Math.min(4, Math.floor(v))];
+      return [r, g, b, 190];
+    }
+    case 'chl_bloom': {
+      if (v < 1) return null;
+      const [r, g, b] = BLOOM_COLORS[Math.min(4, Math.floor(v))];
+      return [r, g, b, 190];
+    }
+    case 'dhw': {
+      if (v < 0.5) return null;
+      const [r, g, b] = ramp(DHW_STOPS, v);
+      return [r, g, b, Math.round(110 + Math.min(1, v / 8) * 110)];
+    }
+    case 'tchp': {
+      if (v < 20) return null;
+      const [r, g, b] = ramp(TCHP_STOPS, v);
+      return [r, g, b, v >= 50 ? 200 : 110];
+    }
+    case 'gpi': {
+      if (v < 0.5) return null;
+      const [r, g, b] = ramp(GPI_STOPS, v);
+      return [r, g, b, Math.round(100 + Math.min(1, v / 5) * 110)];
+    }
+    default: {
+      if (v <= 0) return null;
+      const t = Math.min(1, v / 100);
+      // amber (255,191,0) -> deep orange (255,94,0); opacity grows with the indicator
+      return [255, Math.round(191 - 97 * t), 0, Math.round(70 + 150 * t)];
+    }
   }
-  if (v <= 0) return null;
-  const t = Math.min(1, v / 100);
-  // amber (255,191,0) -> deep orange (255,94,0); opacity grows with the indicator
-  return [255, Math.round(191 - 97 * t), 0, Math.round(70 + 150 * t)];
 }
 
 function renderTile(layer: DisasterLayerId, tile: OceanTileData): HTMLCanvasElement {
@@ -86,12 +153,21 @@ function renderTile(layer: DisasterLayerId, tile: OceanTileData): HTMLCanvasElem
   return out;
 }
 
+export function trackColour(windKt: number | null): string {
+  if (windKt === null || !Number.isFinite(windKt)) return '#8899aa';
+  let c = TRACK_BANDS[0][1];
+  for (const [lo, col] of TRACK_BANDS) if (windKt >= lo) c = col;
+  return c;
+}
+
 export function createHazardLayers(viewer: Cesium.Viewer, onStatus?: (s: HazardStatus) => void): HazardLayersManager {
-  const LAYERS: DisasterLayerId[] = ['mhw_intensity', 'eddy_convergence'];
+  const LAYERS: DisasterLayerId[] = [...MONTHLY_LAYERS, ...EXT_LAYERS];
   const imagery = new Map<DisasterLayerId, Cesium.ImageryLayer>();
   const keys = new Map<DisasterLayerId, string>();
   const seq = new Map<DisasterLayerId, number>();
   let driftEntities: Cesium.Entity[] = [];
+  let trackCollection: Cesium.PolylineCollection | null = null;
+  let trackPoints: Cesium.PointPrimitiveCollection | null = null;
 
   const remove = (layer: DisasterLayerId) => {
     const l = imagery.get(layer);
@@ -134,9 +210,17 @@ export function createHazardLayers(viewer: Cesium.Viewer, onStatus?: (s: HazardS
     driftEntities = [];
   };
 
+  const clearTracks = () => {
+    if (trackCollection && !viewer.isDestroyed()) viewer.scene.primitives.remove(trackCollection);
+    if (trackPoints && !viewer.isDestroyed()) viewer.scene.primitives.remove(trackPoints);
+    trackCollection = null;
+    trackPoints = null;
+  };
+
   return {
-    update: (active, date) => {
+    update: (active, monthlyDate, extDates) => {
       for (const layer of LAYERS) {
+        const date = isExtLayer(layer) ? extDates[layer] ?? null : monthlyDate;
         if (active.includes(layer) && date) void show(layer, date);
         else {
           seq.set(layer, (seq.get(layer) ?? 0) + 1);
@@ -148,6 +232,29 @@ export function createHazardLayers(viewer: Cesium.Viewer, onStatus?: (s: HazardS
       clearDrift();
       if (!result || result.path.length < 2 || viewer.isDestroyed()) return;
       const color = Cesium.Color.fromCssColorString(DRIFT_COLORS[result.mode]);
+      // uncertainty cone: 2-sigma ellipses of the ensemble at 6/12/24/48/72 h ...
+      for (const c of result.cone ?? []) {
+        if (c.ellipse.length < 3) continue;
+        driftEntities.push(viewer.entities.add({
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(c.ellipse.flatMap(([la, lo]) => [lo, la]))),
+            material: color.withAlpha(0.08),
+            outline: false,
+            height: 0
+          },
+          polyline: {
+            positions: Cesium.Cartesian3.fromDegreesArray([...c.ellipse, c.ellipse[0]].flatMap(([la, lo]) => [lo, la])),
+            width: 1.5,
+            material: color.withAlpha(0.55)
+          }
+        }));
+      }
+      for (const [la, lo] of result.members_end ?? []) {
+        driftEntities.push(viewer.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(lo, la),
+          point: { pixelSize: 3, color: color.withAlpha(0.7) }
+        }));
+      }
       const positions = Cesium.Cartesian3.fromDegreesArray(result.path.flatMap((p) => [p.lon, p.lat]));
       driftEntities.push(viewer.entities.add({
         polyline: {
@@ -178,17 +285,48 @@ export function createHazardLayers(viewer: Cesium.Viewer, onStatus?: (s: HazardS
           }
         });
       const hrs = result.hours_simulated.toFixed(0);
+      const tag = result.engine === 'geostrophic' ? ' (geostrophic only)' : ' (central run)';
       if (result.mode === 'forward') {
         driftEntities.push(marker(result.start.lat, result.start.lon, 'Release point'));
-        driftEntities.push(marker(last.lat, last.lon, `+${hrs} h (geostrophic only)`));
+        driftEntities.push(marker(last.lat, last.lon, `+${hrs} h${tag}`));
       } else {
         driftEntities.push(marker(result.start.lat, result.start.lon, 'Last known position'));
-        driftEntities.push(marker(last.lat, last.lon, `−${hrs} h probable origin (geostrophic only)`));
+        driftEntities.push(marker(last.lat, last.lon, `−${hrs} h probable origin${tag}`));
+      }
+    },
+    setTracks: (storms) => {
+      clearTracks();
+      if (!storms || !storms.length || viewer.isDestroyed()) return;
+      trackCollection = viewer.scene.primitives.add(new Cesium.PolylineCollection());
+      trackPoints = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection());
+      for (const st of storms) {
+        const pts = st.points;
+        // one short polyline per segment so each carries the colour of its intensity
+        for (let i = 1; i < pts.length; i++) {
+          const a = pts[i - 1];
+          const b = pts[i];
+          trackCollection!.add({
+            positions: Cesium.Cartesian3.fromDegreesArray([a[2], a[1], b[2], b[1]]),
+            width: 2,
+            material: Cesium.Material.fromType('Color', {
+              color: Cesium.Color.fromCssColorString(trackColour(b[3])).withAlpha(0.85)
+            })
+          });
+        }
+        const g = st.genesis;
+        trackPoints!.add({
+          position: Cesium.Cartesian3.fromDegrees(g.lon, g.lat),
+          pixelSize: 5,
+          color: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 1
+        });
       }
     },
     destroy: () => {
       for (const layer of LAYERS) remove(layer);
       clearDrift();
+      clearTracks();
     }
   };
 }

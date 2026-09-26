@@ -96,8 +96,6 @@ WMO 2902120 (210 pairs, 2014–2020) and WMO 2902084 (52 pairs, 2012–2014).
   |T − T(10 m)| ≥ 0.2 °C (de Boyer Montégut et al., 2004), linearly interpolated between
   measured levels; thermocline = mid-depth of the largest downward temperature decrease
   rate between consecutive levels below the MLD (≤ 1000 m).
-* **Sound speed** (water-column view): Mackenzie (1981) nine-term equation from the
-  measured T, S and depth; check value 1550.744 m s⁻¹ at (25 °C, 35, 1000 m).
 
 ## 6. Timeline (`frontend/src/timeline/timelineEngine.ts`)
 
@@ -138,10 +136,69 @@ Date inputs are interpreted as UTC. Unit tests cover the gap example
 * Static hosting (Vercel) cannot compute point analytics; set `VITE_API_BASE_URL` to a
   running data-service/gateway.
 
+## 10. Disaster Early Warning layers
+
+Built by `scripts/build_authentic_dataset.py --hazards-only` (IBR monthly layers) and
+`scripts/build_ext_products.py` (external datasets, downloaded by `scripts/download_external.py`),
+served by `data-service/app/analytics_engine.py` and `data-service/app/ext_hazards.py` under
+`/api/hazards/*`. Products live in the Hugging Face dataset repo under `ext_products/`; raw source
+subsets under `ext_raw/`. `scripts/nrt_update.py` (daily GitHub Action `nrt-ingest.yml`) refreshes the
+daily products and republishes them; the service re-checks Hugging Face every
+`EXT_PRODUCTS_REFRESH_HOURS` (default 6).
+
+| Layer | Data | Method | Main caveat |
+|---|---|---|---|
+| MHW, monthly, fixed | IBR SST 1980–2019 | Hobday et al. (2018) ratio vs per-cell monthly mean / p90, **1990–2019** baseline | No ≥5-day rule on monthly data |
+| MHW, monthly, detrended | IBR SST | per-cell linear trend of the deseasonalised record removed relative to the baseline midpoint, then mean / p90 (Jacox et al. 2020) | Linear trend only |
+| Chlorophyll bloom anomaly | IBR CHL | same ratio on log10(CHL), 1990–2019 | Biomass, not harmful species |
+| MHW, daily | NOAA OISST v2.1 1982–present, 0.25° | Hobday et al. (2016): day-of-year climatology and 90th percentile (11-day window, 31-day smoothing), 1991–2020; events ≥ 5 days, gaps ≤ 2 days joined | Interpolated satellite analysis |
+| Degree Heating Weeks | OISST | NOAA CRW v3.1: MMM from 1985–2012 monthly means recentred to 1988.2857; DHW = Σ HotSpot≥1 over 84 d / 7 | CRW uses 5 km CoralTemp |
+| TCHP | HYCOM ESPC-D-V02 3-D temperature (00 UTC) | Leipper & Volgenau (1972), ρ = 1025 kg m⁻³, c_p = 3992 J kg⁻¹ K⁻¹ | Model analysis |
+| GPI | NCEP/NCAR R1 monthly + OISST | Emanuel & Nolan (2004); potential intensity by tcpyPI (Bister & Emanuel 2002; Gilford 2021) | 2.5°; R1 humidity above 300 hPa treated as 0; R1 monthly updates end early 2026 |
+| Eddy convergence, same day | OISST + daily-mean HYCOM total current | SST ≥ 26.5 °C and cyclonic relative vorticity | Ocean-only indicator |
+| Cyclone tracks | IBTrACS v04r01 NI + SI | WMO-agency (IMD) winds, else JTWC | Recent seasons provisional |
+
+**Drift.** RK4 (30 min) through 3-hourly HYCOM total surface currents plus *windage* × GFS 10 m wind
+(0 %, 1 % or 3 % presets; the 3 % oil rule includes wave-induced drift empirically), bilinear in space and
+linear in time. Ensemble: member 0 deterministic; others with a Gaussian start perturbation (σ = 1 km),
+±30 % windage and a random walk dx = √(2KΔt)·N(0,1) (K = 50 m² s⁻¹ default). Windage, K and σ are
+**assumptions** and are labelled as such in every response; the cone is the 2-σ covariance ellipse of the
+members. Particles strand at the last ocean cell of the 1/8° grid.
+
+**Drift skill.** 72-h segments of NOAA GDP 6-hourly drifters (Apr–May 2025) are hindcast with (a) the
+previous static ARMOR3D geostrophic snapshot, (b) HYCOM currents, (c) HYCOM + 1 % NCEP R2 wind, and scored by
+separation at 24/48/72 h and the Liu & Weisberg (2011) skill score (`/api/hazards/drift/skill`).
+
+**Validation against storms.** `/api/hazards/validation`: GPI at IBTrACS genesis points (first fix ≥ 34 kt)
+versus all North Indian Ocean cells of the same month; OISST at genesis versus 26.5 °C; monthly MHW indices
+at genesis.
+
+**Export.** `/api/hazards/advisories.geojson` (bounding boxes of flagged regions) and
+`/api/hazards/advisories.cap.xml` (OASIS CAP 1.2, certainty "Observed", urgency "Unknown", with a note that
+this is a research prototype, not an official INCOIS warning).
+
+**Sources not used.** CMEMS (total currents, Stokes drift, ARMOR3D 3-D) and ERA5 need accounts; the CMEMS
+credentials provided were rejected by the Copernicus login service ("Invalid user credentials"), so HYCOM,
+GFS and NCEP R1/R2 (public, no login) were used instead.
+
 ## References
 
 * de Boyer Montégut, C., et al. (2004). Mixed layer depth over the global ocean. *JGR*, 109, C12003.
-* Mackenzie, K. V. (1981). Nine-term equation for sound speed in the oceans. *JASA*, 70(3), 807–812.
 * IOC, SCOR & IAPSO (2010). *TEOS-10*. Manuals and Guides No. 56, UNESCO.
 * Argo Data Management Team. *Argo user's manual*. doi:10.13155/29825.
 * Ghoshal, P. K., Joshi, A. P., & Chakraborty, K. INCOIS Bio-ROMS data. doi:10.5281/zenodo.13802393.
+* Hobday, A. J., et al. (2016). A hierarchical approach to defining marine heatwaves. *Prog. Oceanogr.*, 141, 227–238.
+* Hobday, A. J., et al. (2018). Categorizing and naming marine heatwaves. *Oceanography*, 31(2), 162–173.
+* Jacox, M. G., et al. (2020). Thermal displacement by marine heatwaves. *Nature*, 584, 82–86.
+* Huang, B., et al. (2021). Improvements of the Daily Optimum Interpolation SST (DOISST) v2.1. *J. Climate*, 34, 2923–2939.
+* Liu, G., et al. (2014). Reef-scale thermal stress monitoring of coral ecosystems. *Remote Sens.*, 6, 11579–11606.
+* Leipper, D. F., & Volgenau, D. (1972). Hurricane heat potential of the Gulf of Mexico. *J. Phys. Oceanogr.*, 2, 218–224.
+* Mainelli, M., et al. (2008). Application of oceanic heat content estimation to operational forecasting. *Wea. Forecasting*, 23, 3–16.
+* Emanuel, K., & Nolan, D. S. (2004). Tropical cyclone activity and the global climate system. *26th Conf. Hurricanes Trop. Meteor.*, AMS.
+* Bister, M., & Emanuel, K. A. (2002). Low frequency variability of tropical cyclone potential intensity. *JGR*, 107(D24), 4801.
+* Gilford, D. M. (2021). pyPI (v1.3): Tropical cyclone potential intensity calculations in Python. *Geosci. Model Dev.*, 14, 2351–2369.
+* Kalnay, E., et al. (1996). The NCEP/NCAR 40-year reanalysis project. *BAMS*, 77, 437–471.
+* Knapp, K. R., et al. (2010). The International Best Track Archive for Climate Stewardship (IBTrACS). *BAMS*, 91, 363–376.
+* Liu, Y., & Weisberg, R. H. (2011). Evaluation of trajectory modeling in different dynamic regions using normalized cumulative Lagrangian separation. *JGR*, 116, C09013.
+* ASCE Task Committee on Modeling of Oil Spills (1996). State-of-the-art review of modeling transport and fate of oil spills. *J. Hydraul. Eng.*, 122(11), 594–609.
+* Lumpkin, R., & Centurioni, L. (2019). Global Drifter Program quality-controlled 6-hour interpolated data. NOAA NCEI. doi:10.25921/7ntx-z961.

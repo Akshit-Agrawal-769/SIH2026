@@ -1,10 +1,12 @@
 import { create } from 'zustand';
-import { fetchCatalog, DataCatalog, VariableCatalogEntry } from '../api/client';
+import { fetchCatalog, DataCatalog } from '../api/client';
 import { nearestTime, normalizeTimes, StepUnit, toMs } from '../timeline/timelineEngine';
 import { configureGrid } from '../rendering/grid';
 import {
-  Advisory, DisasterLayerId, DriftMode, DriftResult, EddySummary, MhwSummary, Unavailable,
-  fetchAdvisories, fetchDrift, fetchEddySummary, fetchMhwSummary
+  Advisory, CycloneTracksDoc, DisasterLayerId, DriftMode, DriftOptions, DriftResult, DriftSkillDoc, DriftWindow,
+  EddySummary, ExtLayerId, ExtLayerMeta, ExtSummary, MhwSummary, MonthlyLayerId, Unavailable, ValidationDoc,
+  EXT_LAYERS, fetchAdvisories, fetchCycloneTracks, fetchDrift, fetchDriftSkill, fetchDriftWindow, fetchEddySummary,
+  fetchExtCatalog, fetchExtSummary, fetchMhwSummary, fetchValidation, isExtLayer
 } from '../api/hazardsClient';
 
 export const MODEL_FIELDS = ['temperature', 'salinity', 'chlorophyll', 'mld', 'currents'] as const;
@@ -128,14 +130,39 @@ export interface OceanState {
   setIsPickingDriftPoint: (picking: boolean) => void;
   driftResult: DriftResult | Unavailable | null;
   driftLoading: boolean;
+  driftOptions: DriftOptions;
+  setDriftOptions: (patch: Partial<DriftOptions>) => void;
+  driftWindow: DriftWindow | Unavailable | null;
+  loadDriftWindow: () => Promise<void>;
   runDriftSimulation: () => Promise<void>;
   clearDrift: () => void;
-  /** MHW / eddy-convergence summaries for hazardDate (named for the indicator, not a risk score). */
-  hazardIndicatorData: { date: string | null; mhw: MhwSummary | Unavailable | null; eddy: EddySummary | Unavailable | null };
+  /** Monthly summaries for hazardDate (named for the indicator, not a risk score). */
+  hazardIndicatorData: {
+    date: string | null;
+    mhw: MhwSummary | Unavailable | null;
+    monthly: Partial<Record<MonthlyLayerId, MhwSummary | Unavailable>>;
+    eddy: EddySummary | Unavailable | null;
+  };
+  /** Daily / near-real-time layers: catalog (dates per layer), selected date per layer, summaries. */
+  extCatalog: Record<ExtLayerId, ExtLayerMeta> | null;
+  loadExtCatalog: () => Promise<void>;
+  extDates: Partial<Record<ExtLayerId, string>>;
+  setExtDate: (layer: ExtLayerId, date: string) => void;
+  extSummaries: Partial<Record<ExtLayerId, ExtSummary | Unavailable>>;
+  refreshExtSummary: (layer: ExtLayerId) => Promise<void>;
   activeAdvisories: Advisory[];
   advisoriesUnavailable: Record<string, string>;
   hazardsLoading: boolean;
   refreshHazards: () => Promise<void>;
+  // IBTrACS tracks, drift skill, validation (static documents with live fallbacks)
+  showCycloneTracks: boolean;
+  setShowCycloneTracks: (on: boolean) => void;
+  cycloneTracks: CycloneTracksDoc | Unavailable | null;
+  trackSeasons: [number, number];
+  setTrackSeasons: (range: [number, number]) => void;
+  driftSkill: DriftSkillDoc | Unavailable | null;
+  validation: ValidationDoc | Unavailable | null;
+  loadHazardDocs: () => Promise<void>;
 
   // Analytics modal
   isAnalyticsModalOpen: boolean;
@@ -185,6 +212,9 @@ export interface HoveredCycloneInfo {
   intensity: string;
   screenX: number;
   screenY: number;
+  landfall_time?: string;
+  sid?: string;
+  source?: string;
 }
 
 /**
@@ -210,10 +240,6 @@ const PALETTES: Record<string, { palette: string; scale: 'linear' | 'log' }> = {
   mld: { palette: 'viridis', scale: 'linear' },
   currents: { palette: 'turbo', scale: 'linear' }
 };
-
-export function variableMeta(state: Pick<OceanState, 'catalog'>, variable: string): VariableCatalogEntry | null {
-  return state.catalog?.variables[variable] ?? null;
-}
 
 function timesFor(catalog: DataCatalog | null, variable: string): string[] {
   const meta = catalog?.variables[variable];
@@ -413,12 +439,19 @@ export const useOceanStore = create<OceanState>((set, get) => ({
   setIsPickingDriftPoint: (isPickingDriftPoint) => set({ isPickingDriftPoint }),
   driftResult: null,
   driftLoading: false,
+  driftOptions: { engine: 'ensemble', windage: 'oil', members: 50, diffusivity: null, start: null },
+  setDriftOptions: (patch) => set((s) => ({ driftOptions: { ...s.driftOptions, ...patch }, driftResult: null })),
+  driftWindow: null,
+  loadDriftWindow: async () => {
+    if (get().driftWindow) return;
+    set({ driftWindow: await fetchDriftWindow() });
+  },
   runDriftSimulation: async () => {
-    const { driftSimulationCoordinates: p, driftMode, driftHours } = get();
+    const { driftSimulationCoordinates: p, driftMode, driftHours, driftOptions } = get();
     if (!p) return;
     set({ driftLoading: true, driftResult: null });
     try {
-      const r = await fetchDrift(p.lat, p.lon, driftMode, driftHours);
+      const r = await fetchDrift(p.lat, p.lon, driftMode, driftHours, driftOptions);
       set({ driftResult: r });
     } catch (err) {
       set({ driftResult: { available: false, reason: (err as Error).message } });
@@ -427,24 +460,52 @@ export const useOceanStore = create<OceanState>((set, get) => ({
     }
   },
   clearDrift: () => set({ driftResult: null, driftSimulationCoordinates: null, isPickingDriftPoint: false }),
-  hazardIndicatorData: { date: null, mhw: null, eddy: null },
+  hazardIndicatorData: { date: null, mhw: null, monthly: {}, eddy: null },
+  extCatalog: null,
+  loadExtCatalog: async () => {
+    const cat = await fetchExtCatalog().catch(() => null);
+    if (!cat) return;
+    const dates: Partial<Record<ExtLayerId, string>> = { ...get().extDates };
+    for (const id of EXT_LAYERS) {
+      const ds = cat[id]?.dates ?? [];
+      if (ds.length && !(dates[id] && ds.includes(dates[id]!))) dates[id] = ds[ds.length - 1];
+    }
+    set({ extCatalog: cat, extDates: dates });
+  },
+  extDates: {},
+  setExtDate: (layer, date) => {
+    set((s) => ({ extDates: { ...s.extDates, [layer]: date } }));
+    if (get().activeDisasterLayers.includes(layer)) void get().refreshExtSummary(layer);
+  },
+  extSummaries: {},
+  refreshExtSummary: async (layer) => {
+    const date = get().extDates[layer] ?? null;
+    const r = await fetchExtSummary(layer, date).catch((err) => ({ available: false as const, reason: (err as Error).message }));
+    set((s) => ({ extSummaries: { ...s.extSummaries, [layer]: r } }));
+  },
   activeAdvisories: [],
   advisoriesUnavailable: {},
   hazardsLoading: false,
   refreshHazards: async () => {
     const date = hazardDate(get());
-    if (!date) return;
     hazardAbort?.abort();
     const ac = new AbortController();
     hazardAbort = ac;
     set({ hazardsLoading: true });
+    const active = get().activeDisasterLayers;
     try {
-      const [mhw, eddy, adv] = await Promise.all([
-        fetchMhwSummary(date, ac.signal), fetchEddySummary(date, ac.signal), fetchAdvisories(date, ac.signal)
+      const monthlyIds = (['mhw_intensity', 'mhw_detrended', 'chl_bloom'] as MonthlyLayerId[]).filter((id) => active.includes(id));
+      const [monthlyRes, eddy, adv] = await Promise.all([
+        date ? Promise.all(monthlyIds.map((id) => fetchMhwSummary(date, id, ac.signal))) : Promise.resolve([]),
+        date && active.includes('eddy_convergence') ? fetchEddySummary(date, ac.signal) : Promise.resolve(null),
+        fetchAdvisories(date, ac.signal)
       ]);
+      for (const id of active) if (isExtLayer(id)) void get().refreshExtSummary(id);
       if (ac.signal.aborted) return;
+      const monthly: Partial<Record<MonthlyLayerId, MhwSummary | Unavailable>> = {};
+      monthlyIds.forEach((id, i) => { monthly[id] = monthlyRes[i]; });
       set({
-        hazardIndicatorData: { date, mhw, eddy },
+        hazardIndicatorData: { date, mhw: monthly.mhw_intensity ?? null, monthly, eddy },
         activeAdvisories: 'advisories' in adv ? adv.advisories : [],
         advisoriesUnavailable: 'advisories' in adv ? adv.unavailable : { advisories: adv.reason }
       });
@@ -455,6 +516,21 @@ export const useOceanStore = create<OceanState>((set, get) => ({
     } finally {
       if (hazardAbort === ac) set({ hazardsLoading: false });
     }
+  },
+  showCycloneTracks: false,
+  setShowCycloneTracks: (showCycloneTracks) => {
+    set({ showCycloneTracks });
+    if (showCycloneTracks && !get().cycloneTracks) void fetchCycloneTracks().then((cycloneTracks) => set({ cycloneTracks }));
+  },
+  cycloneTracks: null,
+  trackSeasons: [2015, 2026],
+  setTrackSeasons: (trackSeasons) => set({ trackSeasons }),
+  driftSkill: null,
+  validation: null,
+  loadHazardDocs: async () => {
+    if (get().driftSkill && get().validation) return;
+    const [driftSkill, validation] = await Promise.all([fetchDriftSkill(), fetchValidation()]);
+    set({ driftSkill, validation });
   },
 
   isAnalyticsModalOpen: false,

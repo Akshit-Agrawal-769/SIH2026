@@ -7,7 +7,7 @@ export const CycloneHoverTooltip: React.FC = () => {
 
   if (!hoveredCyclone) return null;
 
-  const { name, location, lat, lon, date, intensity, screenX, screenY } = hoveredCyclone;
+  const { name, location, lat, lon, date, intensity, screenX, screenY, sid, source, landfall_time } = hoveredCyclone;
 
   // Position slightly offset from cursor, avoiding viewport overflow
   const tooltipWidth = 250;
@@ -42,12 +42,12 @@ export const CycloneHoverTooltip: React.FC = () => {
       <div className="pt-1.5 border-t border-white/10 flex flex-col gap-1 text-[10.5px]">
         <div className="flex items-center gap-1.5 text-neutral-300">
           <Calendar className="w-3 h-3 text-amber-400 shrink-0" />
-          <span className="font-mono text-neutral-200">{date}</span>
+          <span className="font-mono text-neutral-200">{landfall_time ? `${landfall_time.replace('T', ' ')} landfall` : date}</span>
         </div>
 
         <div className="flex items-center gap-1.5 text-neutral-300">
           <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
-          <span className="text-neutral-200">{location}</span>
+          {location && <span className="text-neutral-200">{location}</span>}
           <span className="text-[9.5px] font-mono text-neutral-400">
             ({lat.toFixed(2)}°N, {lon.toFixed(2)}°E)
           </span>
@@ -66,6 +66,11 @@ export const CycloneHoverTooltip: React.FC = () => {
           </span>
         </div>
       </div>
+      {source && (
+        <div className="pt-1 border-t border-white/10 text-[9px] font-mono text-neutral-400 leading-snug">
+          {source}{sid ? ` · SID ${sid}` : ''}
+        </div>
+      )}
     </div>
   );
 };

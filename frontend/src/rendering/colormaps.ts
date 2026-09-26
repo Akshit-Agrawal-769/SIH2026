@@ -97,13 +97,6 @@ export function viridisColormap(t: number): RgbColor {
 }
 
 /**
- * Oceanic Chlorophyll-a palette (phytoplankton photic bloom).
- */
-export function chlorophyllColormap(t: number): RgbColor {
-  return gfdlChlorophyllColormap(t);
-}
-
-/**
  * Thermal / Magma palette.
  */
 const THERMAL_STOPS: [number, [number, number, number]][] = [

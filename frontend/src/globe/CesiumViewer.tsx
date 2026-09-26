@@ -368,14 +368,24 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onViewerReady]);
 
-  const { activeDisasterLayers, driftResult, hazardMonth } = useOceanStore(useShallow((s) => ({
+  const { activeDisasterLayers, driftResult, hazardMonth, extDates, showTracks, tracks, trackSeasons } = useOceanStore(useShallow((s) => ({
     activeDisasterLayers: s.activeDisasterLayers,
     driftResult: s.driftResult,
-    hazardMonth: hazardDate(s)
+    hazardMonth: hazardDate(s),
+    extDates: s.extDates,
+    showTracks: s.showCycloneTracks,
+    tracks: s.cycloneTracks,
+    trackSeasons: s.trackSeasons
   })));
   useEffect(() => {
-    hazardManagerRef.current?.update(activeDisasterLayers, hazardMonth);
-  }, [activeDisasterLayers, hazardMonth]);
+    hazardManagerRef.current?.update(activeDisasterLayers, hazardMonth, extDates);
+  }, [activeDisasterLayers, hazardMonth, extDates]);
+  useEffect(() => {
+    const storms = showTracks && tracks && 'storms' in tracks
+      ? tracks.storms.filter((st) => st.season >= trackSeasons[0] && st.season <= trackSeasons[1])
+      : null;
+    hazardManagerRef.current?.setTracks(storms);
+  }, [showTracks, tracks, trackSeasons]);
   useEffect(() => {
     hazardManagerRef.current?.setDrift(driftResult && driftResult.available ? driftResult : null);
   }, [driftResult]);

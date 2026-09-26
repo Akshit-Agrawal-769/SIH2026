@@ -744,9 +744,18 @@ GEOSTROPHIC_CAVEATS = [
     "no wind-driven (Ekman) component, no Stokes (wave) drift, no tides or inertial motion.",
     "A single ARMOR3D snapshot is used and held constant; the real flow changes over hours to days.",
 ]
-MHW_CAVEAT = ("Monthly-mean marine-heatwave index: Hobday et al. (2018) categories applied to monthly-mean SST "
-              "against a monthly climatology. The >= 5-day duration criterion cannot be checked on monthly data, "
-              "so this indicates months whose mean exceeded the 90th percentile, not verified heatwave events.")
+MHW_CAVEAT = ("Monthly-mean marine-heatwave index: Hobday et al. (2018) categories applied to monthly-mean IBR SST "
+              "against a fixed 1990-2019 monthly climatology. The >= 5-day duration criterion cannot be checked on "
+              "monthly data, so this indicates months whose mean exceeded the 90th percentile, not verified "
+              "heatwave events. A fixed baseline still counts part of the long-term warming as heatwave; see the "
+              "detrended variant and the daily OISST index.")
+MHW_DETRENDED_CAVEAT = ("Detrended monthly-mean MHW index: the per-cell linear 1980-2019 SST trend is removed "
+                        "before comparing with the 1990-2019 climatology (Jacox et al. 2020 shifting baseline), so "
+                        "this isolates short-term extremes from long-term warming. Monthly data: no >= 5-day rule.")
+CHL_BLOOM_CAVEAT = ("Chlorophyll bloom anomaly index from IBR model chlorophyll (monthly): the MHW ratio method "
+                    "applied to log10(CHL) against a 1990-2019 per-cell monthly climatology and 90th percentile. "
+                    "High chlorophyll marks unusually strong phytoplankton biomass; it does NOT identify harmful "
+                    "species or toxins, so it is a screening indicator for harmful algal blooms, not a HAB detection.")
 EDDY_CAVEAT = ("Warm-water & eddy convergence indicator, NOT a cyclone forecast or genesis probability. Tropical "
                "cyclogenesis is controlled by atmospheric conditions (low-level vorticity, humidity, vertical wind "
                "shear) that are not in these datasets. This layer only marks where warm surface water (SST >= "
@@ -765,6 +774,16 @@ def mhw_intensity(sst: np.ndarray, clim: np.ndarray, p90: np.ndarray) -> np.ndar
     out = np.full(sst.shape, np.nan, dtype=np.float64)
     out[ok] = (sst[ok] - clim[ok]) / diff[ok]
     return out.astype(np.float32)
+
+
+def mhw_detrended(sst: np.ndarray, date: str, clim: Dict[str, Any]) -> np.ndarray:
+    """MHW ratio on SST with the per-cell linear trend removed relative to the baseline midpoint
+    (clim: arrays from sst_climatology.npz incl. trend_per_year, trend_ref_year, *_detrended)."""
+    y, m = int(date[:4]), int(date[5:7])
+    t = y + (m - 0.5) / 12.0
+    ref = float(np.asarray(clim["trend_ref_year"]).ravel()[0])
+    det = np.asarray(sst, dtype=np.float64) - np.asarray(clim["trend_per_year"], dtype=np.float64) * (t - ref)
+    return mhw_intensity(det, clim["clim_detrended"][m - 1], clim["p90_detrended"][m - 1])
 
 
 def mhw_category(ratio: float) -> Tuple[int, str]:
@@ -842,26 +861,35 @@ def _grid_axes() -> Tuple[np.ndarray, np.ndarray]:
     return (g["lat0"] + g["dlat"] * np.arange(g["height"]), g["lon0"] + g["dlon"] * np.arange(g["width"]))
 
 
-_clim_cache: Dict[str, Any] = {"mtime": None, "data": None}
+_clim_cache: Dict[str, Dict[str, Any]] = {}
+
+
+def _load_climatology(name: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Monthly climatology arrays (data/<name>.npz) on the served grid, or (None, reason)."""
+    path = os.path.join(get_data_root(), "data", f"{name}.npz")
+    if not os.path.isfile(path):
+        return None, (f"{name} not built (data/{name}.npz missing). Run "
+                      "`python scripts/build_authentic_dataset.py --hazards-only`.")
+    mtime = os.path.getmtime(path)
+    hit = _clim_cache.get(name)
+    if hit is None or hit["mtime"] != mtime:
+        z = dict(np.load(path))
+        g = grid()
+        if z["clim"].shape != (12, g["height"], g["width"]):
+            return None, f"{name} grid {z['clim'].shape[1:]} does not match the served grid."
+        z["baseline"] = [int(z["baseline"][0]), int(z["baseline"][1])]
+        hit = {"mtime": mtime, "data": z}
+        _clim_cache[name] = hit
+    return hit["data"], None
 
 
 def load_sst_climatology() -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    """Monthly SST climatology + 90th percentile on the served grid, or (None, reason)."""
-    path = os.path.join(get_data_root(), "data", "sst_climatology.npz")
-    if not os.path.isfile(path):
-        return None, ("SST climatology not built (data/sst_climatology.npz missing). Run "
-                      "`python scripts/build_authentic_dataset.py --hazards-only`.")
-    mtime = os.path.getmtime(path)
-    if _clim_cache["mtime"] != mtime:
-        z = np.load(path)
-        g = grid()
-        if z["clim"].shape != (12, g["height"], g["width"]):
-            return None, f"Climatology grid {z['clim'].shape[1:]} does not match the served grid."
-        _clim_cache.update(mtime=mtime, data={
-            "clim": z["clim"], "p90": z["p90"], "count": z["count"],
-            "baseline": [int(z["baseline"][0]), int(z["baseline"][1])],
-        })
-    return _clim_cache["data"], None
+    """Monthly SST climatology + 90th percentile (fixed and detrended) on the served grid, or (None, reason)."""
+    return _load_climatology("sst_climatology")
+
+
+def load_chl_climatology() -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    return _load_climatology("chl_climatology")
 
 
 def _derived_cache_path(layer: str, d: str) -> str:
@@ -870,7 +898,19 @@ def _derived_cache_path(layer: str, d: str) -> str:
 
 
 def _derive_field(layer: str, d: str) -> Tuple[Optional[np.ndarray], Optional[str]]:
-    """Compute an SST-dependent derived layer for date d from its real inputs."""
+    """Compute an IBR-dependent derived layer for date d from its real inputs."""
+    if layer == "chl_bloom":
+        chl = load_tile("chlorophyll", d, 0.0)
+        if chl is None:
+            return None, f"No chlorophyll field for {d} (IBR source unreachable or date not in record)."
+        cc, err = load_chl_climatology()
+        if err:
+            return None, err
+        floor = float(np.asarray(cc.get("floor_mg_m3", [1e-3])).ravel()[0])
+        with np.errstate(all="ignore"):
+            logc = np.where(np.isfinite(chl), np.log10(np.maximum(chl, floor)), np.nan)
+        m = int(d[5:7]) - 1
+        return mhw_intensity(logc, cc["clim"][m], cc["p90"][m]), None
     sst = load_tile("temperature", d, 0.0)
     if sst is None:
         return None, f"No SST field for {d} (IBR source unreachable or date not in record)."
@@ -880,6 +920,13 @@ def _derive_field(layer: str, d: str) -> Tuple[Optional[np.ndarray], Optional[st
             return None, err
         m = int(d[5:7]) - 1
         return mhw_intensity(sst, clim["clim"][m], clim["p90"][m]), None
+    if layer == "mhw_detrended":
+        clim, err = load_sst_climatology()
+        if err:
+            return None, err
+        if "trend_per_year" not in clim:
+            return None, "SST climatology has no detrended fields; rebuild with --hazards-only."
+        return mhw_detrended(sst, d, clim), None
     if layer == "eddy_convergence":
         zeta, zerr, _ = load_derived("vorticity", None)
         if zeta is None:
@@ -968,57 +1015,109 @@ def _clusters(mask: np.ndarray, value: np.ndarray, top: int = 5) -> List[Dict[st
     return out[:top]
 
 
-def compute_mhw_summary(date: Optional[str] = None) -> Dict[str, Any]:
-    """Domain-wide monthly-mean MHW index for one IBR month: area per category and main regions."""
-    arr, reason, d = load_derived("mhw_intensity", date)
+RATIO_LAYERS = {
+    # layer: (caveat, climatology loader key, method template, category labels)
+    "mhw_intensity": ("sst", "Hobday et al. (2018) categories on the ratio (SST - clim) / (p90 - clim); clim and "
+                             "p90 per cell and calendar month from IBR SST {b0}-{b1}.", MHW_CATEGORIES),
+    "mhw_detrended": ("sst", "Hobday et al. (2018) categories on the ratio (SST' - clim') / (p90' - clim') where SST' "
+                             "is IBR SST with the per-cell linear trend removed; clim' and p90' over {b0}-{b1}.",
+                      MHW_CATEGORIES),
+    "chl_bloom": ("chl", "Ratio (log10 CHL - clim) / (p90 - clim), clim and p90 per cell and calendar month from "
+                         "IBR chlorophyll {b0}-{b1}; >= 1 means above the 90th percentile.",
+                  ((1.0, "Elevated"), (2.0, "High"), (3.0, "Very high"), (4.0, "Extreme"))),
+}
+
+
+def _ratio_caveat(layer: str) -> str:
+    return {"mhw_intensity": MHW_CAVEAT, "mhw_detrended": MHW_DETRENDED_CAVEAT, "chl_bloom": CHL_BLOOM_CAVEAT}[layer]
+
+
+def _ratio_category(ratio: float, cats) -> Tuple[int, str]:
+    if ratio is None or not np.isfinite(ratio) or ratio < cats[0][0]:
+        return 0, "None"
+    cat = max(i + 1 for i, (lo, _) in enumerate(cats) if ratio >= lo)
+    return cat, cats[cat - 1][1]
+
+
+def compute_mhw_summary(date: Optional[str] = None, layer: str = "mhw_intensity") -> Dict[str, Any]:
+    """Domain-wide monthly ratio index (MHW fixed / detrended, or chlorophyll bloom) for one IBR month:
+    area per category and main regions."""
+    if layer not in RATIO_LAYERS:
+        return {"available": False, "layer": layer, "reason": f"Unknown ratio layer '{layer}'."}
+    caveat = _ratio_caveat(layer)
+    arr, reason, d = load_derived(layer, date)
     if arr is None:
-        return {"available": False, "layer": "mhw_intensity", "date": d, "reason": reason, "caveat": MHW_CAVEAT}
-    clim, _ = load_sst_climatology()
+        return {"available": False, "layer": layer, "date": d, "reason": reason, "caveat": caveat}
+    kind, method, cats_def = RATIO_LAYERS[layer]
+    clim, _ = load_sst_climatology() if kind == "sst" else load_chl_climatology()
     lats, lons = _grid_axes()
     area = _cell_area_km2(lats)[:, None] * np.ones((1, lons.size))
     finite = np.isfinite(arr)
     cats = []
-    for i, (lo, label) in enumerate(MHW_CATEGORIES):
-        hi = MHW_CATEGORIES[i + 1][0] if i + 1 < len(MHW_CATEGORIES) else np.inf
+    for i, (lo, label) in enumerate(cats_def):
+        hi = cats_def[i + 1][0] if i + 1 < len(cats_def) else np.inf
         sel = finite & (arr >= lo) & (arr < hi)
         cats.append({"category": i + 1, "label": label, "ratio_range": [lo, None if hi == np.inf else hi],
                      "cells": int(sel.sum()), "area_km2": round(float(area[sel].sum()), 1)})
     mhw = finite & (arr >= 1.0)
+    b0, b1 = clim["baseline"] if clim else ("?", "?")
     return {
-        "available": True, "layer": "mhw_intensity", "date": d,
-        "method": ("Hobday et al. (2018) categories on the ratio (SST - clim) / (p90 - clim); clim and p90 per "
-                   f"cell and calendar month from IBR SST {clim['baseline'][0]}-{clim['baseline'][1]}."),
+        "available": True, "layer": layer, "date": d,
+        "method": method.format(b0=b0, b1=b1),
+        "baseline": [b0, b1],
         "ocean_cells": int(finite.sum()),
         "mhw_cells": int(mhw.sum()),
         "mhw_fraction": round(float(mhw.sum()) / max(1, int(finite.sum())), 4),
         "categories": cats,
         "max_ratio": round(float(np.nanmax(arr)), 3) if finite.any() else None,
         "regions": _clusters(mhw, arr) if mhw.any() else [],
-        "caveat": MHW_CAVEAT,
+        "caveat": caveat,
     }
 
 
-def compute_mhw_point(lat: float, lon: float, date: Optional[str] = None) -> Dict[str, Any]:
-    """MHW index at one location: SST, climatology, threshold, ratio and category."""
-    arr, reason, d = load_derived("mhw_intensity", date)
+def compute_mhw_point(lat: float, lon: float, date: Optional[str] = None, layer: str = "mhw_intensity"
+                      ) -> Dict[str, Any]:
+    """Ratio index at one location: value, climatology, threshold, ratio and category."""
+    if layer not in RATIO_LAYERS:
+        return {"available": False, "lat": lat, "lon": lon, "reason": f"Unknown ratio layer '{layer}'."}
+    caveat = _ratio_caveat(layer)
+    arr, reason, d = load_derived(layer, date)
     if arr is None:
-        return {"available": False, "lat": lat, "lon": lon, "date": d, "reason": reason, "caveat": MHW_CAVEAT}
+        return {"available": False, "lat": lat, "lon": lon, "date": d, "reason": reason, "caveat": caveat}
     r = sample_grid(arr, lat, lon)
     if r is None:
-        return {"available": False, "lat": lat, "lon": lon, "date": d, "caveat": MHW_CAVEAT,
+        return {"available": False, "lat": lat, "lon": lon, "date": d, "caveat": caveat,
                 "reason": f"({lat:.3f}°N, {lon:.3f}°E) is outside the domain, on land, or has no climatology."}
-    clim, _ = load_sst_climatology()
+    kind, _, cats_def = RATIO_LAYERS[layer]
     m = int(d[5:7]) - 1
-    sst = load_tile("temperature", d, 0.0)
-    cat, label = mhw_category(r)
-    return {
-        "available": True, "lat": lat, "lon": lon, "date": d, "units": "°C",
-        "sst": _r(sample_grid(sst, lat, lon) if sst is not None else None, 3),
-        "climatology": _r(sample_grid(clim["clim"][m].astype(np.float64), lat, lon), 3),
-        "threshold_p90": _r(sample_grid(clim["p90"][m].astype(np.float64), lat, lon), 3),
-        "intensity_ratio": round(r, 3), "category": cat, "category_label": label,
-        "baseline": clim["baseline"], "caveat": MHW_CAVEAT,
-    }
+    cat, label = _ratio_category(r, cats_def)
+    out = {"available": True, "layer": layer, "lat": lat, "lon": lon, "date": d,
+           "intensity_ratio": round(r, 3), "category": cat, "category_label": label, "caveat": caveat}
+    if kind == "sst":
+        clim, _ = load_sst_climatology()
+        sst = load_tile("temperature", d, 0.0)
+        suffix = "_detrended" if layer == "mhw_detrended" else ""
+        out.update({
+            "units": "°C", "sst": _r(sample_grid(sst, lat, lon) if sst is not None else None, 3),
+            "climatology": _r(sample_grid(clim["clim" + suffix][m].astype(np.float64), lat, lon), 3),
+            "threshold_p90": _r(sample_grid(clim["p90" + suffix][m].astype(np.float64), lat, lon), 3),
+            "baseline": clim["baseline"],
+        })
+        if suffix:
+            out["trend_degC_per_decade"] = _r(10 * (sample_grid(clim["trend_per_year"].astype(np.float64), lat, lon)
+                                                    or np.nan), 4)
+    else:
+        clim, _ = load_chl_climatology()
+        chl = load_tile("chlorophyll", d, 0.0)
+        c = sample_grid(clim["clim"][m].astype(np.float64), lat, lon)
+        p = sample_grid(clim["p90"][m].astype(np.float64), lat, lon)
+        out.update({
+            "units": "mg/m³", "chlorophyll": _r(sample_grid(chl, lat, lon) if chl is not None else None, 4),
+            "climatology": _r(10 ** c if c is not None else None, 4),
+            "threshold_p90": _r(10 ** p if p is not None else None, 4),
+            "baseline": clim["baseline"], "note": "climatology and threshold are geometric (log10) means/percentiles",
+        })
+    return out
 
 
 def compute_eddy_convergence_summary(date: Optional[str] = None) -> Dict[str, Any]:
@@ -1150,8 +1249,20 @@ def compute_advisories(date: Optional[str] = None) -> Dict[str, Any]:
                           + eddy["date_mismatch"],
                 "region": reg, "caveat": EDDY_CAVEAT,
             })
-    unavailable = {k: s["reason"] for k, s in (("marine_heatwave", mhw), ("eddy_convergence", eddy))
-                   if not s["available"]}
+    chl = compute_mhw_summary(date, "chl_bloom")
+    if chl["available"]:
+        for reg in chl["regions"][:2]:
+            cat, label = _ratio_category(reg["peak"]["value"], RATIO_LAYERS["chl_bloom"][2])
+            items.append({
+                "type": "chl_bloom", "level": label.lower(), "date": chl["date"],
+                "title": f"{label} chlorophyll bloom anomaly near {reg['centroid']['lat']:.1f}°N, "
+                         f"{reg['centroid']['lon']:.1f}°E (HAB screening)",
+                "detail": f"{reg['area_km2']:,.0f} km² above the monthly 90th percentile of log10 chlorophyll; peak "
+                          f"ratio {reg['peak']['value']:.2f}. Not a harmful-species detection.",
+                "region": reg, "caveat": CHL_BLOOM_CAVEAT,
+            })
+    unavailable = {k: s["reason"] for k, s in (("marine_heatwave", mhw), ("eddy_convergence", eddy),
+                                               ("chl_bloom", chl)) if not s["available"]}
     return {"available": bool(items) or not unavailable, "date": mhw.get("date") or eddy.get("date"),
             "advisories": items, "unavailable": unavailable,
             "note": "Advisories are descriptive summaries of the layers above; none is a forecast."}

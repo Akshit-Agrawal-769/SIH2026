@@ -12,7 +12,7 @@ from app.db.session import get_db
 from app.db.models import Instrument, Profile, Measurement
 from geoalchemy2.functions import ST_AsGeoJSON, ST_MakeEnvelope, ST_Intersects
 
-import app.ingestion  # Ensures all adapters register themselves
+import app.ingestion  # noqa: F401  (ensures all adapters register themselves)
 from app.ingestion.registry import AdapterRegistry
 
 router = APIRouter(prefix="/instruments", tags=["instruments"])
