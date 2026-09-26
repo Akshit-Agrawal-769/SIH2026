@@ -180,8 +180,14 @@ class H5Reader(Reader):
                 "filters": filters, "fill": 0 if fill is None else fill}
 
     def build_chunk_index(self, name: str) -> Dict[Tuple[int, ...], Tuple[int, int, int]]:
-        """Every stored chunk of a variable: chunk offset -> (byte offset, size, filter mask)."""
-        dsid = self.ds.variables[name]._h5ds.id
+        """Every stored chunk of a variable: chunk offset -> (byte offset, size, filter mask).
+
+        Uses H5Dchunk_iter (one pass) when h5py/HDF5 provide it. Otherwise looks each chunk up by
+        its coordinate (a B-tree search each) - NOT get_chunk_info(i), which rescans the index from
+        the start on every call and is quadratic in the number of chunks.
+        """
+        h5 = self.ds.variables[name]._h5ds
+        dsid = h5.id
         idx: Dict[Tuple[int, ...], Tuple[int, int, int]] = {}
 
         def add(si):
@@ -194,8 +200,15 @@ class H5Reader(Reader):
                 return idx
             except Exception:
                 idx.clear()
-        for i in range(dsid.get_num_chunks()):
-            add(dsid.get_chunk_info(i))
+        grids = [range(0, n, c) for n, c in zip(h5.shape, h5.chunks)]
+        total = int(np.prod([len(g) for g in grids]))
+        t0, step = time.time(), max(1, total // 20)
+        for k, off in enumerate(itertools.product(*grids)):
+            si = dsid.get_chunk_info_by_coord(off)
+            if si.byte_offset is not None and si.size:
+                idx[off] = (int(si.byte_offset), int(si.size), int(si.filter_mask))
+            if (k + 1) % step == 0:
+                print(f"[model_store] chunk index {name}: {k + 1}/{total} chunks ({time.time() - t0:.0f}s)", flush=True)
         return idx
 
     def plan_chunks(self, name: str, key: Tuple) -> Optional[Dict[str, Any]]:
@@ -254,29 +267,118 @@ def _plan(lay: Dict[str, Any], key: Tuple, index: Optional[Dict[Tuple[int, ...],
 
 
 
+# ---- exact byte-range HTTP for chunk data ---------------------------------------------------
+# HfFileSystem.cat_file() opens a buffered file per call whose read-ahead fetches megabytes, so
+# ~55 KB chunks cost ~100x their size. Chunks are fetched here with plain Range requests on a
+# pooled connection, and chunks that sit next to each other in the file share one request.
+
+HF_ENDPOINT = os.getenv("HF_ENDPOINT", "https://huggingface.co").rstrip("/")
+RANGE_MERGE_GAP = int(os.getenv("HF_RANGE_MERGE_GAP", str(256 * 1024)))   # merge ranges closer than this
+RANGE_MAX_BYTES = int(os.getenv("HF_RANGE_MAX_BYTES", str(16 * 1024 * 1024)))
+HTTP_TIMEOUT_S = float(os.getenv("HF_HTTP_TIMEOUT", "60"))
+HTTP_RETRIES = 3
+
+_http = {"client": None, "resolved": {}}
+_http_lock = threading.Lock()
+
+
+def _http_client():
+    with _http_lock:
+        if _http["client"] is None:
+            import httpx
+            headers = {"User-Agent": "incois-data-service"}
+            token = os.getenv("HF_TOKEN")
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
+            _http["client"] = httpx.Client(
+                headers=headers, timeout=HTTP_TIMEOUT_S, follow_redirects=False,
+                limits=httpx.Limits(max_connections=HF_PARALLEL * 2, max_keepalive_connections=HF_PARALLEL * 2))
+        return _http["client"]
+
+
+def _resolve_url(remote_path: str, refresh: bool = False) -> str:
+    """Final (CDN) URL of a HF file; the /resolve/ redirect is followed once and reused for 10 min."""
+    hit = _http["resolved"].get(remote_path)
+    if hit and not refresh and time.time() - hit[1] < 600:
+        return hit[0]
+    repo_rev, fname = remote_path[len("datasets/"):].rsplit("/", 1)
+    repo, _, rev = repo_rev.partition("@")
+    url = f"{HF_ENDPOINT}/datasets/{repo}/resolve/{rev or 'main'}/{fname}"
+    client = _http_client()
+    for _ in range(5):
+        r = client.get(url, headers={"Range": "bytes=0-0"})
+        if r.status_code in (301, 302, 303, 307, 308):
+            loc = r.headers["location"]
+            url = loc if loc.startswith("http") else HF_ENDPOINT + loc
+            continue
+        if r.status_code not in (200, 206):
+            raise StoreError(f"Hugging Face returned HTTP {r.status_code} resolving {fname}", 502)
+        break
+    _http["resolved"][remote_path] = (url, time.time())
+    return url
+
+
+def _get_range(remote_path: str, start: int, end: int) -> bytes:
+    """Bytes [start, end) with retries; re-resolves the CDN URL if a signed URL expired."""
+    client = _http_client()
+    last = None
+    for attempt in range(HTTP_RETRIES):
+        url = _resolve_url(remote_path, refresh=attempt > 0)  # signed CDN URLs can expire
+        try:
+            r = client.get(url, headers={"Range": f"bytes={start}-{end - 1}"})
+            if r.status_code == 206 and len(r.content) == end - start:
+                return r.content
+            if r.status_code == 200 and len(r.content) >= end:   # server ignored Range (small file)
+                return r.content[start:end]
+            last = f"HTTP {r.status_code}, {len(r.content)} bytes"
+        except Exception as exc:  # timeouts / connection resets
+            last = str(exc)
+        time.sleep(0.5 * (attempt + 1))
+    raise StoreError(f"Range {start}-{end} of {remote_path} failed after {HTTP_RETRIES} tries: {last}", 502)
+
+
+def _coalesce(items):
+    """Group (offset, (byte_off, size, mask)) chunks into contiguous-ish byte ranges."""
+    stored = sorted((it for it in items if it[1] is not None), key=lambda it: it[1][0])
+    groups, cur, cs, ce = [], [], None, None
+    for it in stored:
+        bo, size, _ = it[1]
+        if cur and bo - ce <= RANGE_MERGE_GAP and (max(ce, bo + size) - cs) <= RANGE_MAX_BYTES:
+            cur.append(it)
+            ce = max(ce, bo + size)
+        else:
+            if cur:
+                groups.append((cs, ce, cur))
+            cur, cs, ce = [it], bo, bo + size
+    if cur:
+        groups.append((cs, ce, cur))
+    return groups
+
+
 def _fetch_plan(remote_path: str, plan: Dict[str, Any]) -> np.ndarray:
-    fs = hf_fs()
     dt, ch, lo, hi = plan["dtype"], plan["chunk_shape"], plan["lo"], plan["hi"]
     box = np.full([h - l for l, h in zip(lo, hi)], plan["fill"], dtype=dt)
+    groups = _coalesce(plan["chunks"])
 
-    def get(item):
-        off, info = item
-        if info is None:
-            return off, None, 0
-        bo, size, mask = info
-        return off, fs.cat_file(remote_path, start=bo, end=bo + size), mask
+    def get(group):
+        gs, ge, members = group
+        blob = _get_range(remote_path, gs, ge)
+        return [(off, blob[bo - gs:bo - gs + size], mask) for off, (bo, size, mask) in members]
 
-    with ThreadPoolExecutor(max_workers=max(1, min(HF_PARALLEL, len(plan["chunks"])))) as ex:
-        for off, raw, mask in ex.map(get, plan["chunks"]):
-            if raw is None:
-                continue
-            arr = _decode_chunk(raw, plan["filters"], mask, dt, ch)
-            src, dst = [], []
-            for o, c, l, h in zip(off, ch, lo, hi):
-                a, b = max(o, l), min(o + c, h)
-                src.append(slice(a - o, b - o))
-                dst.append(slice(a - l, b - l))
-            box[tuple(dst)] = arr[tuple(src)]
+    t0 = time.time()
+    nbytes = sum(ge - gs for gs, ge, _ in groups)
+    with ThreadPoolExecutor(max_workers=max(1, min(HF_PARALLEL, len(groups) or 1))) as ex:
+        for results in ex.map(get, groups):
+            for off, raw, mask in results:
+                arr = _decode_chunk(raw, plan["filters"], mask, dt, ch)
+                src, dst = [], []
+                for o, c, l, h in zip(off, ch, lo, hi):
+                    a, b = max(o, l), min(o + c, h)
+                    src.append(slice(a - o, b - o))
+                    dst.append(slice(a - l, b - l))
+                box[tuple(dst)] = arr[tuple(src)]
+    log.info("fetched %d chunks in %d requests, %.1f MB, %.1fs", len(plan["chunks"]), len(groups),
+             nbytes / 1e6, time.time() - t0)
     return box[tuple(0 if sq else slice(None, None, s) for _, _, s, sq in plan["sel"])]
 
 
@@ -576,6 +678,7 @@ def chunk_index(filename: str, name: str) -> Dict[Tuple[int, ...], Tuple[int, in
             except Exception:
                 pass
         t0 = time.time()
+        print(f"[model_store] building chunk index {filename}:{name} (one-time, cached under {CACHE_DIR})", flush=True)
         r = _open_remote(filename)
         try:
             if not isinstance(r, H5Reader):

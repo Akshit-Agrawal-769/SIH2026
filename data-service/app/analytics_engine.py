@@ -717,6 +717,446 @@ def compute_vertical_profile_analysis(lat: float, lon: float, variable: str = "t
     return extra
 
 
+# --------------------------------------------------------------------------- hazard layers (derived)
+#
+# Derived layers are listed under catalog["derived"] (not catalog["variables"], so existing
+# variable lists, correlation and timelines are unchanged). Each is computed only from source
+# fields already served here; anything that cannot be derived honestly returns available: False.
+#
+#   mhw_intensity     (6)  Hobday et al. (2018) intensity ratio (SST - clim) / (p90 - clim) against a
+#                          per-cell monthly climatology (IBR SST, baseline in sst_climatology.npz).
+#                          MONTHLY-MEAN index: the >= 5-day duration rule cannot be checked.
+#   current_u / _v    (7/8) ARMOR3D surface GEOSTROPHIC velocity, native 0.125 deg (single date).
+#   vorticity         (9)  Relative vorticity of that geostrophic flow (spherical finite differences).
+#   eddy_convergence (10)  Warm-water & eddy convergence indicator: SST >= 26.5 degC AND cyclonic
+#                          geostrophic vorticity. Descriptive co-occurrence, NOT a cyclone forecast.
+
+EARTH_RADIUS_M = 6371000.0
+M_PER_DEG = EARTH_RADIUS_M * np.pi / 180.0
+SST_GENESIS_THRESHOLD_C = 26.5  # Gray (1968) / Palmen (1948) threshold for tropical-cyclone-supporting SST
+EQUATORIAL_EXCLUSION_DEG = 2.0  # f -> 0: cyclonic sense undefined and geostrophy unreliable
+EDDY_REF_PERCENTILE = 95.0
+
+MHW_CATEGORIES = ((1.0, "Moderate"), (2.0, "Strong"), (3.0, "Severe"), (4.0, "Extreme"))
+
+GEOSTROPHIC_CAVEATS = [
+    "Currents are CMEMS ARMOR3D surface GEOSTROPHIC velocities only (thermal-wind balance): "
+    "no wind-driven (Ekman) component, no Stokes (wave) drift, no tides or inertial motion.",
+    "A single ARMOR3D snapshot is used and held constant; the real flow changes over hours to days.",
+]
+MHW_CAVEAT = ("Monthly-mean marine-heatwave index: Hobday et al. (2018) categories applied to monthly-mean SST "
+              "against a monthly climatology. The >= 5-day duration criterion cannot be checked on monthly data, "
+              "so this indicates months whose mean exceeded the 90th percentile, not verified heatwave events.")
+EDDY_CAVEAT = ("Warm-water & eddy convergence indicator, NOT a cyclone forecast or genesis probability. Tropical "
+               "cyclogenesis is controlled by atmospheric conditions (low-level vorticity, humidity, vertical wind "
+               "shear) that are not in these datasets. This layer only marks where warm surface water (SST >= "
+               "26.5 degC) coincides with cyclonic OCEAN geostrophic vorticity.")
+
+
+def mhw_intensity(sst: np.ndarray, clim: np.ndarray, p90: np.ndarray) -> np.ndarray:
+    """
+    Hobday et al. (2018) intensity ratio r = (SST - clim) / (p90 - clim). r >= 1 means SST is above
+    the 90th-percentile threshold; floor(r) gives the category (1 moderate, 2 strong, 3 severe,
+    4+ extreme). NaN wherever any input is missing or the threshold is not above the mean.
+    """
+    sst, clim, p90 = (np.asarray(a, dtype=np.float64) for a in (sst, clim, p90))
+    diff = p90 - clim
+    ok = np.isfinite(sst) & np.isfinite(clim) & np.isfinite(p90) & (diff > 0)
+    out = np.full(sst.shape, np.nan, dtype=np.float64)
+    out[ok] = (sst[ok] - clim[ok]) / diff[ok]
+    return out.astype(np.float32)
+
+
+def mhw_category(ratio: float) -> Tuple[int, str]:
+    """(category number 0-4, label) for one intensity ratio; 0 = below threshold."""
+    if ratio is None or not np.isfinite(ratio) or ratio < 1.0:
+        return 0, "None"
+    cat = 0
+    for i, (lo, _) in enumerate(MHW_CATEGORIES):
+        if ratio >= lo:
+            cat = i + 1
+    return cat, MHW_CATEGORIES[cat - 1][1]
+
+
+def relative_vorticity(u: np.ndarray, v: np.ndarray, lats: np.ndarray, lons: np.ndarray) -> np.ndarray:
+    """
+    Relative vorticity zeta = (1 / (R cos(phi))) * (dv/dlambda - d(u cos(phi))/dphi)  [s^-1]
+    on a regular lat/lon grid (rows = lats ascending, cols = lons). Central differences only:
+    a cell is NaN unless both neighbours on each axis are finite, so land edges and the domain
+    border are never extrapolated.
+    """
+    u = np.asarray(u, dtype=np.float64)
+    v = np.asarray(v, dtype=np.float64)
+    phi = np.deg2rad(np.asarray(lats, dtype=np.float64))[:, None]
+    dlam = np.deg2rad(float(lons[1] - lons[0]))
+    dphi = np.deg2rad(float(lats[1] - lats[0]))
+    zeta = np.full(u.shape, np.nan)
+    dv_dlam = (v[1:-1, 2:] - v[1:-1, :-2]) / (2.0 * dlam)
+    ucos = u * np.cos(phi)
+    ducos_dphi = (ucos[2:, 1:-1] - ucos[:-2, 1:-1]) / (2.0 * dphi)
+    zeta[1:-1, 1:-1] = (dv_dlam - ducos_dphi) / (EARTH_RADIUS_M * np.cos(phi[1:-1]))
+    return zeta.astype(np.float32)
+
+
+def eddy_convergence_indicator(sst: np.ndarray, zeta: np.ndarray, lats: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """
+    0-100 indicator where SST >= 26.5 degC AND the geostrophic vorticity is cyclonic
+    (zeta * sign(latitude) > 0): 100 * min(1, cyclonic zeta / zeta_ref), zeta_ref = 95th percentile
+    of cyclonic vorticity over the domain. 0 = ocean cell without both conditions; NaN = missing input
+    or within +/-2 deg of the equator. A relative descriptive index, not a probability.
+    """
+    lat2 = np.broadcast_to(np.asarray(lats, dtype=np.float64)[:, None], zeta.shape)
+    cyc = np.asarray(zeta, dtype=np.float64) * np.sign(lat2)
+    band_ok = np.abs(lat2) >= EQUATORIAL_EXCLUSION_DEG
+    zeta_ok = np.isfinite(cyc) & band_ok
+    pos = cyc[zeta_ok & (cyc > 0)]
+    if pos.size == 0:
+        return np.full(zeta.shape, np.nan, dtype=np.float32), {"zeta_ref": None}
+    zeta_ref = float(np.percentile(pos, EDDY_REF_PERCENTILE))
+    valid = zeta_ok & np.isfinite(sst)
+    out = np.full(zeta.shape, np.nan)
+    out[valid] = 0.0
+    hit = valid & (np.asarray(sst) >= SST_GENESIS_THRESHOLD_C) & (cyc > 0)
+    out[hit] = 100.0 * np.minimum(1.0, cyc[hit] / zeta_ref)
+    return out.astype(np.float32), {"zeta_ref": zeta_ref, "zeta_ref_percentile": EDDY_REF_PERCENTILE,
+                                    "sst_threshold_c": SST_GENESIS_THRESHOLD_C,
+                                    "equatorial_exclusion_deg": EQUATORIAL_EXCLUSION_DEG}
+
+
+def pack_tile(var_code: int, data: np.ndarray) -> bytes:
+    """Serialise a served-grid field in the 32-byte INCO tile format (inverse of parse_tile)."""
+    data = np.asarray(data, dtype="<f4")
+    h, w = data.shape
+    valid = data[np.isfinite(data)]
+    vmin, vmax = (float(valid.min()), float(valid.max())) if valid.size else (float("nan"), float("nan"))
+    return struct.pack(HEADER_FMT, b"INCO", 1, var_code, w, h, 1, 1, vmin, vmax, b"\x00" * 8) + data.tobytes()
+
+
+def derived_meta(layer: str) -> Optional[Dict[str, Any]]:
+    cat = get_catalog()
+    return (cat or {}).get("derived", {}).get(layer)
+
+
+def _grid_axes() -> Tuple[np.ndarray, np.ndarray]:
+    g = grid()
+    return (g["lat0"] + g["dlat"] * np.arange(g["height"]), g["lon0"] + g["dlon"] * np.arange(g["width"]))
+
+
+_clim_cache: Dict[str, Any] = {"mtime": None, "data": None}
+
+
+def load_sst_climatology() -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Monthly SST climatology + 90th percentile on the served grid, or (None, reason)."""
+    path = os.path.join(get_data_root(), "data", "sst_climatology.npz")
+    if not os.path.isfile(path):
+        return None, ("SST climatology not built (data/sst_climatology.npz missing). Run "
+                      "`python scripts/build_authentic_dataset.py --hazards-only`.")
+    mtime = os.path.getmtime(path)
+    if _clim_cache["mtime"] != mtime:
+        z = np.load(path)
+        g = grid()
+        if z["clim"].shape != (12, g["height"], g["width"]):
+            return None, f"Climatology grid {z['clim'].shape[1:]} does not match the served grid."
+        _clim_cache.update(mtime=mtime, data={
+            "clim": z["clim"], "p90": z["p90"], "count": z["count"],
+            "baseline": [int(z["baseline"][0]), int(z["baseline"][1])],
+        })
+    return _clim_cache["data"], None
+
+
+def _derived_cache_path(layer: str, d: str) -> str:
+    base = os.getenv("VOLUME_CACHE_DIR", os.path.join(__import__("tempfile").gettempdir(), "incois_volume_cache"))
+    return os.path.join(base, "derived_tiles", layer, d, "0.0.bin")
+
+
+def _derive_field(layer: str, d: str) -> Tuple[Optional[np.ndarray], Optional[str]]:
+    """Compute an SST-dependent derived layer for date d from its real inputs."""
+    sst = load_tile("temperature", d, 0.0)
+    if sst is None:
+        return None, f"No SST field for {d} (IBR source unreachable or date not in record)."
+    if layer == "mhw_intensity":
+        clim, err = load_sst_climatology()
+        if err:
+            return None, err
+        m = int(d[5:7]) - 1
+        return mhw_intensity(sst, clim["clim"][m], clim["p90"][m]), None
+    if layer == "eddy_convergence":
+        zeta, zerr, _ = load_derived("vorticity", None)
+        if zeta is None:
+            return None, zerr
+        lats, _ = _grid_axes()
+        return eddy_convergence_indicator(sst, zeta, lats)[0], None
+    return None, f"'{layer}' is not derived on demand."
+
+
+def load_derived(layer: str, date: Optional[str], generate: bool = True
+                 ) -> Tuple[Optional[np.ndarray], Optional[str], Optional[str]]:
+    """
+    (field, reason, date) for a derived layer. Current/vorticity layers exist only for the
+    ARMOR3D date and ignore ``date``; SST-dependent layers use an IBR timestep (default: latest).
+    Static tiles are used when present, otherwise the field is derived and cached.
+    """
+    meta = derived_meta(layer)
+    if meta is None:
+        return None, (f"Derived layer '{layer}' is not in the catalog. Run "
+                      f"`python scripts/build_authentic_dataset.py --hazards-only`."), None
+    if meta.get("fixed_date"):
+        d = meta["fixed_date"]
+    else:
+        d, derr = resolve_date("temperature", date)
+        if derr:
+            return None, derr, None
+    for path in (os.path.join(get_data_root(), "tiles", layer, d, "0.0.bin"), _derived_cache_path(layer, d)):
+        if os.path.isfile(path):
+            with open(path, "rb") as f:
+                _, arr = parse_tile(f.read(), meta["var_code"])
+            return arr.astype(np.float64), None, d
+    if not generate or meta.get("fixed_date"):
+        return None, f"No '{layer}' tile for {d}.", d
+    arr, reason = _derive_field(layer, d)
+    if arr is None:
+        return None, reason, d
+    path = _derived_cache_path(layer, d)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+        with open(tmp, "wb") as f:
+            f.write(pack_tile(meta["var_code"], arr))
+        os.replace(tmp, path)
+    except OSError:
+        pass
+    return arr.astype(np.float64), None, d
+
+
+def derived_tile_bytes(layer: str, date: Optional[str]) -> Tuple[Optional[bytes], Optional[str], Optional[str]]:
+    arr, reason, d = load_derived(layer, date)
+    if arr is None:
+        return None, reason, d
+    return pack_tile(derived_meta(layer)["var_code"], arr), None, d
+
+
+def _cell_area_km2(lats: np.ndarray) -> np.ndarray:
+    g = grid()
+    return (M_PER_DEG / 1000.0) ** 2 * g["dlat"] * g["dlon"] * np.cos(np.deg2rad(lats))
+
+
+def _clusters(mask: np.ndarray, value: np.ndarray, top: int = 5) -> List[Dict[str, Any]]:
+    """Connected regions (8-neighbour) of ``mask``, largest first, with area and centroid."""
+    from scipy import ndimage
+    lats, lons = _grid_axes()
+    area = _cell_area_km2(lats)[:, None] * np.ones((1, lons.size))
+    lab, n = ndimage.label(mask, structure=np.ones((3, 3)))
+    out = []
+    for k in range(1, n + 1):
+        sel = lab == k
+        a = float(area[sel].sum())
+        rows, cols = np.nonzero(sel)
+        w = area[sel]
+        vals = value[sel]
+        i = int(np.nanargmax(vals))
+        out.append({
+            "cells": int(sel.sum()), "area_km2": round(a, 1),
+            "centroid": {"lat": round(float(np.average(lats[rows], weights=w)), 3),
+                         "lon": round(float(np.average(lons[cols], weights=w)), 3)},
+            "peak": {"lat": round(float(lats[rows[i]]), 3), "lon": round(float(lons[cols[i]]), 3),
+                     "value": round(float(vals[i]), 3)},
+            "mean_value": round(float(np.nanmean(vals)), 3),
+            "bbox": [round(float(lons[cols].min()), 3), round(float(lats[rows].min()), 3),
+                     round(float(lons[cols].max()), 3), round(float(lats[rows].max()), 3)],
+        })
+    out.sort(key=lambda c: -c["area_km2"])
+    return out[:top]
+
+
+def compute_mhw_summary(date: Optional[str] = None) -> Dict[str, Any]:
+    """Domain-wide monthly-mean MHW index for one IBR month: area per category and main regions."""
+    arr, reason, d = load_derived("mhw_intensity", date)
+    if arr is None:
+        return {"available": False, "layer": "mhw_intensity", "date": d, "reason": reason, "caveat": MHW_CAVEAT}
+    clim, _ = load_sst_climatology()
+    lats, lons = _grid_axes()
+    area = _cell_area_km2(lats)[:, None] * np.ones((1, lons.size))
+    finite = np.isfinite(arr)
+    cats = []
+    for i, (lo, label) in enumerate(MHW_CATEGORIES):
+        hi = MHW_CATEGORIES[i + 1][0] if i + 1 < len(MHW_CATEGORIES) else np.inf
+        sel = finite & (arr >= lo) & (arr < hi)
+        cats.append({"category": i + 1, "label": label, "ratio_range": [lo, None if hi == np.inf else hi],
+                     "cells": int(sel.sum()), "area_km2": round(float(area[sel].sum()), 1)})
+    mhw = finite & (arr >= 1.0)
+    return {
+        "available": True, "layer": "mhw_intensity", "date": d,
+        "method": ("Hobday et al. (2018) categories on the ratio (SST - clim) / (p90 - clim); clim and p90 per "
+                   f"cell and calendar month from IBR SST {clim['baseline'][0]}-{clim['baseline'][1]}."),
+        "ocean_cells": int(finite.sum()),
+        "mhw_cells": int(mhw.sum()),
+        "mhw_fraction": round(float(mhw.sum()) / max(1, int(finite.sum())), 4),
+        "categories": cats,
+        "max_ratio": round(float(np.nanmax(arr)), 3) if finite.any() else None,
+        "regions": _clusters(mhw, arr) if mhw.any() else [],
+        "caveat": MHW_CAVEAT,
+    }
+
+
+def compute_mhw_point(lat: float, lon: float, date: Optional[str] = None) -> Dict[str, Any]:
+    """MHW index at one location: SST, climatology, threshold, ratio and category."""
+    arr, reason, d = load_derived("mhw_intensity", date)
+    if arr is None:
+        return {"available": False, "lat": lat, "lon": lon, "date": d, "reason": reason, "caveat": MHW_CAVEAT}
+    r = sample_grid(arr, lat, lon)
+    if r is None:
+        return {"available": False, "lat": lat, "lon": lon, "date": d, "caveat": MHW_CAVEAT,
+                "reason": f"({lat:.3f}°N, {lon:.3f}°E) is outside the domain, on land, or has no climatology."}
+    clim, _ = load_sst_climatology()
+    m = int(d[5:7]) - 1
+    sst = load_tile("temperature", d, 0.0)
+    cat, label = mhw_category(r)
+    return {
+        "available": True, "lat": lat, "lon": lon, "date": d, "units": "°C",
+        "sst": _r(sample_grid(sst, lat, lon) if sst is not None else None, 3),
+        "climatology": _r(sample_grid(clim["clim"][m].astype(np.float64), lat, lon), 3),
+        "threshold_p90": _r(sample_grid(clim["p90"][m].astype(np.float64), lat, lon), 3),
+        "intensity_ratio": round(r, 3), "category": cat, "category_label": label,
+        "baseline": clim["baseline"], "caveat": MHW_CAVEAT,
+    }
+
+
+def compute_eddy_convergence_summary(date: Optional[str] = None) -> Dict[str, Any]:
+    """Warm-water & eddy convergence indicator for one IBR month (vorticity from the ARMOR3D date)."""
+    arr, reason, d = load_derived("eddy_convergence", date)
+    zmeta = derived_meta("vorticity") or {}
+    base = {"layer": "eddy_convergence", "date": d, "sst_date": d, "currents_date": zmeta.get("fixed_date"),
+            "caveat": EDDY_CAVEAT, "geostrophic_caveats": GEOSTROPHIC_CAVEATS}
+    if arr is None:
+        return {**base, "available": False, "reason": reason}
+    finite = np.isfinite(arr)
+    hot = finite & (arr >= 50.0)
+    lats, _ = _grid_axes()
+    zeta, _, _ = load_derived("vorticity", None)
+    ref = eddy_convergence_indicator(np.zeros_like(zeta), zeta, lats)[1] if zeta is not None else {}
+    return {
+        **base, "available": True,
+        "date_mismatch": (f"SST is the IBR month {d}; vorticity is from ARMOR3D {zmeta.get('fixed_date')}. "
+                          f"They are not simultaneous, so co-location is illustrative only."),
+        "method": ("indicator = 100 * min(1, cyclonic zeta / zeta_ref) where SST >= 26.5 °C and zeta*sign(lat) > 0; "
+                   "zeta_ref = 95th percentile of cyclonic geostrophic vorticity over the domain; "
+                   f"|lat| < {EQUATORIAL_EXCLUSION_DEG}° excluded."),
+        "reference": {k: (round(v, 9) if isinstance(v, float) else v) for k, v in ref.items()},
+        "cells_nonzero": int((finite & (arr > 0)).sum()),
+        "cells_ge_50": int(hot.sum()),
+        "regions": _clusters(hot, arr) if hot.any() else [],
+    }
+
+
+def compute_drift(lat: float, lon: float, mode: str = "forward", hours: float = 48.0,
+                  step_minutes: float = 60.0) -> Dict[str, Any]:
+    """
+    Particle path by 4th-order Runge-Kutta through the ARMOR3D surface geostrophic field
+    (bilinear, land cells never used). forward: where a particle released here would go;
+    reverse: integrate backwards from a last-known position toward a probable origin.
+    Stops early if the particle reaches land/no-data or leaves the domain.
+    """
+    base = {"mode": mode, "start": {"lat": lat, "lon": lon}, "hours_requested": hours,
+            "caveats": GEOSTROPHIC_CAVEATS + [
+                "Stokes (wave) drift, windage of floating material and Ekman transport are not modelled, so "
+                "the true drift can differ substantially in speed and direction."]}
+    if mode not in ("forward", "reverse"):
+        return {**base, "available": False, "reason": "mode must be 'forward' or 'reverse'."}
+    if not (0 < hours <= 240) or not (5 <= step_minutes <= 360):
+        return {**base, "available": False, "reason": "hours must be in (0, 240] and step_minutes in [5, 360]."}
+    u, ureason, d = load_derived("current_u", None)
+    v, vreason, _ = load_derived("current_v", None)
+    if u is None or v is None:
+        return {**base, "available": False, "reason": ureason or vreason}
+    base["currents_date"] = d
+
+    def vel(la: float, lo: float) -> Optional[Tuple[float, float]]:
+        uu, vv = sample_grid(u, la, lo), sample_grid(v, la, lo)
+        if uu is None or vv is None:
+            return None
+        return uu, vv
+
+    def deriv(la: float, lo: float) -> Optional[Tuple[float, float]]:
+        w = vel(la, lo)
+        if w is None:
+            return None
+        return w[1] / M_PER_DEG, w[0] / (M_PER_DEG * np.cos(np.deg2rad(la)))  # deg/s (dlat, dlon)
+
+    dt = step_minutes * 60.0 * (1.0 if mode == "forward" else -1.0)
+    n = int(round(hours * 60.0 / step_minutes))
+    w0 = vel(lat, lon)
+    if w0 is None:
+        return {**base, "available": False,
+                "reason": f"({lat:.3f}°N, {lon:.3f}°E) is on land, outside the domain, or has no current data."}
+    path = [{"lat": round(lat, 5), "lon": round(lon, 5), "t_hours": 0.0,
+             "speed_ms": round(float(np.hypot(*w0)), 4)}]
+    la, lo, stop = lat, lon, None
+    for i in range(n):
+        k1 = deriv(la, lo)
+        k2 = k1 and deriv(la + 0.5 * dt * k1[0], lo + 0.5 * dt * k1[1])
+        k3 = k2 and deriv(la + 0.5 * dt * k2[0], lo + 0.5 * dt * k2[1])
+        k4 = k3 and deriv(la + dt * k3[0], lo + dt * k3[1])
+        if not k4:
+            stop = "reached land / no-data cells or the domain edge"
+            break
+        la += dt / 6.0 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0])
+        lo += dt / 6.0 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1])
+        w = vel(la, lo)
+        if w is None:
+            stop = "reached land / no-data cells or the domain edge"
+            break
+        path.append({"lat": round(la, 5), "lon": round(lo, 5),
+                     "t_hours": round((i + 1) * step_minutes / 60.0 * (1 if mode == "forward" else -1), 3),
+                     "speed_ms": round(float(np.hypot(*w)), 4)})
+    dist_km = 0.0
+    for a, b in zip(path, path[1:]):
+        dy = (b["lat"] - a["lat"]) * M_PER_DEG
+        dx = (b["lon"] - a["lon"]) * M_PER_DEG * np.cos(np.deg2rad(0.5 * (a["lat"] + b["lat"])))
+        dist_km += float(np.hypot(dx, dy)) / 1000.0
+    return {
+        **base, "available": True,
+        "method": f"RK4, step {step_minutes:g} min, bilinear sampling (land corners excluded), steady field",
+        "hours_simulated": abs(path[-1]["t_hours"]),
+        "stopped_early": stop,
+        "end": {"lat": path[-1]["lat"], "lon": path[-1]["lon"]},
+        "path_length_km": round(dist_km, 2),
+        "path": path,
+    }
+
+
+def compute_advisories(date: Optional[str] = None) -> Dict[str, Any]:
+    """Advisory items derived only from the MHW and eddy-convergence summaries above."""
+    items: List[Dict[str, Any]] = []
+    mhw = compute_mhw_summary(date)
+    if mhw["available"]:
+        for reg in mhw["regions"][:3]:
+            cat, label = mhw_category(reg["peak"]["value"])
+            items.append({
+                "type": "marine_heatwave", "level": label.lower(), "date": mhw["date"],
+                "title": f"{label} monthly-mean MHW index near {reg['centroid']['lat']:.1f}°N, "
+                         f"{reg['centroid']['lon']:.1f}°E",
+                "detail": f"{reg['area_km2']:,.0f} km² above the 90th-percentile threshold; peak ratio "
+                          f"{reg['peak']['value']:.2f} at {reg['peak']['lat']:.2f}°N, {reg['peak']['lon']:.2f}°E.",
+                "region": reg, "caveat": MHW_CAVEAT,
+            })
+    eddy = compute_eddy_convergence_summary(date)
+    if eddy["available"]:
+        for reg in eddy["regions"][:3]:
+            items.append({
+                "type": "eddy_convergence", "level": "indicator", "date": eddy["date"],
+                "title": f"Warm-water & cyclonic-eddy co-location near {reg['centroid']['lat']:.1f}°N, "
+                         f"{reg['centroid']['lon']:.1f}°E",
+                "detail": f"{reg['area_km2']:,.0f} km² with indicator ≥ 50 (peak {reg['peak']['value']:.0f}). "
+                          + eddy["date_mismatch"],
+                "region": reg, "caveat": EDDY_CAVEAT,
+            })
+    unavailable = {k: s["reason"] for k, s in (("marine_heatwave", mhw), ("eddy_convergence", eddy))
+                   if not s["available"]}
+    return {"available": bool(items) or not unavailable, "date": mhw.get("date") or eddy.get("date"),
+            "advisories": items, "unavailable": unavailable,
+            "note": "Advisories are descriptive summaries of the layers above; none is a forecast."}
+
+
 def health() -> Dict[str, Any]:
     cat = get_catalog(live=False)  # never block a health check on the remote source
     return {

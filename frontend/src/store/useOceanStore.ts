@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { fetchCatalog, DataCatalog, VariableCatalogEntry } from '../api/client';
 import { nearestTime, normalizeTimes, StepUnit, toMs } from '../timeline/timelineEngine';
 import { configureGrid } from '../rendering/grid';
+import {
+  Advisory, DisasterLayerId, DriftMode, DriftResult, EddySummary, MhwSummary, Unavailable,
+  fetchAdvisories, fetchDrift, fetchEddySummary, fetchMhwSummary
+} from '../api/hazardsClient';
 
 export const MODEL_FIELDS = ['temperature', 'salinity', 'chlorophyll', 'mld', 'currents'] as const;
 
@@ -111,6 +115,28 @@ export interface OceanState {
   closeComparisonModal: () => void;
   setComparisonVariable: (variable: string) => void;
 
+  // Disaster Early Warning (derived layers; every value comes from /api/hazards/*)
+  activeDisasterLayers: DisasterLayerId[];
+  toggleDisasterLayer: (id: DisasterLayerId) => void;
+  driftSimulationCoordinates: { lat: number; lon: number } | null;
+  setDriftSimulationCoordinates: (p: { lat: number; lon: number } | null) => void;
+  driftMode: DriftMode;
+  setDriftMode: (mode: DriftMode) => void;
+  driftHours: number;
+  setDriftHours: (hours: number) => void;
+  isPickingDriftPoint: boolean;
+  setIsPickingDriftPoint: (picking: boolean) => void;
+  driftResult: DriftResult | Unavailable | null;
+  driftLoading: boolean;
+  runDriftSimulation: () => Promise<void>;
+  clearDrift: () => void;
+  /** MHW / eddy-convergence summaries for hazardDate (named for the indicator, not a risk score). */
+  hazardIndicatorData: { date: string | null; mhw: MhwSummary | Unavailable | null; eddy: EddySummary | Unavailable | null };
+  activeAdvisories: Advisory[];
+  advisoriesUnavailable: Record<string, string>;
+  hazardsLoading: boolean;
+  refreshHazards: () => Promise<void>;
+
   // Analytics modal
   isAnalyticsModalOpen: boolean;
   analyticsTarget: AnalyticsTarget | null;
@@ -160,6 +186,19 @@ export interface HoveredCycloneInfo {
   screenX: number;
   screenY: number;
 }
+
+/**
+ * IBR month used by the hazard layers: the selected time when it is an SST timestep,
+ * otherwise the latest SST month (e.g. while the 2024-12-31 currents field is selected).
+ */
+export function hazardDate(state: Pick<OceanState, 'catalog' | 'selectedTime'>): string | null {
+  const ts = state.catalog?.variables.temperature?.timesteps ?? [];
+  if (!ts.length) return null;
+  const sel = state.selectedTime ? state.selectedTime.slice(0, 10) : '';
+  return ts.includes(sel) ? sel : ts[ts.length - 1];
+}
+
+let hazardAbort: AbortController | null = null;
 
 /** Default open-ocean location used when no point/instrument is selected (Bay of Bengal). */
 export const DEFAULT_OCEAN_POINT = { lat: 15.0, lon: 88.0, name: 'Bay of Bengal (15°N, 88°E)' };
@@ -355,6 +394,68 @@ export const useOceanStore = create<OceanState>((set, get) => ({
     }),
   closeComparisonModal: () => set({ isComparisonModalOpen: false, comparisonInstrumentId: null }),
   setComparisonVariable: (comparisonVariable) => set({ comparisonVariable }),
+
+  activeDisasterLayers: [],
+  toggleDisasterLayer: (id) =>
+    set((s) => ({
+      activeDisasterLayers: s.activeDisasterLayers.includes(id)
+        ? s.activeDisasterLayers.filter((x) => x !== id)
+        : [...s.activeDisasterLayers, id]
+    })),
+  driftSimulationCoordinates: null,
+  setDriftSimulationCoordinates: (driftSimulationCoordinates) =>
+    set({ driftSimulationCoordinates, isPickingDriftPoint: false, driftResult: null }),
+  driftMode: 'forward',
+  setDriftMode: (driftMode) => set({ driftMode, driftResult: null }),
+  driftHours: 48,
+  setDriftHours: (driftHours) => set({ driftHours, driftResult: null }),
+  isPickingDriftPoint: false,
+  setIsPickingDriftPoint: (isPickingDriftPoint) => set({ isPickingDriftPoint }),
+  driftResult: null,
+  driftLoading: false,
+  runDriftSimulation: async () => {
+    const { driftSimulationCoordinates: p, driftMode, driftHours } = get();
+    if (!p) return;
+    set({ driftLoading: true, driftResult: null });
+    try {
+      const r = await fetchDrift(p.lat, p.lon, driftMode, driftHours);
+      set({ driftResult: r });
+    } catch (err) {
+      set({ driftResult: { available: false, reason: (err as Error).message } });
+    } finally {
+      set({ driftLoading: false });
+    }
+  },
+  clearDrift: () => set({ driftResult: null, driftSimulationCoordinates: null, isPickingDriftPoint: false }),
+  hazardIndicatorData: { date: null, mhw: null, eddy: null },
+  activeAdvisories: [],
+  advisoriesUnavailable: {},
+  hazardsLoading: false,
+  refreshHazards: async () => {
+    const date = hazardDate(get());
+    if (!date) return;
+    hazardAbort?.abort();
+    const ac = new AbortController();
+    hazardAbort = ac;
+    set({ hazardsLoading: true });
+    try {
+      const [mhw, eddy, adv] = await Promise.all([
+        fetchMhwSummary(date, ac.signal), fetchEddySummary(date, ac.signal), fetchAdvisories(date, ac.signal)
+      ]);
+      if (ac.signal.aborted) return;
+      set({
+        hazardIndicatorData: { date, mhw, eddy },
+        activeAdvisories: 'advisories' in adv ? adv.advisories : [],
+        advisoriesUnavailable: 'advisories' in adv ? adv.unavailable : { advisories: adv.reason }
+      });
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        set({ advisoriesUnavailable: { advisories: (err as Error).message } });
+      }
+    } finally {
+      if (hazardAbort === ac) set({ hazardsLoading: false });
+    }
+  },
 
   isAnalyticsModalOpen: false,
   analyticsTarget: null,

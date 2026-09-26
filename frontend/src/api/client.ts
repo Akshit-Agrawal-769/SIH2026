@@ -179,12 +179,18 @@ export interface OceanTileData {
   date: string;
 }
 
+/** Mirrors VAR_CODES in scripts/build_authentic_dataset.py (6-10: derived hazard layers). */
 export const VAR_CODES: Record<string, number> = {
   temperature: 1,
   salinity: 2,
   currents: 3,
   chlorophyll: 4,
-  mld: 5
+  mld: 5,
+  mhw_intensity: 6,
+  current_u: 7,
+  current_v: 8,
+  vorticity: 9,
+  eddy_convergence: 10
 };
 
 /**

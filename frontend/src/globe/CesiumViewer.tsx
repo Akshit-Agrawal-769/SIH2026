@@ -2,7 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { useShallow } from 'zustand/react/shallow';
-import { useOceanStore } from '../store/useOceanStore';
+import { useOceanStore, hazardDate } from '../store/useOceanStore';
+import { createHazardLayers, HazardLayersManager } from '../rendering/hazardLayers';
 import { parseUrlState, syncStateToUrl } from '../store/urlState';
 import { serializeCameraState, setCameraState } from './cameraUtils';
 import { createInstrumentsLayer, InstrumentsLayerManager } from '../layers/instrumentsLayer';
@@ -26,6 +27,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
   const volumetricBlockManagerRef = useRef<VolumetricBlockManager | null>(null);
   const graticuleManagerRef = useRef<GraticuleLayerManager | null>(null);
   const cyclonesManagerRef = useRef<CyclonesLayerManager | null>(null);
+  const hazardManagerRef = useRef<HazardLayersManager | null>(null);
 
   const {
     activeLayers,
@@ -257,6 +259,15 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       const lon = Cesium.Math.toDegrees(cartographic.longitude);
       const lat = Cesium.Math.toDegrees(cartographic.latitude);
 
+      // Disaster panel "pick a point" mode: the click sets the drift start instead of opening the callout.
+      if (useOceanStore.getState().isPickingDriftPoint) {
+        useOceanStore.getState().setDriftSimulationCoordinates({
+          lat: parseFloat(lat.toFixed(4)),
+          lon: parseFloat(lon.toFixed(4))
+        });
+        return;
+      }
+
       // Determine basin name
       let basinName = 'Indian Ocean';
       if (lon >= 52 && lon <= 78 && lat >= 8 && lat <= 26) {
@@ -277,6 +288,11 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
         basin: basinName
       });
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+    // 4c. Disaster Early Warning overlays (MHW index, eddy convergence indicator, drift paths)
+    hazardManagerRef.current = createHazardLayers(viewer, (status) => {
+      useOceanStore.getState().setLayerStatus(`hazard_${status.layer}`, { state: status.state, message: status.message });
+    });
 
     // 5. Initialize Ocean Currents Layer (Weather-Map Streamlines + Directional Vector Arrows)
     const currentsManager = createCurrentsLayer(viewer, (status) => {
@@ -340,6 +356,8 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
       cyclonesManagerRef.current?.destroy();
       instrumentsManagerRef.current?.destroy();
       depthSliceManagerRef.current?.destroy();
+      hazardManagerRef.current?.destroy();
+      hazardManagerRef.current = null;
       currentsManagerRef.current?.destroy();
       volumetricBlockManagerRef.current?.destroy();
       graticuleManagerRef.current?.destroy();
@@ -349,6 +367,18 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onViewerReady]);
+
+  const { activeDisasterLayers, driftResult, hazardMonth } = useOceanStore(useShallow((s) => ({
+    activeDisasterLayers: s.activeDisasterLayers,
+    driftResult: s.driftResult,
+    hazardMonth: hazardDate(s)
+  })));
+  useEffect(() => {
+    hazardManagerRef.current?.update(activeDisasterLayers, hazardMonth);
+  }, [activeDisasterLayers, hazardMonth]);
+  useEffect(() => {
+    hazardManagerRef.current?.setDrift(driftResult && driftResult.available ? driftResult : null);
+  }, [driftResult]);
 
   // Update layers and slices when activeLayers, depth, variable, or color settings change
   useEffect(() => {

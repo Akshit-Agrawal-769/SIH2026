@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useOceanStore, DEFAULT_OCEAN_POINT } from '../store/useOceanStore';
 import { getAllLayers, LayerCategory } from '../layers/registry';
 import { Layers, Box, Droplets, Wind, Waves, Radio, Activity } from 'lucide-react';
+import { DisasterPanel } from './DisasterPanel';
 
 const ICONS: Record<string, React.ReactNode> = {
   waves: <Waves className="w-3.5 h-3.5 text-ocean-accent" />,
@@ -134,6 +135,10 @@ export const LeftPanel: React.FC = () => {
           </div>
         );
       })}
+
+      <div className="border-t border-white/10 pt-3">
+        <DisasterPanel />
+      </div>
     </aside>
   );
 };

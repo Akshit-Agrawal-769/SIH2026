@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app import analytics_engine as ae
 from app import ibr_live
-from app.routers import variables, manifest, instruments, tiles, wms, export, comparison, analytics, model
+from app.routers import variables, manifest, instruments, tiles, wms, export, comparison, analytics, model, hazards
 from app.db.session import engine
 
 app = FastAPI(
@@ -28,7 +28,7 @@ app.add_middleware(
     expose_headers=["X-Data-Source", "X-Data-Policy", "X-Volume-Shape", "X-Volume-Z-Axis"],
 )
 
-ROUTERS = (variables, manifest, instruments, tiles, wms, export, comparison, analytics, model)
+ROUTERS = (variables, manifest, instruments, tiles, wms, export, comparison, analytics, model, hazards)
 for r in ROUTERS:
     app.include_router(r.router, prefix="/api")
 # Un-prefixed aliases kept for deployments that proxy without the /api prefix.

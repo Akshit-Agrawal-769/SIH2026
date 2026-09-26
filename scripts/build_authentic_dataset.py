@@ -33,6 +33,7 @@ import re
 import shutil
 import struct
 import sys
+import time
 
 import gsw
 import netCDF4 as nc
@@ -143,7 +144,10 @@ def depth_key(depth):
 
 # --------------------------------------------------------------------------- tiles
 
-VAR_CODES = {"temperature": 1, "salinity": 2, "currents": 3, "chlorophyll": 4, "mld": 5}
+# Codes 1-5 are the original served fields; 6-10 are derived hazard layers (catalog["derived"]).
+# Mirrored in frontend/src/api/client.ts VAR_CODES. Never renumber existing codes.
+VAR_CODES = {"temperature": 1, "salinity": 2, "currents": 3, "chlorophyll": 4, "mld": 5,
+             "mhw_intensity": 6, "current_u": 7, "current_v": 8, "vorticity": 9, "eddy_convergence": 10}
 
 
 def pack_tile(var_code, data):
@@ -644,6 +648,203 @@ def build_argo(collocator):
     return [f["id"] for f in features]
 
 
+# --------------------------------------------------------------------------- hazard layers
+#
+# Derived artefacts for the Disaster Early Warning panel. The science lives in
+# data-service/app/analytics_engine.py (mhw_intensity, relative_vorticity,
+# eddy_convergence_indicator) so the service and this build share one implementation.
+
+MHW_BASELINE = (1982, 2011)  # 30-year baseline recommended by Hobday et al. (2016)
+
+
+def _engine():
+    sys.path.insert(0, os.path.join(REPO, "data-service"))
+    os.environ.setdefault("IBR_LIVE_TILES", "0")
+    from app import analytics_engine as ae  # noqa: E402
+    ae.set_data_root(OUT)
+    return ae
+
+
+class IBRSST:
+    """Monthly IBR SST on its native grid: local netCDF4 file, else the data-service HF reader."""
+
+    def __init__(self):
+        if os.path.exists(IBR_PATH):
+            self.ds = nc.Dataset(IBR_PATH)
+            t = self.ds["TIME"]
+            self.times = nc.num2date(t[:], t.units, t.calendar)
+            self.lat = np.ma.filled(self.ds["LAT"][:].astype(float), np.nan)
+            self.lon = np.ma.filled(self.ds["LON"][:].astype(float), np.nan)
+            self.source = rel(IBR_PATH)
+            self._read = lambda k0, k1: np.ma.filled(self.ds["SST"][k0:k1, :, :].astype(float), np.nan)
+        else:
+            sys.path.insert(0, os.path.join(REPO, "data-service"))
+            from app import model_store as ms  # noqa: E402
+            fn = os.path.basename(IBR_PATH)
+            log(f"[MHW] {rel(IBR_PATH)} not found locally; reading SST from Hugging Face {ms.HF_REPO} "
+                f"(~1 GB over 480 months; first run also builds the SST chunk index)")
+            r = ms.open_reader(fn)
+            dec = lambda name: ms.decode(np.asarray(r.read(name, (slice(None),))), r.variables[name].attrs)
+            tv = r.variables["TIME"]
+            self.times = nc.num2date(dec("TIME").astype(float), tv.attrs["units"], tv.attrs.get("calendar", "standard"))
+            self.lat, self.lon = dec("LAT").astype(float), dec("LON").astype(float)
+            self.source = f"huggingface:{ms.HF_REPO}/{fn}"
+            attrs = r.variables["SST"].attrs
+            self._read = lambda k0, k1: ms.decode(ms.read_array(fn, "SST", (slice(k0, k1),))[0], attrs).astype(float)
+            self.ds = None
+
+    def months(self, batch=12):
+        """Yield (index, cftime date, native field) for every timestep."""
+        t0 = time.time()
+        for k0 in range(0, len(self.times), batch):
+            k1 = min(len(self.times), k0 + batch)
+            block = self._read(k0, k1)
+            log(f"[MHW] SST {self.times[k0].strftime('%Y-%m')}..{self.times[k1 - 1].strftime('%Y-%m')} "
+                f"({k1}/{len(self.times)}, {time.time() - t0:.0f}s)")
+            for i in range(k1 - k0):
+                yield k0 + i, self.times[k0 + i], block[i]
+
+    def close(self):
+        if self.ds is not None:
+            self.ds.close()
+
+
+def _regridder_for(lat, lon):
+    j0 = max(0, int(np.searchsorted(lat, TGT_LATS[0])) - 2)
+    j1 = min(len(lat), int(np.searchsorted(lat, TGT_LATS[-1])) + 2)
+    i0 = max(0, int(np.searchsorted(lon, TGT_LONS[0])) - 2)
+    i1 = min(len(lon), int(np.searchsorted(lon, TGT_LONS[-1])) + 2)
+    glat, glon = np.meshgrid(TGT_LATS, TGT_LONS, indexing="ij")
+
+    def regrid(field2d):  # identical method to ibr_regridder(): bilinear, any NaN corner -> NaN
+        interp = RegularGridInterpolator((lat[j0:j1], lon[i0:i1]), field2d[j0:j1, i0:i1], method="linear",
+                                         bounds_error=False, fill_value=np.nan)
+        return interp((glat, glon)).astype(np.float32)
+
+    return regrid
+
+
+def build_sst_climatology(ibr_year):
+    """
+    Per-cell, per-calendar-month SST mean and 90th percentile over MHW_BASELINE (served grid),
+    plus the regridded SST of the display year. A cell's climatology is NaN unless every
+    baseline year is finite there (no partial-record statistics).
+    """
+    src = IBRSST()
+    regrid = _regridder_for(src.lat, src.lon)
+    y0, y1 = MHW_BASELINE
+    nyears = y1 - y0 + 1
+    stack = np.full((12, nyears, GRID["height"], GRID["width"]), np.nan, dtype=np.float32)
+    seen = set()
+    display = {}
+    for k, t, field in src.months():
+        key = (t.year, t.month)
+        if key in seen:
+            raise SystemExit(f"IBR has two timesteps in {t.year}-{t.month:02d}; monthly climatology is ambiguous.")
+        seen.add(key)
+        if y0 <= t.year <= y1 or t.year == ibr_year:
+            tile = regrid(field)
+            if y0 <= t.year <= y1:
+                stack[t.month - 1, t.year - y0] = tile
+            if t.year == ibr_year:
+                display[t.strftime("%Y-%m-%d")] = tile
+    src_name = src.source
+    src.close()
+    missing = [(m + 1, y0 + y) for m in range(12) for y in range(nyears) if not np.isfinite(stack[m, y]).any()]
+    if missing:
+        raise SystemExit(f"Baseline months missing from IBR: {missing[:6]}{'...' if len(missing) > 6 else ''}")
+    count = np.isfinite(stack).sum(axis=1).astype(np.int16)          # (12, H, W)
+    complete = count == nyears
+    import warnings
+    with warnings.catch_warnings(), np.errstate(all="ignore"):
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN (land) cells; masked just below
+        clim = np.nanmean(stack, axis=1).astype(np.float32)
+        p90 = np.nanpercentile(stack, 90, axis=1).astype(np.float32)
+    clim[~complete] = np.nan
+    p90[~complete] = np.nan
+    path = os.path.join(OUT, "data", "sst_climatology.npz")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    np.savez_compressed(path, clim=clim, p90=p90, count=count, baseline=np.array(MHW_BASELINE, dtype=np.int16))
+    log(f"[MHW] climatology {y0}-{y1} -> {rel(path)} ({int(complete[0].sum())} complete ocean cells)")
+    return display, {"file": rel(path), "baseline": list(MHW_BASELINE), "source": src_name,
+                     "percentile_method": "numpy nanpercentile (linear interpolation) over the 30 baseline years",
+                     "window": "calendar month (no day-of-year smoothing; monthly data)"}
+
+
+def build_armor_derived():
+    """Full-resolution ARMOR3D geostrophic u, v and relative vorticity tiles."""
+    ae = _engine()
+    ds = nc.Dataset(ARMOR_PATH)
+    lat = ds["latitude"][:].astype(float)
+    lon = ds["longitude"][:].astype(float)
+    la = np.where((lat > GRID["bbox"][1]) & (lat < GRID["bbox"][3]))[0]
+    lo = np.where((lon > GRID["bbox"][0]) & (lon < GRID["bbox"][2]))[0]
+    assert len(la) == GRID["height"] and len(lo) == GRID["width"], "ARMOR3D subset does not match served grid"
+    u = np.ma.filled(ds["ugo"][0, 0][la][:, lo].astype(float), np.nan)
+    v = np.ma.filled(ds["vgo"][0, 0][la][:, lo].astype(float), np.nan)
+    tt = ds["time"]
+    armor_date = nc.num2date(tt[0], tt.units, getattr(tt, "calendar", "standard")).strftime("%Y-%m-%d")
+    ds.close()
+    zeta = ae.relative_vorticity(u, v, TGT_LATS, TGT_LONS)
+    write_tile("current_u", armor_date, u.astype(np.float32))
+    write_tile("current_v", armor_date, v.astype(np.float32))
+    write_tile("vorticity", armor_date, zeta)
+    log(f"[Hazards] ARMOR3D {armor_date}: u/v/vorticity tiles, zeta range "
+        f"{np.nanmin(zeta):.2e} .. {np.nanmax(zeta):.2e} s^-1")
+    return armor_date, zeta
+
+
+def build_hazard_layers(ibr_year):
+    """Write derived tiles + climatology; return the catalog 'derived' section."""
+    ae = _engine()
+    armor_date, zeta = build_armor_derived()
+    display, clim_meta = build_sst_climatology(ibr_year)
+    with np.load(os.path.join(OUT, "data", "sst_climatology.npz")) as z:
+        clim, p90 = z["clim"], z["p90"]
+    dates = sorted(display)
+    for d in dates:
+        m = int(d[5:7]) - 1
+        write_tile("mhw_intensity", d, ae.mhw_intensity(display[d], clim[m], p90[m]))
+        ind, ref = ae.eddy_convergence_indicator(display[d], zeta, TGT_LATS)
+        write_tile("eddy_convergence", d, ind)
+    log(f"[Hazards] MHW + eddy-convergence tiles for {len(dates)} months of {ibr_year}")
+    fixed = {"fixed_date": armor_date, "source_id": "armor3d", "depths": [SURFACE_DEPTH]}
+    return {
+        "mhw_intensity": {
+            "var_code": VAR_CODES["mhw_intensity"], "units": "ratio", "source_id": "ibr",
+            "long_name": "Monthly-mean marine heatwave intensity ratio (SST - clim) / (p90 - clim)",
+            "static_timesteps": dates, "on_demand": "any IBR timestep (derived from its SST tile)",
+            "categories": {"1": "Moderate", "2": "Strong", "3": "Severe", "4": "Extreme"},
+            "climatology": clim_meta, "caveat": ae.MHW_CAVEAT,
+        },
+        "current_u": {**fixed, "var_code": VAR_CODES["current_u"], "units": "m/s",
+                      "long_name": "Eastward surface geostrophic velocity (ugo)", "caveat": ae.GEOSTROPHIC_CAVEATS[0]},
+        "current_v": {**fixed, "var_code": VAR_CODES["current_v"], "units": "m/s",
+                      "long_name": "Northward surface geostrophic velocity (vgo)", "caveat": ae.GEOSTROPHIC_CAVEATS[0]},
+        "vorticity": {**fixed, "var_code": VAR_CODES["vorticity"], "units": "s-1",
+                      "long_name": "Relative vorticity of the surface geostrophic flow",
+                      "method": "(1/(R cos phi)) (dv/dlambda - d(u cos phi)/dphi), central differences, R = 6371 km",
+                      "caveat": ae.GEOSTROPHIC_CAVEATS[0]},
+        "eddy_convergence": {
+            "var_code": VAR_CODES["eddy_convergence"], "units": "0-100 indicator", "source_id": "ibr+armor3d",
+            "long_name": "Warm-water & eddy convergence indicator (not a cyclone forecast)",
+            "static_timesteps": dates, "on_demand": "any IBR timestep (SST) with the fixed ARMOR3D vorticity",
+            "currents_date": armor_date, "caveat": ae.EDDY_CAVEAT,
+        },
+    }
+
+
+def update_catalog_with_hazards(derived):
+    path = os.path.join(OUT, "api", "catalog.json")
+    with open(path, encoding="utf-8") as f:
+        catalog = json.load(f)
+    catalog["derived"] = derived
+    catalog.setdefault("tile_format", {})["var_codes"] = VAR_CODES
+    catalog["hazards_generated_at"] = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    write_json(path, catalog)
+    log(f"[Hazards] catalog.json updated with {len(derived)} derived layers")
+
+
 # --------------------------------------------------------------------------- catalog/static API
 
 def write_static_api(catalog, instrument_ids):
@@ -694,7 +895,19 @@ def write_static_api(catalog, instrument_ids):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ibr-year", type=int, default=2019, help="IBR year exported as display tiles")
+    ap.add_argument("--hazards-only", action="store_true",
+                    help="only (re)build the derived hazard layers into the existing catalog; needs datasets/cmems.nc, "
+                         "reads IBR SST from datasets/model/ or, if absent, from Hugging Face via the data-service")
     args = ap.parse_args()
+
+    if args.hazards_only:
+        if not os.path.exists(os.path.join(OUT, "api", "catalog.json")):
+            raise SystemExit("No existing catalog; run the full build first.")
+        if not os.path.exists(ARMOR_PATH):
+            raise SystemExit(f"Missing authentic source file: {ARMOR_PATH} "
+                             f"(python scripts/fetch_hf_datasets.py --only cmems.nc)")
+        update_catalog_with_hazards(build_hazard_layers(args.ibr_year))
+        return
 
     for p in (IBR_PATH, ARMOR_PATH):
         if not os.path.exists(p):
@@ -732,6 +945,7 @@ def main():
         "instruments": instrument_ids,
     }
     write_static_api(catalog, instrument_ids)
+    update_catalog_with_hazards(build_hazard_layers(args.ibr_year))
     log(f"[Done] catalog with {len(catalog_vars)} variables, {len(instrument_ids)} Argo floats -> {rel(OUT)}")
 
 
