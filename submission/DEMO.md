@@ -12,14 +12,12 @@ Watch the full end-to-end working demonstration of the platform:
 
 - **Live Production URL:** 
 🚀 Main Website (3D Digital Twin):
-👉 https://sih-zeta-gilt.vercel.app (static frontend)
+👉 https://sih2026-drab.vercel.app
 
-> ⚠ `https://incois-ocean-3d.vercel.app` is an older Vercel deployment that still serves the removed synthetic tiles and fabricated buoy/glider profiles. It must be redeployed from this branch or taken down.
-
-⚙️ Backend Links (To show your teammates):
-Interactive FastAPI Swagger Docs: https://incois-ocean-3d.vercel.app/docs
-Live Backend Health API: https://incois-ocean-3d.vercel.app/api/health
-Real Instruments API: https://incois-ocean-3d.vercel.app/api/instruments
+⚙️ Backend Links:
+Interactive FastAPI Swagger Docs: https://incois-data-service.onrender.com/docs
+Live Backend Health API: https://incois-data-service.onrender.com/health
+Disaster Early Warning layers: https://incois-data-service.onrender.com/api/hazards/layers
 - **YouTube Demonstration Link:** 'https://youtu.be/7Gc3l8hrdHI?si=rjLgtKtbXWsbWunQ' *
 
 > **Note:** Both the live production web app and the demonstration video are accessible publicly without requiring permissions or sign-in.
@@ -43,7 +41,7 @@ The demonstration video highlights the core operational capabilities of the plat
 ### Segment 3: 3D Volumetric Water Column Studio (2:00 – 3:15)
 - **On-Demand Water Block Extraction:** Selecting any point in the Indian Ocean to open the Three.js 3D Volumetric Ocean Block Studio.
 - **Laser Depth Scanning:** Animated laser scan plane slicing through stratification layers.
-- **Physical Telemetry Readings:** Sound velocity calculation (Mackenzie equation), mixed layer depth (MLD), and pycnocline gradients.
+- **Physical Telemetry Readings:** mixed layer depth (MLD) and thermocline from the measured Argo profile.
 
 ### Segment 4: In-Situ Observation Co-Visualization (3:15 – 4:15)
 - **Active Platform Markers:** latest QC-filtered positions of 13 Argo floats (no glider or buoy data exists in this release).

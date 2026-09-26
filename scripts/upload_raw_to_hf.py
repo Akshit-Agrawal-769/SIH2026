@@ -8,7 +8,7 @@ scripts/fetch_hf_datasets.py --with-raw downloads and unpacks them back into dat
 
     HF_TOKEN=... python scripts/upload_raw_to_hf.py [--staging D:/hf_staging]
 
-Also uploads datasets/ext -> ext_raw/, datasets/model/incois_roms_indian_ocean.nc and datasets/manifest.json.
+Also uploads datasets/ext -> ext_raw/ (staged as hard links), datasets/model/incois_roms_indian_ocean.nc and datasets/manifest.json.
 Resumable: archives already built are reused and upload_large_folder skips files already uploaded.
 """
 import argparse
@@ -45,6 +45,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default=os.getenv("HF_DATASET_REPO", "ScaryCobra/incois"))
     ap.add_argument("--staging", default="D:/hf_staging", help="folder for the tar archives (not under OneDrive)")
+    ap.add_argument("--workers", type=int, default=2, help="parallel uploads (keep low on unstable links)")
     args = ap.parse_args()
     token = os.environ.get("HF_TOKEN")
     if not token:
@@ -59,20 +60,38 @@ def main():
                             commit_message=f"Add {remote}")
             print(f"uploaded {remote}", flush=True)
 
-    # external source subsets
+    # external source subsets: staged (hard links, no copy) as ext_raw/ next to the archives
     ext = os.path.join(DATASETS, "ext")
-    if os.path.isdir(ext):
-        api.upload_folder(folder_path=ext, path_in_repo="ext_raw", repo_id=args.repo, repo_type="dataset",
-                          allow_patterns=["**/*.nc", "**/*.csv"], ignore_patterns=["*.part", "*.tmp", "*.log"],
-                          commit_message="Add ext_raw (external source subsets for the hazard products)")
-        print("uploaded ext_raw/", flush=True)
+    for root, _, files in os.walk(ext):
+        for f in files:
+            if not f.endswith((".nc", ".csv")):
+                continue
+            src = os.path.join(root, f)
+            dst = os.path.join(args.staging, "ext_raw", os.path.relpath(src, ext))
+            if not os.path.isfile(dst):
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                try:
+                    os.link(src, dst)
+                except OSError:
+                    import shutil
+                    shutil.copyfile(src, dst)
 
     # Argo centre archives
     for c in CENTRES:
         if os.path.isdir(os.path.join(DATASETS, c)):
             pack(c, args.staging)
-    api.upload_large_folder(folder_path=args.staging, repo_id=args.repo, repo_type="dataset",
-                            allow_patterns=["raw/*.tar"])
+
+    # upload_large_folder is resumable (state in <staging>/.cache) and retries failed files; loop over
+    # dropped connections until everything is committed.
+    for attempt in range(1, 31):
+        try:
+            api.upload_large_folder(folder_path=args.staging, repo_id=args.repo, repo_type="dataset",
+                                    allow_patterns=["raw/*.tar", "ext_raw/**"], num_workers=args.workers,
+                                    print_report_every=120)
+            break
+        except Exception as exc:
+            print(f"upload attempt {attempt} interrupted: {type(exc).__name__}: {str(exc)[:200]}", flush=True)
+            time.sleep(60)
     print("ALL DONE", flush=True)
 
 

@@ -34,4 +34,4 @@ QC policy, data modes and source file for every Argo profile in its metadata.
 
 Earlier releases served procedurally generated "ROMS" fields for 2024-06-01..05 at eight
 depths, fabricated glider and moored-buoy profiles, and formula-based oxygen/chlorophyll for
-two floats. These were deleted; see `AUDIT_REPORT.md`.
+two floats. These were deleted.

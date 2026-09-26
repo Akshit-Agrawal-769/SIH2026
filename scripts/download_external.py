@@ -15,7 +15,6 @@ values; nothing is gap-filled or synthesised.
 import argparse
 import datetime as dt
 import os
-import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor

@@ -27,31 +27,10 @@ export function registerLayer(layer: LayerDefinition): void {
 }
 
 /**
- * Unregister a layer by ID.
- */
-export function unregisterLayer(layerId: string): boolean {
-  return registeredLayers.delete(layerId);
-}
-
-/**
  * Retrieve all currently registered layers.
  */
 export function getAllLayers(): LayerDefinition[] {
   return Array.from(registeredLayers.values());
-}
-
-/**
- * Retrieve a specific layer definition by ID.
- */
-export function getLayer(layerId: string): LayerDefinition | undefined {
-  return registeredLayers.get(layerId);
-}
-
-/**
- * Filter layers by category.
- */
-export function getLayersByCategory(category: LayerCategory): LayerDefinition[] {
-  return getAllLayers().filter((l) => l.category === category);
 }
 
 // Register Built-in Default Layers
@@ -144,6 +123,3 @@ const DEFAULT_LAYERS: LayerDefinition[] = [
 for (const layer of DEFAULT_LAYERS) {
   registerLayer(layer);
 }
-
-// Backward-compatibility export
-export const LAYER_REGISTRY = getAllLayers();

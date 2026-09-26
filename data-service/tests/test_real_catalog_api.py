@@ -2,7 +2,6 @@
 Integration tests against the committed, authentic data catalog
 (frontend/public, built by scripts/build_authentic_dataset.py) and the FastAPI app.
 """
-import io
 import json
 import os
 import struct

@@ -105,7 +105,7 @@ def test_sample_many_matches_bilinear_and_skips_land():
 class _Uniform(xh.DriftFields):
     """Uniform eastward current u (m/s) and wind (m/s), for any time."""
 
-    def __init__(self, u, wind):  # noqa: super().__init__ not called on purpose
+    def __init__(self, u, wind):  # super().__init__ not called on purpose
         g = xh.GRID
         self.hours = np.array([0.0, 1e6])
         shape = (g["height"], g["width"])

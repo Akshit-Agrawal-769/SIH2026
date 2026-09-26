@@ -20,7 +20,7 @@ import struct
 import tempfile
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 import numpy as np
 

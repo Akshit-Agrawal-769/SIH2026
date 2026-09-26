@@ -89,7 +89,7 @@ analysis products are surface-only, and subsurface values are never interpolated
 
 ## 6. Architecture
 
-See [docs/architecture.md](docs/architecture.md) for the complete architectural specification.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the complete architectural specification.
 
 ```text
 [ SOURCE NETCDF (datasets/, not in git) ]
@@ -123,28 +123,23 @@ the served tiles come from the Python build script.
 
 ```text
 INCOIS-3D-OCEAN-VISUALIZATION/
-├── README.md                      # Project overview (13 sections)
-├── SUBMISSION_GUIDE.md            # SIH 2026 checklist & evaluation criteria
-├── submission/                    # Evaluation deliverables
-│   ├── PRESENTATION.md            # Slide deck & cloud viewer links
-│   └── DEMO.md                    # Working demo video link & outline
-├── docs/                          # Technical documentation
-│   ├── architecture.md            # Detailed system & data architecture
-│   ├── PROBLEM_STATEMENT.md       # Official MoES/INCOIS problem description
-│   ├── DATA_STANDARDS.md          # CF-1.8 NetCDF & OGC WMS specifications
-│   └── ADDING_A_LAYER.md          # Extensible plugin guide for new sensors
-├── assets/                        # Visual media and screenshots
-│   └── screenshots/               # Interface previews and naming guide
-│       └── README.md              # Screenshot catalog
+├── README.md                      # Project overview
+├── ARCHITECTURE.md                # System & data architecture
+├── METHODOLOGY.md                 # Implemented methods, hazard layers, references
+├── DATA_POLICY.md                 # Sources and no-synthetic-data rules
+├── submission/                    # Evaluation deliverables (PRESENTATION.md, DEMO.md)
+├── docs/                          # PROBLEM_STATEMENT, DATA_STANDARDS, ADDING_A_LAYER
+├── assets/screenshots/            # Interface previews
 ├── frontend/                      # React 18 + CesiumJS + Three.js web visualizer
-├── data-service/                  # FastAPI ocean microservice
+├── data-service/                  # FastAPI ocean microservice (incl. /api/hazards)
+├── gateway/                       # Node.js API gateway
 ├── cpp_visualizer/                # C++ ocean_core engine & tile exporter
-├── gateway/                       # Node.js API Gateway reverse proxy
-├── datasets/                      # Authentic scientific NetCDF archives
-├── tiles/                         # Authoritative binary voxel tiles
-├── requirements.txt               # Top-level Python environment requirements
+├── scripts/                       # Data build, external downloads, HF upload/fetch, NRT update
+├── datasets/                      # Source data (untracked; mirrored on Hugging Face)
+├── infra/                         # PostGIS / nginx for docker compose
+├── requirements.txt               # Python requirements used by CI
+├── render.yaml                    # Render blueprint (data-service + gateway)
 ├── docker-compose.yml             # Container orchestration
-├── .gitignore                     # Git ignore rules
 └── LICENSE                        # MIT License
 ```
 
@@ -156,6 +151,7 @@ INCOIS-3D-OCEAN-VISUALIZATION/
 | `data-service/` | FastAPI backend, OGC WMS, CF-1.8 exporter, and NetCDF ingestion adapters |
 | `cpp_visualizer/` | C++ computational core, QC filtering, depth conversion, standalone tile exporter |
 | `scripts/build_authentic_dataset.py` | Builds every served artefact from the source NetCDF files |
+| `scripts/build_ext_products.py` | Builds the Disaster Early Warning products from external public datasets |
 | `gateway/` | Node.js reverse proxy (public GET, JWT for mutating requests), rate limiting |
 | `datasets/` | Authentic source NetCDF files (CMEMS, Bio-ROMS, Argo) |
 | `docs/` | Comprehensive technical architecture and scientific standards |
@@ -179,7 +175,7 @@ The team's final SIH PowerPoint presentation is documented in [submission/PRESEN
 A video demonstration of the working 3D visualizer is documented in [submission/DEMO.md](submission/DEMO.md).
 
 - **Demonstration Link:** Accessible via YouTube / Google Drive in [submission/DEMO.md](submission/DEMO.md).
-- **Note:** the demo video was recorded with an earlier build whose subsurface fields, glider/buoy platforms and current animation used synthetic data that has since been removed (see AUDIT_REPORT.md).
+- **Note:** the demo video was recorded with an earlier build whose subsurface fields, glider/buoy platforms and current animation used synthetic data that has since been removed.
 
 ---
 
@@ -256,7 +252,7 @@ npm run dev
 
 # Tests
 cd data-service && pytest tests/            # engine + API on the real catalog
-cd frontend && npx vitest run               # timeline, colour scale, sound speed
+cd frontend && npx vitest run               # timeline, colour scale
 
 # Optional C++ build
 cmake -S cpp_visualizer -B cpp_visualizer/build && cmake --build cpp_visualizer/build
@@ -286,4 +282,4 @@ ctest --test-dir cpp_visualizer/build
 ## Important Security & Integrity Notice
 
 - **Credentials:** no secrets are committed. `docker-compose.yml` only has local-development defaults for PostGIS/MinIO, bound to 127.0.0.1. The gateway has no built-in login; mutating endpoints stay disabled unless `JWT_SECRET` (gateway) and `ADMIN_API_TOKEN` (data-service) are set.
-- **Scientific data policy:** see [DATA_POLICY.md](DATA_POLICY.md) and [METHODOLOGY.md](METHODOLOGY.md). The 2026-09 audit is summarised in [AUDIT_REPORT.md](AUDIT_REPORT.md).
+- **Scientific data policy:** see [DATA_POLICY.md](DATA_POLICY.md) and [METHODOLOGY.md](METHODOLOGY.md).

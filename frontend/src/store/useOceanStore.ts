@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { fetchCatalog, DataCatalog, VariableCatalogEntry } from '../api/client';
+import { fetchCatalog, DataCatalog } from '../api/client';
 import { nearestTime, normalizeTimes, StepUnit, toMs } from '../timeline/timelineEngine';
 import { configureGrid } from '../rendering/grid';
 import {
@@ -240,10 +240,6 @@ const PALETTES: Record<string, { palette: string; scale: 'linear' | 'log' }> = {
   mld: { palette: 'viridis', scale: 'linear' },
   currents: { palette: 'turbo', scale: 'linear' }
 };
-
-export function variableMeta(state: Pick<OceanState, 'catalog'>, variable: string): VariableCatalogEntry | null {
-  return state.catalog?.variables[variable] ?? null;
-}
 
 function timesFor(catalog: DataCatalog | null, variable: string): string[] {
   const meta = catalog?.variables[variable];

@@ -197,14 +197,6 @@ def nc_dates(ds) -> List[str]:
     return [x.strftime("%Y-%m-%d") for x in nc.num2date(t[:], t.units, getattr(t, "calendar", "standard"))]
 
 
-def nc_times(ds) -> List[dt.datetime]:
-    import netCDF4 as nc
-    t = ds["time"]
-    out = nc.num2date(t[:], t.units, getattr(t, "calendar", "standard"),
-                      only_use_cftime_datetimes=False, only_use_python_datetimes=True)
-    return [x.replace(tzinfo=dt.timezone.utc) for x in out]
-
-
 def read_field(ds, var: str, k: int) -> np.ndarray:
     return np.ma.filled(ds[var][k].astype(np.float64), np.nan)
 
@@ -743,7 +735,6 @@ def compute_drift_ensemble(lat: float, lon: float, mode: str = "forward", hours:
     psig = DEFAULT_POSITION_SIGMA_KM if position_sigma_km is None else float(position_sigma_km)
     wcoef, wnote = WINDAGE_PRESETS[windage]
     backward = mode == "reverse"
-    span = (fields.hours[-1] - fields.hours[0])
     if start:
         try:
             st = dt.datetime.fromisoformat(start.replace("Z", "+00:00"))
@@ -779,7 +770,7 @@ def compute_drift_ensemble(lat: float, lon: float, mode: str = "forward", hours:
     # member 0 = deterministic central run (no diffusion, nominal position and windage)
     t, pla, plo, strand, stop = run_ensemble(fields, la0, lo0, sh, hours, step_minutes, wv, 0.0, rng, backward, rec)
     if members > 1 and K > 0:
-        t2, la2, lo2, s2, stop2 = run_ensemble(fields, la0[1:], lo0[1:], sh, hours, step_minutes, wv[1:], K, rng,
+        t2, la2, lo2, s2, _ = run_ensemble(fields, la0[1:], lo0[1:], sh, hours, step_minutes, wv[1:], K, rng,
                                                backward, rec)
         n = min(len(t), len(t2))
         pla = np.concatenate([pla[:n, :1], la2[:n]], axis=1)
@@ -986,8 +977,6 @@ def compute_gpi_summary(date: Optional[str] = None) -> Dict[str, Any]:
     out = {**base, "available": True, "months": {"first": months[0][:7], "last": months[-1][:7]},
            "max": _r(np.nanmax(field), 3), "domain_mean": _r(np.nanmean(field), 4)}
     if clim is not None:
-        with np.errstate(all="ignore"):
-            ratio = field / clim
         out["domain_mean_clim_1991_2020"] = _r(np.nanmean(clim), 4)
         out["anomaly_ratio_domain"] = _r(np.nanmean(field) / np.nanmean(clim), 3)
     hot = finite & (field >= max(1.0, float(np.nanpercentile(field[finite], 90)) if finite.any() else 1.0))
@@ -1003,7 +992,7 @@ def compute_gpi_summary(date: Optional[str] = None) -> Dict[str, Any]:
 class StaticFields(DriftFields):
     """A single current snapshot held constant in time (the previous geostrophic drift model), no wind."""
 
-    def __init__(self, u: np.ndarray, v: np.ndarray, label: str):  # noqa: super().__init__ not called on purpose
+    def __init__(self, u: np.ndarray, v: np.ndarray, label: str):  # super().__init__ not called on purpose
         self.name = label
         self.hours = np.array([-1e9, 1e9])
         z = np.zeros_like(u)

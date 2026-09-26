@@ -96,8 +96,6 @@ WMO 2902120 (210 pairs, 2014–2020) and WMO 2902084 (52 pairs, 2012–2014).
   |T − T(10 m)| ≥ 0.2 °C (de Boyer Montégut et al., 2004), linearly interpolated between
   measured levels; thermocline = mid-depth of the largest downward temperature decrease
   rate between consecutive levels below the MLD (≤ 1000 m).
-* **Sound speed** (water-column view): Mackenzie (1981) nine-term equation from the
-  measured T, S and depth; check value 1550.744 m s⁻¹ at (25 °C, 35, 1000 m).
 
 ## 6. Timeline (`frontend/src/timeline/timelineEngine.ts`)
 
@@ -186,7 +184,6 @@ GFS and NCEP R1/R2 (public, no login) were used instead.
 ## References
 
 * de Boyer Montégut, C., et al. (2004). Mixed layer depth over the global ocean. *JGR*, 109, C12003.
-* Mackenzie, K. V. (1981). Nine-term equation for sound speed in the oceans. *JASA*, 70(3), 807–812.
 * IOC, SCOR & IAPSO (2010). *TEOS-10*. Manuals and Guides No. 56, UNESCO.
 * Argo Data Management Team. *Argo user's manual*. doi:10.13155/29825.
 * Ghoshal, P. K., Joshi, A. P., & Chakraborty, K. INCOIS Bio-ROMS data. doi:10.5281/zenodo.13802393.
