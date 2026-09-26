@@ -17,14 +17,13 @@ app = FastAPI(
 )
 
 # CORS: the scientific API is public and read-only, so credentials are never allowed.
-cors_origins_env = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
-allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+# For ease of hackathon deployment (Vercel, etc), allow all origins.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Admin-Token"],
+    allow_methods=["*"],
+    allow_headers=["*"],
     expose_headers=["X-Data-Source", "X-Data-Policy", "X-Volume-Shape", "X-Volume-Z-Axis"],
 )
 
