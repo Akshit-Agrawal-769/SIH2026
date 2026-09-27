@@ -1,3 +1,4 @@
+import { formatLatLon } from '../lib/geo';
 import React from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useOceanStore, DEFAULT_OCEAN_POINT } from '../store/useOceanStore';
@@ -51,7 +52,7 @@ export const LeftPanel: React.FC = () => {
 
   const open3D = () => {
     const p = clickedGlobePoint ?? DEFAULT_OCEAN_POINT;
-    openWaterBlock({ lon: p.lon, lat: p.lat, name: clickedGlobePoint?.basin ?? DEFAULT_OCEAN_POINT.name });
+    openWaterBlock({ lon: p.lon, lat: p.lat, name: clickedGlobePoint ? formatLatLon(p.lat, p.lon) : DEFAULT_OCEAN_POINT.name });
   };
 
   return (
@@ -101,12 +102,22 @@ export const LeftPanel: React.FC = () => {
               const isRendered = layer.category === 'model_field' && selectedVariable === layer.id && isEnabled;
               const status = layer.id === 'currents' ? layerStatus.currents : isRendered ? layerStatus.slice : undefined;
               const warn = status && (status.state === 'nodata' || status.state === 'error');
+              // Units, timestep count and dates of catalogued fields come from the catalog, not the registry.
+              const cat = catalog?.variables[layer.id];
+              const units = cat?.units ?? layer.units;
+              const steps = cat?.timesteps ?? [];
+              const badge = cat
+                ? `${String(cat.source_id).toUpperCase()} · ${steps.length === 1 ? steps[0] : `${steps.length} steps`}`
+                : layer.badge;
+              const description = cat && steps.length
+                ? `${layer.description} (${steps.length === 1 ? steps[0] : `${steps[0]} … ${steps[steps.length - 1]}`})`
+                : layer.description;
               return (
                 <button
                   key={layer.id}
                   onClick={() => onLayerClick(layer.id, layer.category)}
                   aria-pressed={isEnabled}
-                  title={layer.description}
+                  title={description}
                   className={`w-full text-left p-2 rounded-xl border flex items-center justify-between gap-2 focus:outline-none focus-visible:ring-1 focus-visible:ring-ocean-accent ${
                     isEnabled ? 'bg-white/10 border-ocean-accent/40 text-white' : 'glass-card-subtle text-ocean-muted hover:text-ocean-text-secondary'
                   }`}
@@ -117,13 +128,13 @@ export const LeftPanel: React.FC = () => {
                     <span className="min-w-0">
                       <span className="block text-xs font-medium leading-tight truncate">{layer.name}</span>
                       <span className="block text-[9px] text-ocean-muted font-mono truncate">
-                        {warn ? 'no data for current selection' : layer.units ?? layer.description}
+                        {warn ? 'no data for current selection' : units ?? description}
                       </span>
                     </span>
                   </span>
                   <span className="flex items-center gap-1 shrink-0">
-                    {layer.badge && (
-                      <span className="text-[8px] px-1.5 py-0.5 rounded-full font-mono bg-white/5 text-ocean-muted border border-white/5">{layer.badge}</span>
+                    {badge && (
+                      <span className="text-[8px] px-1.5 py-0.5 rounded-full font-mono bg-white/5 text-ocean-muted border border-white/5">{badge}</span>
                     )}
                     {isRendered && (
                       <span className="text-[8px] px-1.5 py-0.5 rounded-full font-mono bg-ocean-accent/30 text-ocean-accent border border-ocean-accent/40 font-bold">shown</span>

@@ -26,8 +26,13 @@ export async function createInstrumentsLayer(
       return { updateVisibility: () => {}, destroy: () => {} };
     }
 
+    // ~1,300 floats: floats that have not reported for a year are drawn smaller and dimmer.
+    const nowMs = Date.now();
+    const YEAR_MS = 365 * 24 * 3600 * 1000;
     for (const feature of data.features) {
       const [lon, lat] = feature.geometry.coordinates;
+      const lastMs = Date.parse(String(feature.properties.last_report || ''));
+      const active = Number.isFinite(lastMs) && nowMs - lastMs <= YEAR_MS;
       const type = (feature.properties.platform_type || 'argo').toLowerCase();
       const extId = feature.properties.external_id;
       const meta = feature.properties.metadata || {};
@@ -45,9 +50,10 @@ export async function createInstrumentsLayer(
         position: Cesium.Cartesian3.fromDegrees(lon, lat, 200),
         billboard: {
           image: iconUrl,
-          width: 40,
-          height: 40,
-          scaleByDistance: new Cesium.NearFarScalar(2.0e5, 1.15, 1.8e7, 0.62),
+          width: active ? 26 : 18,
+          height: active ? 26 : 18,
+          color: active ? Cesium.Color.WHITE : Cesium.Color.WHITE.withAlpha(0.5),
+          scaleByDistance: new Cesium.NearFarScalar(2.0e5, 1.3, 1.8e7, 0.6),
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           disableDepthTestDistance: Number.POSITIVE_INFINITY
@@ -62,8 +68,8 @@ export async function createInstrumentsLayer(
           backgroundPadding: new Cesium.Cartesian2(7, 4),
           verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
           pixelOffset: new Cesium.Cartesian2(0, -26),
-          // Show label when user zooms closer than 9,000 km
-          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 9000000),
+          // Labels only when zoomed in (hundreds of floats would otherwise overlap)
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 1500000),
           disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
         properties: new Cesium.PropertyBag({

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { fetchCatalog, DataCatalog } from '../api/client';
 import { nearestTime, normalizeTimes, StepUnit, toMs } from '../timeline/timelineEngine';
 import { configureGrid } from '../rendering/grid';
+import { formatLatLon } from '../lib/geo';
 import {
   Advisory, CycloneTracksDoc, DisasterLayerId, DriftMode, DriftOptions, DriftResult, DriftSkillDoc, DriftWindow,
   EddySummary, ExtLayerId, ExtLayerMeta, ExtSummary, MhwSummary, MonthlyLayerId, Unavailable, ValidationDoc,
@@ -106,8 +107,8 @@ export interface OceanState {
   setIsGraticuleEnabled: (enabled: boolean) => void;
   toggleGraticule: () => void;
 
-  clickedGlobePoint: { lon: number; lat: number; screenX: number; screenY: number; basin?: string } | null;
-  setClickedGlobePoint: (point: { lon: number; lat: number; screenX: number; screenY: number; basin?: string } | null) => void;
+  clickedGlobePoint: { lon: number; lat: number; screenX: number; screenY: number } | null;
+  setClickedGlobePoint: (point: { lon: number; lat: number; screenX: number; screenY: number } | null) => void;
 
   // Model vs Observation comparison modal
   isComparisonModalOpen: boolean;
@@ -158,7 +159,8 @@ export interface OceanState {
   showCycloneTracks: boolean;
   setShowCycloneTracks: (on: boolean) => void;
   cycloneTracks: CycloneTracksDoc | Unavailable | null;
-  trackSeasons: [number, number];
+  /** Season range shown; null until the tracks are loaded (defaults to the last 10 seasons in the data). */
+  trackSeasons: [number, number] | null;
   setTrackSeasons: (range: [number, number]) => void;
   driftSkill: DriftSkillDoc | Unavailable | null;
   validation: ValidationDoc | Unavailable | null;
@@ -520,10 +522,19 @@ export const useOceanStore = create<OceanState>((set, get) => ({
   showCycloneTracks: false,
   setShowCycloneTracks: (showCycloneTracks) => {
     set({ showCycloneTracks });
-    if (showCycloneTracks && !get().cycloneTracks) void fetchCycloneTracks().then((cycloneTracks) => set({ cycloneTracks }));
+    if (showCycloneTracks && !get().cycloneTracks) {
+      void fetchCycloneTracks().then((cycloneTracks) => {
+        const seasons = 'storms' in cycloneTracks ? cycloneTracks.storms.map((st) => st.season) : [];
+        const last = seasons.length ? Math.max(...seasons) : null;
+        set({
+          cycloneTracks,
+          trackSeasons: get().trackSeasons ?? (last !== null ? [Math.max(Math.min(...seasons), last - 9), last] : null)
+        });
+      });
+    }
   },
   cycloneTracks: null,
-  trackSeasons: [2015, 2026],
+  trackSeasons: null,
   setTrackSeasons: (trackSeasons) => set({ trackSeasons }),
   driftSkill: null,
   validation: null,
@@ -539,7 +550,7 @@ export const useOceanStore = create<OceanState>((set, get) => ({
     set((s) => ({
       isAnalyticsModalOpen: true,
       analyticsTarget: target || (s.clickedGlobePoint
-        ? { lat: s.clickedGlobePoint.lat, lon: s.clickedGlobePoint.lon, name: s.clickedGlobePoint.basin }
+        ? { lat: s.clickedGlobePoint.lat, lon: s.clickedGlobePoint.lon, name: formatLatLon(s.clickedGlobePoint.lat, s.clickedGlobePoint.lon) }
         : { ...DEFAULT_OCEAN_POINT }),
     })),
   closeAnalyticsModal: () => set({ isAnalyticsModalOpen: false })

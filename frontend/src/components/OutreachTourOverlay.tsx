@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as Cesium from 'cesium';
 import { SCIENCE_TOURS, ScienceTour, TourStep } from '../outreach/toursData';
 import { useOceanStore } from '../store/useOceanStore';
+import { TourStats, resolveTourTime } from '../outreach/TourStats';
 import {
   Play,
   Pause,
@@ -58,8 +59,9 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
     setLayers(step.activeLayers);
 
     if (step.time) {
-      // Tour times are real catalog timesteps; the store ignores anything else.
-      useOceanStore.getState().setSelectedTime(`${step.time}T00:00:00Z`);
+      // Tour times are real catalog timesteps ('latest' = the variable's newest one).
+      const t = resolveTourTime(step.variable, step.time);
+      if (t) useOceanStore.getState().setSelectedTime(`${t}T00:00:00Z`);
     }
     if (step.isPlaying !== undefined) {
       useOceanStore.getState().setIsPlaying(step.isPlaying);
@@ -253,6 +255,8 @@ export const OutreachTourOverlay: React.FC<OutreachTourOverlayProps> = ({ viewer
           <p className="text-xs text-ocean-text-secondary leading-relaxed font-sans mb-3.5">
             {step.narrative}
           </p>
+
+          <TourStats stats={step.stats} />
 
           {/* Key Insights Chips */}
           <div className="flex flex-wrap gap-1.5">

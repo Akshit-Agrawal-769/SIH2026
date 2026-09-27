@@ -395,11 +395,12 @@ def _resolve(dates: List[str], date: Optional[str], what: str) -> Tuple[Optional
 
 # --------------------------------------------------------------------------- OISST layers (served)
 
-MHW_DAILY_CAVEAT = ("Daily marine heatwaves from NOAA OISST v2.1 (0.25 deg, satellite + in situ blend) using "
-                    "Hobday et al. (2016): SST above the 1991-2020 day-of-year 90th percentile for >= 5 days. "
+MHW_DAILY_CAVEAT = (f"Daily marine heatwaves from NOAA OISST v2.1 (0.25 deg, satellite + in situ blend) using "
+                    f"Hobday et al. (2016): SST above the {MHW_DAILY_BASELINE[0]}-{MHW_DAILY_BASELINE[1]} day-of-year 90th "
+                    f"percentile for >= {MHW_MIN_DURATION} days. "
                     "Values are Hobday (2018) intensity ratios inside detected events only. OISST is an "
-                    "interpolated analysis; small coastal features are smoothed. The fixed 1991-2020 baseline "
-                    "counts part of long-term warming.")
+                    f"interpolated analysis; small coastal features are smoothed. The fixed {MHW_DAILY_BASELINE[0]}-{MHW_DAILY_BASELINE[1]} baseline "
+                    f"counts part of long-term warming.")
 DHW_CAVEAT = ("Degree Heating Weeks computed with the NOAA Coral Reef Watch v3.1 method applied to OISST 0.25 deg "
               "(CRW's operational product uses 5 km CoralTemp, so values differ in detail). DHW >= 4 degC-weeks: "
               "significant bleaching likely; >= 8: severe bleaching and mortality likely. Meaningful at coral "
@@ -869,9 +870,33 @@ def tchp_profile(depths: np.ndarray, temp: np.ndarray) -> Tuple[np.ndarray, np.n
 
 
 TCHP_CAVEAT = ("Tropical Cyclone Heat Potential from HYCOM ESPC-D-V02 3-D temperature (model analysis at 00 UTC), "
-               "Leipper & Volgenau (1972). It measures ocean heat available to a storm; > 50 kJ/cm² favours "
+               f"Leipper & Volgenau (1972). It measures ocean heat available to a storm; > {TCHP_INTENSIFICATION_KJCM2:g} kJ/cm² favours "
                "intensification (Mainelli et al. 2008). It is not a cyclone forecast. Cells where the water is "
                "warmer than 26 °C down to the seabed (shallow shelves) are left blank.")
+
+
+def hycom_temperature_column(lat: float, lon: float) -> Optional[Dict[str, Any]]:
+    """Latest HYCOM 3-D temperature column (0-300 m) at the nearest ocean grid point, from
+    ext_products/hycom_t3z_latest.nc. None when the product or an ocean point within ~0.2 deg is missing."""
+    import netCDF4 as nc
+    ds, _ = open_nc("hycom_t3z_latest.nc")
+    if ds is None:
+        return None
+    la, lo = np.asarray(ds["lat"][:], float), np.asarray(ds["lon"][:], float)
+    j, i = int(np.argmin(np.abs(la - lat))), int(np.argmin(np.abs(lo - lon)))
+    if abs(la[j] - lat) > 0.2 or abs(lo[i] - lon) > 0.2:
+        return None
+    col = np.ma.filled(ds["water_temp"][0, :, j, i].astype(float), np.nan)
+    dep = np.asarray(ds["depth"][:], float)
+    ok = np.isfinite(col)
+    if ok.sum() < 3:
+        return None
+    t = ds["time"]
+    when = nc.num2date(t[0], t.units)
+    return {"levels": [{"depth": round(float(d), 1), "value": round(float(v), 3)} for d, v in zip(dep[ok], col[ok])],
+            "date": when.strftime("%Y-%m-%d"), "time": when.strftime("%Y-%m-%dT%H:%MZ"),
+            "max_depth": float(dep[ok].max()),
+            "distance_km": round(haversine_km(lat, lon, float(la[j]), float(lo[i])), 1)}
 
 
 def tchp_dates() -> Tuple[List[str], Optional[str]]:

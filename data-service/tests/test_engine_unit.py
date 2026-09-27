@@ -110,9 +110,27 @@ def test_correlation_uses_only_cotemporal_fields(tiny_root):
     assert only_t["available"] is False and "salinity" in only_t["skipped"]
 
 
-def test_vertical_profile_refuses_surface_only_model(tiny_root):
+def test_vertical_profile_refuses_surface_only_model(tiny_root, monkeypatch):
+    # no Argo float nearby and no HYCOM column: the surface-only model must not invent a profile
+    from app import ext_hazards as xh
+    monkeypatch.setattr(xh, "hycom_temperature_column", lambda lat, lon: None)
     res = ae.compute_vertical_profile_analysis(11.0, 62.0, "temperature", "2019-01-29")
     assert res["available"] is False and "vertical level" in res["reason"]
+
+
+def test_vertical_profile_falls_back_to_nearest_argo(tiny_root, monkeypatch):
+    feat = {"type": "FeatureCollection", "features": [
+        {"id": "ARGO_1234567", "geometry": {"type": "Point", "coordinates": [62.3, 11.0]}}]}
+    prof = {"instrument_id": "ARGO_1234567", "cycle_number": 7, "timestamp": "2019-01-20T00:00:00Z",
+            "latitude": 11.0, "longitude": 62.3, "metadata": {"wmo": "1234567"},
+            "measurements": [{"depth": z, "temperature": t, "salinity": 35.0}
+                             for z, t in ((5, 28.0), (10, 28.0), (40, 28.0), (60, 26.0), (100, 22.0))]}
+    monkeypatch.setattr(ae, "load_instruments", lambda: feat)
+    monkeypatch.setattr(ae, "load_profile", lambda iid: prof)
+    res = ae.compute_vertical_profile_analysis(11.0, 62.0, "temperature", "2019-01-29")
+    assert res["available"] is True and res["profile_source"]["kind"] == "argo"
+    assert res["profile_source"]["distance_km"] == pytest.approx(32.7, abs=0.5)
+    assert [lv["depth"] for lv in res["levels"]] == [5, 10, 40, 60, 100] and res["mld_meters"] is not None
 
 
 def test_observed_mld_de_boyer_montegut():

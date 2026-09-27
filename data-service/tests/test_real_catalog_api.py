@@ -136,7 +136,11 @@ def test_analytics_endpoints():
     co = client.get("/api/analytics/correlation", params={"lat": lat, "lon": lon}).json()
     assert co["available"] and "currents" in co["skipped"]  # currents are not co-temporal with IBR
     vp = client.get("/api/analytics/profile", params={"variable": "temperature", "lat": lat, "lon": lon}).json()
-    assert vp["available"] is False and vp["model_mld_meters"] is not None
+    # IBR is surface-only: the column comes from the nearest real Argo profile (or HYCOM), labelled as such
+    assert vp["model_mld_meters"] is not None
+    if vp["available"]:
+        assert vp["profile_source"]["kind"] in ("argo", "hycom") and len(vp["levels"]) >= 3
+        assert "vertical level" in vp["model_note"]
     land = client.get("/api/analytics/anomalies", params={"variable": "temperature", "lat": 20.0, "lon": 78.0}).json()
     assert land["available"] is False
     assert client.get("/api/analytics/timeseries", params={"variable": "temperature"}).status_code == 422

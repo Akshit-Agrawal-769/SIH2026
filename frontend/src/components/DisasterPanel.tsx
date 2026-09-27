@@ -13,49 +13,34 @@ import {
   BLOOM_COLORS, BLOOM_LABELS, DHW_STOPS, DRIFT_COLORS, GPI_STOPS, MHW_COLORS, MHW_LABELS, TCHP_STOPS, TRACK_BANDS
 } from '../rendering/hazardLayers';
 
-const CAPTIONS: Record<DisasterLayerId, string> = {
-  mhw_intensity:
-    'Monthly-mean MHW index: Hobday et al. (2018) categories on monthly-mean IBR SST against a per-cell 1990–2019 ' +
-    'monthly climatology and 90th percentile. The ≥5-day rule cannot be checked on monthly data. A fixed baseline ' +
-    'still counts part of long-term warming as heatwave.',
-  mhw_detrended:
-    'Same index after removing each cell’s linear 1980–2019 SST trend (Jacox et al. 2020 shifting baseline), so ' +
-    'it shows short-term extremes rather than long-term warming.',
-  chl_bloom:
-    'Chlorophyll bloom anomaly: the MHW ratio method on log10(IBR model chlorophyll) against a 1990–2019 monthly ' +
-    'climatology. Screens for unusually strong blooms; it does NOT identify harmful species or toxins.',
-  eddy_convergence:
-    'Convergence indicator, NOT a cyclone forecast. SST ≥ 26.5 °C (IBR month) with cyclonic geostrophic vorticity ' +
-    'from ARMOR3D 2024-12-31: the dates differ, so the co-location is illustrative only.',
-  mhw_daily:
-    'Daily marine heatwaves from NOAA OISST v2.1 using Hobday et al. (2016): above the 1991–2020 day-of-year 90th ' +
-    'percentile for ≥ 5 days (gaps ≤ 2 days joined). Colours are Hobday (2018) categories inside detected events.',
-  dhw:
-    'Degree Heating Weeks, NOAA Coral Reef Watch v3.1 method on OISST 0.25°: accumulated HotSpots ≥ 1 °C over 12 ' +
-    'weeks. ≥ 4 °C-weeks: significant bleaching likely; ≥ 8: severe bleaching and mortality likely.',
-  tchp:
-    'Tropical Cyclone Heat Potential from HYCOM 3-D temperature (Leipper & Volgenau 1972): ocean heat above the ' +
-    '26 °C isotherm. > 50 kJ/cm² favours intensification. Not a forecast.',
-  gpi:
-    'Genesis Potential Index (Emanuel & Nolan 2004) from NCEP/NCAR Reanalysis 1 monthly fields (850 hPa vorticity, ' +
-    '600 hPa humidity, shear, potential intensity) + OISST. A monthly climate index of how favourable the ' +
-    'atmosphere and ocean are for cyclone formation, not a storm forecast.',
-  eddy_convergence_nrt:
-    'Same-day OISST (≥ 26.5 °C) and cyclonic vorticity of the daily-mean HYCOM total surface current: no date ' +
-    'mismatch. Still an ocean-only co-location indicator, NOT a cyclone forecast.'
+/** Layer names; subtitles that mention data dates/baselines are filled from the catalog. */
+const LAYER_TITLES: Record<DisasterLayerId, string> = {
+  mhw_intensity: 'Marine heatwave · fixed baseline',
+  mhw_detrended: 'Marine heatwave · detrended',
+  chl_bloom: 'Chlorophyll bloom anomaly',
+  eddy_convergence: 'Warm-water & eddy convergence',
+  mhw_daily: 'Marine heatwave · daily',
+  dhw: 'Coral bleaching heat stress (DHW)',
+  tchp: 'Cyclone heat potential (TCHP)',
+  gpi: 'Genesis Potential Index',
+  eddy_convergence_nrt: 'Eddy convergence · same day'
 };
 
-const LAYER_TITLES: Record<DisasterLayerId, [string, string]> = {
-  mhw_intensity: ['Marine heatwave · fixed baseline', 'IBR SST · 1990–2019'],
-  mhw_detrended: ['Marine heatwave · detrended', 'IBR SST · trend removed'],
-  chl_bloom: ['Chlorophyll bloom anomaly', 'IBR CHL · HAB screening'],
-  eddy_convergence: ['Warm-water & eddy convergence', 'IBR SST + ARMOR3D 2024-12-31'],
-  mhw_daily: ['Marine heatwave · daily', 'NOAA OISST v2.1 · Hobday 2016'],
-  dhw: ['Coral bleaching heat stress (DHW)', 'OISST · CRW method'],
-  tchp: ['Cyclone heat potential (TCHP)', 'HYCOM ESPC-D-V02 3-D'],
-  gpi: ['Genesis Potential Index', 'NCEP R1 monthly + OISST'],
-  eddy_convergence_nrt: ['Eddy convergence · same day', 'OISST + HYCOM currents']
-};
+interface DerivedMeta { caveat?: string; fixed_date?: string; currents_date?: string; climatology?: { baseline?: [number, number] } }
+
+function subtitle(id: DisasterLayerId, derived: Record<string, DerivedMeta>, ext: Record<string, { source?: string }> | null): string {
+  const base = (k: string) => {
+    const b = derived[k]?.climatology?.baseline;
+    return b ? `${b[0]}–${b[1]}` : 'baseline n/a';
+  };
+  switch (id) {
+    case 'mhw_intensity': return `IBR SST · ${base('mhw_intensity')}`;
+    case 'mhw_detrended': return `IBR SST · trend removed · ${base('mhw_detrended')}`;
+    case 'chl_bloom': return `IBR CHL · HAB screening · ${base('chl_bloom')}`;
+    case 'eddy_convergence': return `IBR SST + ARMOR3D ${derived.eddy_convergence?.currents_date ?? derived.current_u?.fixed_date ?? ''}`.trim();
+    default: return ext?.[id]?.source ?? '';
+  }
+}
 
 const ICONS: Record<DisasterLayerId, React.ReactNode> = {
   mhw_intensity: <Flame className="w-3.5 h-3.5 text-orange-400" />,
@@ -128,6 +113,7 @@ export const DisasterPanel: React.FC = () => {
     loading: st.hazardsLoading,
     refresh: st.refreshHazards,
     layerStatus: st.layerStatus,
+    catalog: st.catalog,
     extCatalog: st.extCatalog,
     loadExtCatalog: st.loadExtCatalog,
     extDates: st.extDates,
@@ -196,9 +182,9 @@ export const DisasterPanel: React.FC = () => {
     if (!x) return null;
     if (!x.available) return <p className="text-[9px] text-amber-300/80">{x.reason}</p>;
     const t = 'text-[9px] text-ocean-text-secondary font-mono';
-    if (id === 'mhw_daily') return <p className={t}>{((x.mhw_fraction ?? 0) * 100).toFixed(1)}% of ocean in a heatwave event · max ratio {x.max_ratio ?? '—'}</p>;
+    if (id === 'mhw_daily') return <p className={t}>{typeof x.mhw_fraction === 'number' ? `${(x.mhw_fraction * 100).toFixed(1)}%` : '—'} of ocean in a heatwave event · max ratio {x.max_ratio ?? '—'}</p>;
     if (id === 'dhw') return <p className={t}>max DHW {x.max_dhw ?? '—'} °C-weeks · {(x.bands ?? []).filter((b) => !b.range.startsWith('0')).map((b) => `${b.range.split(' ')[0]}: ${b.area_km2.toLocaleString()} km²`).join(' · ')}</p>;
-    if (id === 'tchp') return <p className={t}>{((x.fraction_above_threshold ?? 0) * 100).toFixed(1)}% of ocean ≥ 50 kJ/cm² · max {x.max ?? '—'}</p>;
+    if (id === 'tchp') return <p className={t}>{typeof x.fraction_above_threshold === 'number' ? `${(x.fraction_above_threshold * 100).toFixed(1)}%` : '—'} of ocean ≥ {x.threshold_kj_cm2 ?? '—'} kJ/cm² · max {x.max ?? '—'}</p>;
     if (id === 'gpi') return <p className={t}>max {x.max ?? '—'} · domain mean vs 1991–2020: ×{x.anomaly_ratio_domain ?? '—'}</p>;
     return null;
   };
@@ -207,8 +193,11 @@ export const DisasterPanel: React.FC = () => {
     const on = s.active.includes(id);
     const st = s.layerStatus[`hazard_${id}`];
     const warn = on && st && (st.state === 'nodata' || st.state === 'error');
-    const [name, sub] = LAYER_TITLES[id];
+    const name = LAYER_TITLES[id];
+    const derived = ((s.catalog as unknown as { derived?: Record<string, DerivedMeta> } | null)?.derived) ?? {};
+    const sub = subtitle(id, derived, s.extCatalog);
     const meta = isExtLayer(id) ? s.extCatalog?.[id] : null;
+    const caption = (isExtLayer(id) ? meta?.caveat : derived[id]?.caveat) ?? 'Layer description not available from the catalog.';
     const dates = meta?.dates ?? [];
     const unavailable = isExtLayer(id) && s.extCatalog !== null && !dates.length;
     return (
@@ -230,7 +219,7 @@ export const DisasterPanel: React.FC = () => {
             <Info className="w-3.5 h-3.5" />
           </button>
         </div>
-        <Caption text={CAPTIONS[id]} open={!!info[id]} />
+        <Caption text={caption} open={!!info[id]} />
         {on && (
           <div className="mt-1.5 space-y-1">
             {isExtLayer(id) && dates.length > 0 && (
@@ -251,14 +240,16 @@ export const DisasterPanel: React.FC = () => {
   // ---- cyclone tracks
   const tracksDoc = s.tracks && 'storms' in s.tracks ? s.tracks : null;
   const shownStorms = useMemo(
-    () => tracksDoc ? tracksDoc.storms.filter((st) => st.season >= s.trackSeasons[0] && st.season <= s.trackSeasons[1]) : [],
+    () => tracksDoc && s.trackSeasons
+      ? tracksDoc.storms.filter((st) => st.season >= s.trackSeasons![0] && st.season <= s.trackSeasons![1]) : [],
     [tracksDoc, s.trackSeasons]
   );
-  const seasons = useMemo(() => {
-    const out: number[] = [];
-    for (let y = 1980; y <= new Date().getUTCFullYear(); y++) out.push(y);
-    return out;
-  }, []);
+  // Seasons offered = the seasons present in the IBTrACS data.
+  const seasons = useMemo(
+    () => tracksDoc ? Array.from(new Set(tracksDoc.storms.map((st) => st.season))).sort((a, b) => a - b) : [],
+    [tracksDoc]
+  );
+  const range = s.trackSeasons;
 
   const drift = s.drift;
   const win = s.driftWindow && s.driftWindow.available ? s.driftWindow : null;
@@ -300,17 +291,17 @@ export const DisasterPanel: React.FC = () => {
           'for the North Indian Ocean), else JTWC. White dots mark the first fix. Recent seasons are provisional.'} />
         {s.showTracks && (
           <>
-            <div className="flex items-center gap-1 text-[10px]">
-              <select aria-label="From season" value={s.trackSeasons[0]} onChange={(e) => s.setTrackSeasons([Number(e.target.value), Math.max(Number(e.target.value), s.trackSeasons[1])])}
+            {range && seasons.length > 0 && <div className="flex items-center gap-1 text-[10px]">
+              <select aria-label="From season" value={range[0]} onChange={(e) => s.setTrackSeasons([Number(e.target.value), Math.max(Number(e.target.value), range[1])])}
                 className="flex-1 bg-white/5 border border-white/10 rounded-lg px-1 py-0.5 text-ocean-text-secondary">
                 {seasons.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
               <span className="text-ocean-muted">to</span>
-              <select aria-label="To season" value={s.trackSeasons[1]} onChange={(e) => s.setTrackSeasons([Math.min(s.trackSeasons[0], Number(e.target.value)), Number(e.target.value)])}
+              <select aria-label="To season" value={range[1]} onChange={(e) => s.setTrackSeasons([Math.min(range[0], Number(e.target.value)), Number(e.target.value)])}
                 className="flex-1 bg-white/5 border border-white/10 rounded-lg px-1 py-0.5 text-ocean-text-secondary">
                 {seasons.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
-            </div>
+            </div>}
             <div className="flex flex-wrap gap-x-2 gap-y-0.5">
               {TRACK_BANDS.map(([, c, label]) => (
                 <span key={label} className="flex items-center gap-1 text-[8px] font-mono text-ocean-muted">
@@ -371,7 +362,7 @@ export const DisasterPanel: React.FC = () => {
             <select value={s.driftOptions.diffusivity ?? ''} disabled={s.driftOptions.engine !== 'ensemble'}
               onChange={(e) => s.setDriftOptions({ diffusivity: e.target.value === '' ? null : Number(e.target.value) })}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-1 py-0.5 text-ocean-text-secondary disabled:opacity-40">
-              <option value="">default {win?.default_diffusivity_m2s ?? 50} m²/s</option>
+              <option value="">{win ? `default ${win.default_diffusivity_m2s} m²/s` : 'service default'}</option>
               {[10, 100, 200].map((k) => <option key={k} value={k}>{k} m²/s</option>)}
             </select>
           </label>

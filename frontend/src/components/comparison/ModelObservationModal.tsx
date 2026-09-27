@@ -84,7 +84,7 @@ export const ModelObservationModal: React.FC = () => {
       `# Observation source: ${data.provenance?.observation_source ?? 'Argo GDAC'}`,
       `# Method: ${data.provenance?.collocation_method ?? ''}`,
       `# QC: ${data.provenance?.qc_mode ?? ''}`,
-      `# N=${data.metrics?.sample_count ?? 0} RMSE=${data.metrics?.rmse ?? 'n/a'} MAE=${data.metrics?.mae ?? 'n/a'} ` +
+      `# N=${data.metrics?.sample_count ?? 'n/a'} RMSE=${data.metrics?.rmse ?? 'n/a'} MAE=${data.metrics?.mae ?? 'n/a'} ` +
         `Bias(model-obs)=${data.metrics?.bias ?? 'n/a'} r=${data.metrics?.pearson_r ?? 'n/a'}`,
       '#'
     ];
@@ -205,7 +205,7 @@ export const ModelObservationModal: React.FC = () => {
                   ['MAE', fmt(m?.mae, data.units), 'mean absolute error'],
                   ['Bias', m?.bias === null || m?.bias === undefined ? '—' : `${m.bias > 0 ? '+' : ''}${m.bias} ${data.units}`, 'mean(model − obs)'],
                   ['Pearson r', fmt(m?.pearson_r), m?.r_squared !== null && m?.r_squared !== undefined ? `r² = ${m.r_squared}` : 'undefined (n<3 or zero variance)'],
-                  ['Pairs (N)', String(m?.sample_count ?? 0), 'profiles collocated']
+                  ['Pairs (N)', m ? String(m.sample_count) : '—', 'profiles collocated']
                 ].map(([label, value, hint]) => (
                   <div key={label} className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-3">
                     <div className="text-[10px] font-mono text-ocean-muted uppercase tracking-wider">{label}</div>

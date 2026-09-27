@@ -1,3 +1,4 @@
+import { formatLatLon } from '../lib/geo';
 import React, { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useOceanStore, DEFAULT_OCEAN_POINT } from '../store/useOceanStore';
@@ -253,7 +254,7 @@ export const RightPanel: React.FC = () => {
               type="number"
               step="0.1"
               value={colorRange[0]}
-              onChange={(e) => setColorRange([parseFloat(e.target.value) || 0, colorRange[1]])}
+              onChange={(e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) setColorRange([v, colorRange[1]]); }}
               className="w-full bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-ocean-text-secondary focus:outline-none focus:border-ocean-accent"
             />
           </div>
@@ -263,7 +264,7 @@ export const RightPanel: React.FC = () => {
               type="number"
               step="0.1"
               value={colorRange[1]}
-              onChange={(e) => setColorRange([colorRange[0], parseFloat(e.target.value) || 30])}
+              onChange={(e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) setColorRange([colorRange[0], v]); }}
               className="w-full bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-ocean-text-secondary focus:outline-none focus:border-ocean-accent"
             />
           </div>
@@ -335,7 +336,7 @@ export const RightPanel: React.FC = () => {
         <button
           onClick={() => {
             const p = clickedGlobePoint ?? DEFAULT_OCEAN_POINT;
-            openWaterBlock({ lon: p.lon, lat: p.lat, name: clickedGlobePoint?.basin ?? DEFAULT_OCEAN_POINT.name });
+            openWaterBlock({ lon: p.lon, lat: p.lat, name: clickedGlobePoint ? formatLatLon(p.lat, p.lon) : DEFAULT_OCEAN_POINT.name });
           }}
           className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500/25 to-teal-500/25 hover:from-emerald-500/35 hover:to-teal-500/35 border border-ocean-accent/40 text-ocean-accent hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-[150ms] ease-nasa shadow-md active:scale-[0.98]"
         >
