@@ -1,3 +1,4 @@
+import { formatLatLon } from '../lib/geo';
 import React, { useState, useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useOceanStore, DEFAULT_OCEAN_POINT } from '../store/useOceanStore';
@@ -308,7 +309,7 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
         <button
           onClick={() => {
             const p = clickedGlobePoint ?? DEFAULT_OCEAN_POINT;
-            openWaterBlock({ lon: p.lon, lat: p.lat, name: clickedGlobePoint?.basin ?? DEFAULT_OCEAN_POINT.name });
+            openWaterBlock({ lon: p.lon, lat: p.lat, name: clickedGlobePoint ? formatLatLon(p.lat, p.lon) : DEFAULT_OCEAN_POINT.name });
           }}
           className="px-2.5 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-ocean-accent/30 to-ocean-accent/30 border border-ocean-accent/50 text-ocean-accent hover:from-ocean-accent/40 hover:to-ocean-accent/50 transition-all duration-[150ms] ease-nasa flex items-center gap-1 shadow-sm"
           title="Open the Three.js water-column view at the last clicked ocean point"

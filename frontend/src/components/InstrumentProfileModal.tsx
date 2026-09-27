@@ -187,7 +187,7 @@ export const InstrumentProfileModal: React.FC = () => {
               openWaterBlock({
                 lon: profile.longitude,
                 lat: profile.latitude,
-                name: `${meta.wmo ? `Float WMO #${meta.wmo}` : profile.external_id} (${meta.location_name || 'In-Situ Water Column'})`,
+                name: `${meta.wmo ? `Float WMO #${meta.wmo}` : profile.external_id} (${meta.location_name || `${profile.latitude.toFixed(2)}°N, ${profile.longitude.toFixed(2)}°E`})`,
                 instrumentId: selectedInstrumentId,
                 platformType: profile.platform_type
               });
@@ -375,7 +375,7 @@ export const InstrumentProfileModal: React.FC = () => {
             </span>
           </div>
           <p className="col-span-2 leading-snug" title={analysis.method}>
-            {analysis.reason ?? analysis.method}. QC: {meta.qc_policy ?? 'Argo flags 1/2'}. Source: {meta.source_file ?? 'Argo GDAC'}.
+            {analysis.reason ?? analysis.method}. QC: {meta.qc_policy ?? 'not recorded'}. Source: {meta.source_file ?? 'not recorded'}.
           </p>
         </div>
       )}

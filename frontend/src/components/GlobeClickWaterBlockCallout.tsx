@@ -1,3 +1,4 @@
+import { formatLatLon } from '../lib/geo';
 import React from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useOceanStore } from '../store/useOceanStore';
@@ -15,8 +16,8 @@ export const GlobeClickWaterBlockCallout: React.FC = () => {
   );
 
   if (!clickedGlobePoint) return null;
-  const { lon, lat, screenX, screenY, basin } = clickedGlobePoint;
-  const name = basin || `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E`;
+  const { lon, lat, screenX, screenY } = clickedGlobePoint;
+  const name = formatLatLon(lat, lon);
 
   return (
     <div
@@ -31,7 +32,7 @@ export const GlobeClickWaterBlockCallout: React.FC = () => {
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-1.5">
           <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span className="text-xs font-bold text-white tracking-wide">{basin || 'Selected point'}</span>
+          <span className="text-xs font-bold text-white tracking-wide">Selected point</span>
         </div>
         <button
           onClick={() => setClickedGlobePoint(null)}
@@ -42,7 +43,7 @@ export const GlobeClickWaterBlockCallout: React.FC = () => {
         </button>
       </div>
       <div className="mt-1 text-[10px] font-mono text-ocean-text-secondary">
-        {lat.toFixed(2)}°N, {lon.toFixed(2)}°E <span className="text-ocean-muted">(basin label approximate)</span>
+        {name}
       </div>
       <div className="mt-2.5 grid grid-cols-2 gap-1.5">
         <button

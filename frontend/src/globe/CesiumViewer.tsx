@@ -268,24 +268,11 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
         return;
       }
 
-      // Determine basin name
-      let basinName = 'Indian Ocean';
-      if (lon >= 52 && lon <= 78 && lat >= 8 && lat <= 26) {
-        basinName = 'Arabian Sea Basin';
-      } else if (lon >= 78 && lon <= 96 && lat >= 6 && lat <= 23) {
-        basinName = 'Bay of Bengal Basin';
-      } else if (lon >= 91 && lon <= 98 && lat >= 6 && lat <= 15) {
-        basinName = 'Andaman Sea Basin';
-      } else if (lat < 6) {
-        basinName = 'Equatorial Indian Ocean';
-      }
-
       useOceanStore.getState().setClickedGlobePoint({
         lon: parseFloat(lon.toFixed(2)),
         lat: parseFloat(lat.toFixed(2)),
         screenX: click.position.x,
-        screenY: click.position.y,
-        basin: basinName
+        screenY: click.position.y
       });
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
@@ -381,7 +368,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     hazardManagerRef.current?.update(activeDisasterLayers, hazardMonth, extDates);
   }, [activeDisasterLayers, hazardMonth, extDates]);
   useEffect(() => {
-    const storms = showTracks && tracks && 'storms' in tracks
+    const storms = showTracks && tracks && 'storms' in tracks && trackSeasons
       ? tracks.storms.filter((st) => st.season >= trackSeasons[0] && st.season <= trackSeasons[1])
       : null;
     hazardManagerRef.current?.setTracks(storms);

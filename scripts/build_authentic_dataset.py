@@ -892,7 +892,7 @@ def build_ibr_climatologies(ibr_year):
     log(f"[CHL] log10(CHL) climatology {CHL_BASELINE} -> {rel(cpath)}")
     del sst, chl
     meta = {
-        "sst": {"file": rel(path), "baseline": list(MHW_BASELINE), "source": src_name,
+        "sst": {"file": rel(path), "baseline": list(MHW_BASELINE), "record": [years[0], years[-1]], "source": src_name,
                 "percentile_method": "numpy nanpercentile (linear interpolation) over the 30 baseline years",
                 "window": "calendar month (no day-of-year smoothing; monthly data)",
                 "detrended": {"method": "per-cell least-squares linear trend of the deseasonalised "
@@ -949,26 +949,27 @@ def build_hazard_layers(ibr_year):
     log(f"[Hazards] MHW (fixed + detrended), chlorophyll bloom and eddy-convergence tiles for "
         f"{len(dates)} months of {ibr_year}")
     cats = {"1": "Moderate", "2": "Strong", "3": "Severe", "4": "Extreme"}
+    record_years = tuple(clim_meta["sst"]["record"])
     ibr_layers = {
         "mhw_intensity": {
             "var_code": VAR_CODES["mhw_intensity"], "units": "ratio", "source_id": "ibr",
             "long_name": "Monthly-mean marine heatwave intensity ratio (SST - clim) / (p90 - clim), "
                          f"fixed {MHW_BASELINE[0]}-{MHW_BASELINE[1]} baseline",
             "static_timesteps": dates, "on_demand": "any IBR timestep (derived from its SST tile)",
-            "categories": cats, "climatology": clim_meta["sst"], "caveat": ae.MHW_CAVEAT,
+            "categories": cats, "climatology": clim_meta["sst"], "caveat": ae.ratio_caveat("mhw_intensity", MHW_BASELINE, record_years),
         },
         "mhw_detrended": {
             "var_code": VAR_CODES["mhw_detrended"], "units": "ratio", "source_id": "ibr",
             "long_name": "Monthly-mean marine heatwave intensity ratio on linearly detrended SST",
             "static_timesteps": dates, "on_demand": "any IBR timestep (derived from its SST tile)",
-            "categories": cats, "climatology": clim_meta["sst"], "caveat": ae.MHW_DETRENDED_CAVEAT,
+            "categories": cats, "climatology": clim_meta["sst"], "caveat": ae.ratio_caveat("mhw_detrended", MHW_BASELINE, record_years),
         },
         "chl_bloom": {
             "var_code": VAR_CODES["chl_bloom"], "units": "ratio", "source_id": "ibr",
             "long_name": "Chlorophyll bloom anomaly index (log10 CHL - clim) / (p90 - clim)",
             "static_timesteps": dates, "on_demand": "any IBR timestep (derived from its chlorophyll tile)",
             "categories": {"1": "Elevated", "2": "High", "3": "Very high", "4": "Extreme"},
-            "climatology": clim_meta["chl"], "caveat": ae.CHL_BLOOM_CAVEAT,
+            "climatology": clim_meta["chl"], "caveat": ae.ratio_caveat("chl_bloom", CHL_BASELINE, record_years),
         },
     }
     fixed = {"fixed_date": armor_date, "source_id": "armor3d", "depths": [SURFACE_DEPTH]}

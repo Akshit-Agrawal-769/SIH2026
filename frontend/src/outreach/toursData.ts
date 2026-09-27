@@ -1,3 +1,25 @@
+/**
+ * Guided tours. Tours contain NO hard-coded measurements: every number shown with a step is
+ * computed at runtime (TourStats) from the served tiles, catalog and Argo artefacts, so the
+ * text can never drift from the data. Narratives only state method and background knowledge.
+ */
+
+/** Lon/lat box: [west, south, east, north] in degrees. */
+export type Box = [number, number, number, number];
+
+export interface BoxMeanSpec {
+  variable: string;
+  /** A catalog timestep (YYYY-MM-DD). */
+  time: string;
+  box: Box;
+}
+
+export type TourStat =
+  | { kind: 'boxMean'; label: string; spec: BoxMeanSpec }
+  | { kind: 'boxDiff'; label: string; a: BoxMeanSpec; b: BoxMeanSpec }
+  | { kind: 'floatCount'; label: string }
+  | { kind: 'matchups'; label: string; instrumentId: string; variable: string };
+
 export interface TourStep {
   id: string;
   stepNumber: number;
@@ -5,6 +27,8 @@ export interface TourStep {
   subtitle: string;
   narrative: string;
   keyInsights: string[];
+  /** Computed live from the data when the step is shown. */
+  stats?: TourStat[];
   camera: {
     lon: number;
     lat: number;
@@ -16,7 +40,7 @@ export interface TourStep {
   variable: string;
   depth: number;
   activeLayers: string[];
-  /** A real catalog timestep (YYYY-MM-DD). */
+  /** A real catalog timestep (YYYY-MM-DD), or 'latest' for the variable's newest timestep. */
   time?: string;
   isPlaying?: boolean;
   selectedInstrumentId?: string | null;
@@ -34,12 +58,14 @@ export interface ScienceTour {
   steps: TourStep[];
 }
 
-/*
- * Every "in this data" statement below was checked against the served tiles
- * (INCOIS Bio-ROMS 2019 monthly surface fields; CMEMS ARMOR3D 2024-12-31 surface
- * geostrophic currents; Argo GDAC profiles). Box means are over the stated
- * lat/lon boxes. General oceanography is labelled as background.
- */
+// Boxes used by the tours (named regions, the numbers come from the data).
+const SOMALI_COAST: Box = [51, 8, 54, 11];
+const BAY_OF_BENGAL: Box = [86, 12, 90, 16];
+const CENTRAL_ARABIAN_SEA: Box = [62, 12, 66, 16];
+const NORTH_ARABIAN_SEA: Box = [60, 15, 65, 20];
+const NORTH_BAY_OF_BENGAL: Box = [87, 18, 91, 21];
+const SOMALI_CURRENT: Box = [45, 2, 56, 12];
+
 export const SCIENCE_TOURS: ScienceTour[] = [
   {
     id: 'monsoon-somali-upwelling',
@@ -56,13 +82,13 @@ export const SCIENCE_TOURS: ScienceTour[] = [
         id: 'monsoon-step-1',
         stepNumber: 1,
         title: 'Pre-monsoon surface temperature',
-        subtitle: 'IBR sea surface temperature, 29 Apr 2019',
+        subtitle: 'IBR sea surface temperature, April 2019',
         narrative:
-          'Background: before the southwest monsoon sets in, the northern Indian Ocean is at its warmest. In this model field the box 8–11°N, 51–54°E off Somalia averages about 29.9 °C, similar to the Bay of Bengal (about 30.1 °C at 12–16°N, 86–90°E).',
-        keyInsights: [
-          'Somali coast box mean ≈ 29.9 °C (29 Apr 2019)',
-          'Bay of Bengal box mean ≈ 30.1 °C',
-          'Source: INCOIS Bio-ROMS monthly surface field'
+          'Background: before the southwest monsoon sets in, the northern Indian Ocean is at its warmest. The box means below are computed from this model field.',
+        keyInsights: ['Source: INCOIS Bio-ROMS monthly surface field'],
+        stats: [
+          { kind: 'boxMean', label: 'Somali coast (8–11°N, 51–54°E)', spec: { variable: 'temperature', time: '2019-04-29', box: SOMALI_COAST } },
+          { kind: 'boxMean', label: 'Bay of Bengal (12–16°N, 86–90°E)', spec: { variable: 'temperature', time: '2019-04-29', box: BAY_OF_BENGAL } }
         ],
         camera: { lon: 66.0, lat: 10.0, height: 9000000, pitch: -85.0, heading: 0.0, duration: 2.5 },
         variable: 'temperature',
@@ -74,13 +100,18 @@ export const SCIENCE_TOURS: ScienceTour[] = [
         id: 'monsoon-step-2',
         stepNumber: 2,
         title: 'Monsoon cooling off Somalia',
-        subtitle: 'IBR sea surface temperature, 28 Jul 2019',
+        subtitle: 'IBR sea surface temperature, July 2019',
         narrative:
-          'Background: alongshore southwest monsoon winds drive offshore Ekman transport and coastal upwelling off Somalia and Oman. In this model field the Somali box has cooled to about 24.4 °C while the central Arabian Sea (12–16°N, 62–66°E) is about 28.4 °C — a contrast of roughly 4 °C.',
-        keyInsights: [
-          'Somali coast box mean ≈ 24.4 °C (28 Jul 2019)',
-          'Central Arabian Sea box mean ≈ 28.4 °C',
-          'Cooling relative to April ≈ 5.5 °C at the coast'
+          'Background: alongshore southwest monsoon winds drive offshore Ekman transport and coastal upwelling off Somalia and Oman, bringing cooler water to the surface.',
+        keyInsights: ['Compare the coastal box with the open Arabian Sea'],
+        stats: [
+          { kind: 'boxMean', label: 'Somali coast (Jul)', spec: { variable: 'temperature', time: '2019-07-28', box: SOMALI_COAST } },
+          { kind: 'boxMean', label: 'Central Arabian Sea (12–16°N, 62–66°E)', spec: { variable: 'temperature', time: '2019-07-28', box: CENTRAL_ARABIAN_SEA } },
+          {
+            kind: 'boxDiff', label: 'Somali coast, Jul minus Apr',
+            a: { variable: 'temperature', time: '2019-07-28', box: SOMALI_COAST },
+            b: { variable: 'temperature', time: '2019-04-29', box: SOMALI_COAST }
+          }
         ],
         camera: { lon: 54.0, lat: 11.0, height: 2600000, pitch: -65.0, heading: 30.0, duration: 2.8 },
         variable: 'temperature',
@@ -92,13 +123,13 @@ export const SCIENCE_TOURS: ScienceTour[] = [
         id: 'monsoon-step-3',
         stepNumber: 3,
         title: 'Chlorophyll response',
-        subtitle: 'IBR surface chlorophyll-a, 28 Jul 2019',
+        subtitle: 'IBR surface chlorophyll-a, July 2019',
         narrative:
-          'Background: upwelled water carries nutrients to the sunlit surface, which supports phytoplankton growth. In the model the Somali box chlorophyll-a is about 1.2 mg/m³ in July, compared with about 0.08 mg/m³ in April. The colour scale is logarithmic.',
-        keyInsights: [
-          'Somali box ≈ 1.2 mg/m³ (Jul) vs ≈ 0.08 mg/m³ (Apr)',
-          'Log colour scale: each colour band is a factor, not a step',
-          'Model output, not satellite ocean colour'
+          'Background: upwelled water carries nutrients to the sunlit surface, which supports phytoplankton growth. The colour scale is logarithmic.',
+        keyInsights: ['Log colour scale: each colour band is a factor, not a step', 'Model output, not satellite ocean colour'],
+        stats: [
+          { kind: 'boxMean', label: 'Somali coast (Jul)', spec: { variable: 'chlorophyll', time: '2019-07-28', box: SOMALI_COAST } },
+          { kind: 'boxMean', label: 'Somali coast (Apr)', spec: { variable: 'chlorophyll', time: '2019-04-29', box: SOMALI_COAST } }
         ],
         camera: { lon: 56.0, lat: 12.0, height: 3000000, pitch: -70.0, heading: 20.0, duration: 2.4 },
         variable: 'chlorophyll',
@@ -112,11 +143,12 @@ export const SCIENCE_TOURS: ScienceTour[] = [
         title: 'Mixed layer deepening',
         subtitle: 'IBR mixed layer depth, Apr → Aug 2019',
         narrative:
-          'Stronger monsoon winds mix the upper ocean. In the model the central Arabian Sea mixed layer deepens from about 27 m (29 Apr) to about 69 m (27 Aug). Use the timeline to step month by month; only real model months are shown.',
-        keyInsights: [
-          'Central Arabian Sea MLD ≈ 27 m (Apr) → ≈ 58 m (Jul) → ≈ 69 m (Aug)',
-          'Timeline steps only through real monthly timesteps',
-          'MLD here is the model’s own diagnostic'
+          'Stronger monsoon winds mix the upper ocean. Use the timeline to step month by month; only real model months are shown.',
+        keyInsights: ['Timeline steps only through real monthly timesteps', 'MLD here is the model’s own diagnostic'],
+        stats: [
+          { kind: 'boxMean', label: 'Central Arabian Sea MLD (Apr)', spec: { variable: 'mld', time: '2019-04-29', box: CENTRAL_ARABIAN_SEA } },
+          { kind: 'boxMean', label: 'Central Arabian Sea MLD (Jul)', spec: { variable: 'mld', time: '2019-07-28', box: CENTRAL_ARABIAN_SEA } },
+          { kind: 'boxMean', label: 'Central Arabian Sea MLD (Aug)', spec: { variable: 'mld', time: '2019-08-27', box: CENTRAL_ARABIAN_SEA } }
         ],
         camera: { lon: 64.0, lat: 14.0, height: 4200000, pitch: -75.0, heading: 10.0, duration: 2.5 },
         variable: 'mld',
@@ -135,16 +167,18 @@ export const SCIENCE_TOURS: ScienceTour[] = [
     category: 'Salinity & Water Masses',
     thumbnailColor: 'from-teal-500 to-emerald-600',
     summary:
-      'Background: evaporation exceeds precipitation over the Arabian Sea, while large river inflow and monsoon rain freshen the Bay of Bengal. The model fields show a persistent contrast of about 2 PSU.',
+      'Background: evaporation exceeds precipitation over the Arabian Sea, while large river inflow and monsoon rain freshen the Bay of Bengal. Compare the two basins in the model fields.',
     steps: [
       {
         id: 'salinity-step-1',
         stepNumber: 1,
         title: 'Salty Arabian Sea',
-        subtitle: 'IBR sea surface salinity, 28 Jul 2019',
-        narrative:
-          'In this field the northern Arabian Sea box (15–20°N, 60–65°E) averages about 35.5 PSU.',
-        keyInsights: ['Arabian Sea box ≈ 35.5 PSU', 'Background: evaporation-dominated basin'],
+        subtitle: 'IBR sea surface salinity, July 2019',
+        narrative: 'Background: the Arabian Sea is an evaporation-dominated basin.',
+        keyInsights: ['Background: evaporation-dominated basin'],
+        stats: [
+          { kind: 'boxMean', label: 'Northern Arabian Sea (15–20°N, 60–65°E)', spec: { variable: 'salinity', time: '2019-07-28', box: NORTH_ARABIAN_SEA } }
+        ],
         camera: { lon: 63.0, lat: 17.0, height: 3500000, pitch: -75.0, heading: 0.0, duration: 2.4 },
         variable: 'salinity',
         depth: 0,
@@ -155,10 +189,18 @@ export const SCIENCE_TOURS: ScienceTour[] = [
         id: 'salinity-step-2',
         stepNumber: 2,
         title: 'Fresh northern Bay of Bengal',
-        subtitle: 'IBR sea surface salinity, 28 Jul 2019',
+        subtitle: 'IBR sea surface salinity, July 2019',
         narrative:
-          'The northern Bay of Bengal box (18–21°N, 87–91°E) averages about 33.4 PSU, roughly 2 PSU fresher than the Arabian Sea box. Background: the Ganges–Brahmaputra and other rivers deliver large freshwater volumes to the northern Bay.',
-        keyInsights: ['Northern Bay of Bengal box ≈ 33.4 PSU', 'Contrast with Arabian Sea ≈ 2 PSU'],
+          'Background: the Ganges–Brahmaputra and other rivers deliver large freshwater volumes to the northern Bay.',
+        keyInsights: ['Background: river- and rain-freshened basin'],
+        stats: [
+          { kind: 'boxMean', label: 'Northern Bay of Bengal (18–21°N, 87–91°E)', spec: { variable: 'salinity', time: '2019-07-28', box: NORTH_BAY_OF_BENGAL } },
+          {
+            kind: 'boxDiff', label: 'Arabian Sea minus Bay of Bengal',
+            a: { variable: 'salinity', time: '2019-07-28', box: NORTH_ARABIAN_SEA },
+            b: { variable: 'salinity', time: '2019-07-28', box: NORTH_BAY_OF_BENGAL }
+          }
+        ],
         camera: { lon: 89.0, lat: 18.0, height: 3000000, pitch: -70.0, heading: 0.0, duration: 2.4 },
         variable: 'salinity',
         depth: 0,
@@ -169,32 +211,34 @@ export const SCIENCE_TOURS: ScienceTour[] = [
   },
   {
     id: 'winter-currents',
-    title: 'Winter Surface Currents (31 Dec 2024)',
+    title: 'Surface Geostrophic Currents',
     tagline: 'Geostrophic surface velocity from the CMEMS ARMOR3D analysis',
     duration: '2 mins',
     difficulty: 'Intermediate',
     category: 'Monsoon Dynamics',
     thumbnailColor: 'from-neutral-500 to-amber-600',
     summary:
-      'The only current field in this release is ARMOR3D surface geostrophic velocity for 31 December 2024 (northeast-monsoon season). Arrows are placed on the real 1° vector grid.',
+      'ARMOR3D surface geostrophic velocity for the analysis date listed in the catalog. Arrows are placed on the real vector grid.',
     steps: [
       {
         id: 'currents-step-1',
         stepNumber: 1,
         title: 'Surface geostrophic currents',
-        subtitle: 'CMEMS ARMOR3D, 31 Dec 2024',
+        subtitle: 'CMEMS ARMOR3D, latest analysis date in the catalog',
         narrative:
-          'Arrow colour and length follow speed. Near the coast of Somalia (2–12°N, 45–56°E) the mean meridional velocity in this field is slightly southward (≈ −0.07 m/s), consistent with background knowledge that the Somali Current reverses in the northeast monsoon.',
+          'Arrow colour and length follow speed. Background: the Somali Current reverses seasonally with the monsoon winds.',
         keyInsights: [
-          'Single real timestep: 2024-12-31',
           'Geostrophic velocity (thermal wind), not total current',
           'Values near the equator are less reliable because geostrophy breaks down there'
+        ],
+        stats: [
+          { kind: 'boxMean', label: 'Mean speed off Somalia (2–12°N, 45–56°E)', spec: { variable: 'currents', time: 'latest', box: SOMALI_CURRENT } }
         ],
         camera: { lon: 60.0, lat: 5.0, height: 7000000, pitch: -80.0, heading: 0.0, duration: 2.5 },
         variable: 'currents',
         depth: 0,
         activeLayers: ['currents', 'argo'],
-        time: '2024-12-31'
+        time: 'latest'
       }
     ]
   },
@@ -215,8 +259,9 @@ export const SCIENCE_TOURS: ScienceTour[] = [
         title: 'The float network in this catalog',
         subtitle: 'Latest ascending profile per float',
         narrative:
-          'Each marker is a real float position from its latest ascending profile that passed Argo QC (flags 1 and 2). Labels show the WMO number and profile date.',
-        keyInsights: ['13 floats from the Argo GDAC', 'QC flags 1/2 only; adjusted values for delayed-mode data'],
+          'Each marker is a real float position from its latest ascending profile that passed Argo QC (flags 1 and 2). Labels show the WMO number and profile date; floats that have not reported for a year are drawn dimmer.',
+        keyInsights: ['QC flags 1/2 only; adjusted values for delayed-mode data'],
+        stats: [{ kind: 'floatCount', label: 'Floats in this catalog' }],
         camera: { lon: 72.0, lat: 12.0, height: 9000000, pitch: -85.0, heading: 0.0, duration: 2.5 },
         variable: 'temperature',
         depth: 0,
@@ -228,10 +273,11 @@ export const SCIENCE_TOURS: ScienceTour[] = [
         id: 'argo-step-2',
         stepNumber: 2,
         title: 'A delayed-mode Arabian Sea float',
-        subtitle: 'WMO 2902120 (INCOIS), 2014–2021',
+        subtitle: 'WMO 2902120 (INCOIS)',
         narrative:
-          'This float’s near-surface temperatures are also compared with the INCOIS Bio-ROMS model in the Model vs Observation view (210 monthly matchups between 2014 and 2019). Open the profile panel to see its latest QC-filtered profile and observed mixed layer depth.',
+          'This float’s near-surface temperatures are compared with the INCOIS Bio-ROMS model in the Model vs Observation view. Open the profile panel to see its latest QC-filtered profile and observed mixed layer depth.',
         keyInsights: ['Delayed-mode (adjusted) data', 'Model–observation matchups use the float’s own profile dates'],
+        stats: [{ kind: 'matchups', label: 'Model–observation matchups (temperature)', instrumentId: 'ARGO_2902120', variable: 'temperature' }],
         camera: { lon: 60.0, lat: 15.0, height: 2500000, pitch: -65.0, heading: 0.0, duration: 2.5 },
         variable: 'temperature',
         depth: 0,

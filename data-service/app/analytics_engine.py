@@ -576,6 +576,12 @@ def compute_timeseries(variable: str, lat: float, lon: float, depth: float = 0.0
     }
 
 
+def _domain_text(d: str) -> str:
+    w, so, e, n = grid()["bbox"]
+    ns = lambda v: f"{abs(v):g}°{'N' if v >= 0 else 'S'}"
+    return f"all valid ocean cells of the {d} field over {w:g}-{e:g}°E, {ns(so)}-{ns(n)}"
+
+
 def compute_anomalies(variable: str, lat: float, lon: float, depth: float = 0.0,
                       date: Optional[str] = None) -> Dict[str, Any]:
     """
@@ -611,7 +617,7 @@ def compute_anomalies(variable: str, lat: float, lon: float, depth: float = 0.0,
         "baseline_mean": round(mu, 4),
         "baseline_std": round(sd, 4),
         "baseline_samples": int(valid.size),
-        "baseline_definition": f"all valid ocean cells of the {d} field over the 35-100°E, 10°S-25°N domain",
+        "baseline_definition": _domain_text(d),
         "z_score": round(z, 3),
         "classification": cls,
         "description": f"{'+' if z > 0 else ''}{z:.2f} σ relative to the same-day domain mean "
@@ -815,18 +821,34 @@ GEOSTROPHIC_CAVEATS = [
     "no wind-driven (Ekman) component, no Stokes (wave) drift, no tides or inertial motion.",
     "A single ARMOR3D snapshot is used and held constant; the real flow changes over hours to days.",
 ]
-MHW_CAVEAT = ("Monthly-mean marine-heatwave index: Hobday et al. (2018) categories applied to monthly-mean IBR SST "
-              "against a fixed 1990-2019 monthly climatology. The >= 5-day duration criterion cannot be checked on "
-              "monthly data, so this indicates months whose mean exceeded the 90th percentile, not verified "
-              "heatwave events. A fixed baseline still counts part of the long-term warming as heatwave; see the "
-              "detrended variant and the daily OISST index.")
-MHW_DETRENDED_CAVEAT = ("Detrended monthly-mean MHW index: the per-cell linear 1980-2019 SST trend is removed "
-                        "before comparing with the 1990-2019 climatology (Jacox et al. 2020 shifting baseline), so "
-                        "this isolates short-term extremes from long-term warming. Monthly data: no >= 5-day rule.")
-CHL_BLOOM_CAVEAT = ("Chlorophyll bloom anomaly index from IBR model chlorophyll (monthly): the MHW ratio method "
-                    "applied to log10(CHL) against a 1990-2019 per-cell monthly climatology and 90th percentile. "
-                    "High chlorophyll marks unusually strong phytoplankton biomass; it does NOT identify harmful "
-                    "species or toxins, so it is a screening indicator for harmful algal blooms, not a HAB detection.")
+# Caveat templates: baseline years come from the climatology files and the record years from the catalog,
+# never from literals ({b0}-{b1} = baseline, {r0}-{r1} = record used for the trend).
+MHW_CAVEAT_T = ("Monthly-mean marine-heatwave index: Hobday et al. (2018) categories applied to monthly-mean IBR SST "
+                "against a fixed {b0}-{b1} monthly climatology. The >= 5-day duration criterion cannot be checked on "
+                "monthly data, so this indicates months whose mean exceeded the 90th percentile, not verified "
+                "heatwave events. A fixed baseline still counts part of the long-term warming as heatwave; see the "
+                "detrended variant and the daily OISST index.")
+MHW_DETRENDED_CAVEAT_T = ("Detrended monthly-mean MHW index: the per-cell linear {r0}-{r1} SST trend is removed "
+                          "before comparing with the {b0}-{b1} climatology (Jacox et al. 2020 shifting baseline), so "
+                          "this isolates short-term extremes from long-term warming. Monthly data: no >= 5-day rule.")
+CHL_BLOOM_CAVEAT_T = ("Chlorophyll bloom anomaly index from IBR model chlorophyll (monthly): the MHW ratio method "
+                      "applied to log10(CHL) against a {b0}-{b1} per-cell monthly climatology and 90th percentile. "
+                      "High chlorophyll marks unusually strong phytoplankton biomass; it does NOT identify harmful "
+                      "species or toxins, so it is a screening indicator for harmful algal blooms, not a HAB detection.")
+
+
+def ratio_caveat(layer: str, baseline=None, record=None) -> str:
+    """Caveat text for a monthly ratio layer with its real baseline / record years filled in."""
+    if baseline is None:
+        clim, _ = (load_chl_climatology() if layer == "chl_bloom" else load_sst_climatology())
+        baseline = clim["baseline"] if clim else ("?", "?")
+    if record is None:
+        ts = timesteps("temperature")
+        record = (ts[0][:4], ts[-1][:4]) if ts else ("?", "?")
+    t = {"mhw_intensity": MHW_CAVEAT_T, "mhw_detrended": MHW_DETRENDED_CAVEAT_T, "chl_bloom": CHL_BLOOM_CAVEAT_T}[layer]
+    return t.format(b0=baseline[0], b1=baseline[1], r0=record[0], r1=record[1])
+
+
 EDDY_CAVEAT = ("Warm-water & eddy convergence indicator, NOT a cyclone forecast or genesis probability. Tropical "
                "cyclogenesis is controlled by atmospheric conditions (low-level vorticity, humidity, vertical wind "
                "shear) that are not in these datasets. This layer only marks where warm surface water (SST >= "
@@ -1100,7 +1122,7 @@ RATIO_LAYERS = {
 
 
 def _ratio_caveat(layer: str) -> str:
-    return {"mhw_intensity": MHW_CAVEAT, "mhw_detrended": MHW_DETRENDED_CAVEAT, "chl_bloom": CHL_BLOOM_CAVEAT}[layer]
+    return ratio_caveat(layer)
 
 
 def _ratio_category(ratio: float, cats) -> Tuple[int, str]:
@@ -1307,7 +1329,7 @@ def compute_advisories(date: Optional[str] = None) -> Dict[str, Any]:
                          f"{reg['centroid']['lon']:.1f}°E",
                 "detail": f"{reg['area_km2']:,.0f} km² above the 90th-percentile threshold; peak ratio "
                           f"{reg['peak']['value']:.2f} at {reg['peak']['lat']:.2f}°N, {reg['peak']['lon']:.2f}°E.",
-                "region": reg, "caveat": MHW_CAVEAT,
+                "region": reg, "caveat": mhw["caveat"],
             })
     eddy = compute_eddy_convergence_summary(date)
     if eddy["available"]:
@@ -1330,7 +1352,7 @@ def compute_advisories(date: Optional[str] = None) -> Dict[str, Any]:
                          f"{reg['centroid']['lon']:.1f}°E (HAB screening)",
                 "detail": f"{reg['area_km2']:,.0f} km² above the monthly 90th percentile of log10 chlorophyll; peak "
                           f"ratio {reg['peak']['value']:.2f}. Not a harmful-species detection.",
-                "region": reg, "caveat": CHL_BLOOM_CAVEAT,
+                "region": reg, "caveat": chl["caveat"],
             })
     unavailable = {k: s["reason"] for k, s in (("marine_heatwave", mhw), ("eddy_convergence", eddy),
                                                ("chl_bloom", chl)) if not s["available"]}

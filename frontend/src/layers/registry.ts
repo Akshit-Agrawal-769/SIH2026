@@ -86,7 +86,7 @@ const DEFAULT_LAYERS: LayerDefinition[] = [
     id: 'currents',
     name: 'Surface Geostrophic Currents',
     category: 'vector_field',
-    description: 'CMEMS ARMOR3D surface geostrophic velocity, 2024-12-31 only',
+    description: 'CMEMS ARMOR3D surface geostrophic velocity',
     units: 'm/s',
     defaultVisible: false,
     color: '#f59e0b',

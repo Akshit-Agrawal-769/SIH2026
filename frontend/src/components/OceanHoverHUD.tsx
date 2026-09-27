@@ -10,16 +10,6 @@ export const OceanHoverHUD: React.FC = () => {
 
   const { lon, lat, variable, depth, value, unit, screenX, screenY, currentSpeed, currentHeading } = hoveredOceanInfo;
 
-  // Determine geographic basin name from coordinates
-  const getBasinName = (lonVal: number, latVal: number): string => {
-    if (latVal > 8.0 && lonVal < 77.0) return 'Arabian Sea Basin';
-    if (latVal > 8.0 && lonVal >= 77.0 && lonVal <= 93.0) return 'Bay of Bengal Basin';
-    if (lonVal > 93.0) return 'Andaman Sea Basin';
-    if (latVal <= 8.0 && latVal >= 0.0 && lonVal >= 68.0 && lonVal <= 82.0) return 'Laccadive Sea (approx.)';
-    if (latVal < 0.0) return 'Southern Indian Ocean';
-    return 'Equatorial Indian Ocean';
-  };
-
   const getVariableColor = () => {
     switch (variable) {
       case 'salinity':
@@ -33,7 +23,6 @@ export const OceanHoverHUD: React.FC = () => {
   };
 
   const styleMeta = getVariableColor();
-  const basin = getBasinName(lon, lat);
 
   // Position slightly offset from cursor, preventing off-screen overflow
   const hudLeft = Math.min(window.innerWidth - 220, screenX + 18);
@@ -70,9 +59,6 @@ export const OceanHoverHUD: React.FC = () => {
         <div className="flex items-center gap-1 font-mono text-ocean-text-secondary">
           <Compass className="w-3 h-3 text-emerald-400" />
           <span>{Math.abs(lat).toFixed(2)}°{lat >= 0 ? 'N' : 'S'}, {Math.abs(lon).toFixed(2)}°{lon >= 0 ? 'E' : 'W'}</span>
-        </div>
-        <div className="text-[9.5px] text-ocean-muted font-medium">
-          {basin}
         </div>
       </div>
 

@@ -59,19 +59,19 @@ export const AnomalyTab: React.FC<AnomalyTabProps> = ({
     );
   }
 
-  if (error || !data || !data.available) {
+  if (error || !data || !data.available || typeof data.z_score !== 'number') {
     return (
       <div className="h-72 flex flex-col items-center justify-center gap-2 p-6 text-center border border-dashed border-ocean-border rounded-xl">
         <AlertCircle className="w-8 h-8 text-amber-400" />
         <h4 className="text-sm font-semibold text-ocean-text-secondary">No Anomaly Baseline Available</h4>
         <p className="text-xs text-ocean-muted max-w-md">
-          {data?.reason || error || 'Point is on land or outside active model domain.'}
+          {data?.reason || error || 'The service returned no z-score for this point.'}
         </p>
       </div>
     );
   }
 
-  const z = data.z_score ?? 0;
+  const z = data.z_score;
   const isNormal = Math.abs(z) < 1.0;
   const isModerate = Math.abs(z) >= 1.0 && Math.abs(z) < 2.0;
 
