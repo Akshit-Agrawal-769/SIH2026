@@ -146,6 +146,16 @@ export interface VerticalProfileResponse {
   max_gradient?: number | null;
   gradient_unit?: string;
   reason?: string;
+  /** Set when the gridded model is surface-only and the column comes from an Argo float or HYCOM. */
+  profile_source?: {
+    kind: 'argo' | 'hycom';
+    label: string;
+    instrument_id?: string;
+    cycle?: number;
+    timestamp?: string;
+    distance_km?: number;
+  };
+  model_note?: string;
 }
 
 export class AnalyticsUnavailableError extends Error {

@@ -671,6 +671,72 @@ def compute_correlation(lat: float, lon: float, depth: float = 0.0, date: Option
     }
 
 
+ARGO_PROFILE_RADIUS_KM = 150.0
+ARGO_VARIABLES = {"temperature": "temperature", "salinity": "salinity", "chlorophyll": "chlorophyll",
+                  "mld": "temperature"}
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    p1, p2 = np.deg2rad(lat1), np.deg2rad(lat2)
+    a = np.sin((p2 - p1) / 2) ** 2 + np.cos(p1) * np.cos(p2) * np.sin(np.deg2rad(lon2 - lon1) / 2) ** 2
+    return float(2 * EARTH_RADIUS_M / 1000.0 * np.arcsin(min(1.0, np.sqrt(a))))
+
+
+def _column_stats(levels: List[Dict[str, float]], temp_column: List[Dict[str, float]], unit: str) -> Dict[str, Any]:
+    analysis = compute_observed_profile_analysis({"measurements": temp_column}) if len(temp_column) >= 3 else None
+    return {
+        "available": True,
+        "surface_value": levels[0]["value"], "bottom_value": levels[-1]["value"],
+        "mld_meters": analysis["mld_meters"] if analysis else None,
+        "thermocline_depth_meters": analysis["thermocline_depth_meters"] if analysis else None,
+        "max_gradient": analysis["thermocline_gradient_c_per_m"] if analysis else None,
+        "gradient_unit": "°C/m" if analysis else f"{unit}/m",
+    }
+
+
+def _vertical_from_observations(lat: float, lon: float, variable: str, unit: str) -> Optional[Dict[str, Any]]:
+    """Vertical structure where the gridded model is surface-only: the nearest Argo float's latest QC-good
+    profile (within ARGO_PROFILE_RADIUS_KM), else - for temperature - the HYCOM 3-D analysis column."""
+    field = ARGO_VARIABLES.get(variable)
+    inst = load_instruments() or {}
+    best = None
+    for f in inst.get("features", []):
+        flon, flat = f["geometry"]["coordinates"]
+        d = _haversine_km(lat, lon, flat, flon)
+        if d <= ARGO_PROFILE_RADIUS_KM and (best is None or d < best[0]):
+            best = (d, f["id"])
+    if field and best is not None:
+        prof = load_profile(best[1]) or {}
+        ms = sorted((m for m in prof.get("measurements", []) if m.get(field) is not None and m.get("depth") is not None),
+                    key=lambda m: m["depth"])
+        if len(ms) >= 3:
+            levels = [{"depth": round(m["depth"], 2), "value": round(m[field], 4)} for m in ms]
+            temp_col = [{"depth": m["depth"], "temperature": m["temperature"]}
+                        for m in prof.get("measurements", []) if m.get("temperature") is not None]
+            meta = prof.get("metadata", {})
+            return {**_column_stats(levels, temp_col, unit), "variable": variable, "levels": levels,
+                    "date": (prof.get("timestamp") or "")[:10],
+                    "profile_source": {
+                        "kind": "argo", "instrument_id": best[1], "cycle": prof.get("cycle_number"),
+                        "timestamp": prof.get("timestamp"), "distance_km": round(best[0], 1),
+                        "latitude": prof.get("latitude"), "longitude": prof.get("longitude"),
+                        "label": f"Argo float {meta.get('wmo', best[1][5:])} cycle {prof.get('cycle_number')} "
+                                 f"({(prof.get('timestamp') or '')[:10]}, {best[0]:.0f} km away), QC 1/2 levels",
+                    }}
+    if variable in ("temperature", "mld"):
+        from app import ext_hazards as xh
+        col = xh.hycom_temperature_column(lat, lon)
+        if col is not None and len(col["levels"]) >= 3:
+            levels = col["levels"]
+            temp_col = [{"depth": lv["depth"], "temperature": lv["value"]} for lv in levels]
+            return {**_column_stats(levels, temp_col, "°C"), "variable": "temperature", "levels": levels,
+                    "date": col["date"],
+                    "profile_source": {"kind": "hycom", "timestamp": col["time"], "distance_km": col["distance_km"],
+                                       "label": f"HYCOM ESPC-D-V02 3-D temperature analysis, {col['time']} "
+                                                f"(model, 0-{col['max_depth']:.0f} m)"}}
+    return None
+
+
 def compute_vertical_profile_analysis(lat: float, lon: float, variable: str = "temperature",
                                       date: Optional[str] = None) -> Dict[str, Any]:
     """Vertical structure from the gridded model, when it has vertical levels."""
@@ -697,11 +763,16 @@ def compute_vertical_profile_analysis(lat: float, lon: float, variable: str = "t
             levels.append({"depth": z, "value": round(v, 4)})
     extra["levels"] = levels
     if len(levels) < 3:
+        surface_only = (f"The {meta['source_id'].upper()} {variable} field has {len(meta['depths'])} vertical "
+                        f"level(s) ({meta.get('vertical_coverage', 'surface only')}).")
+        observed = _vertical_from_observations(lat, lon, variable, meta["units"])
+        if observed is not None:
+            return {**extra, **observed, "model_note": surface_only}
         return _unavailable(
             variable,
-            f"The {meta['source_id'].upper()} {variable} field has {len(meta['depths'])} vertical level(s) "
-            f"({meta.get('vertical_coverage', 'surface only')}); a vertical profile, thermocline or "
-            f"profile-based MLD cannot be derived from it. Use an Argo profile for vertical structure.",
+            f"{surface_only} No Argo profile within {ARGO_PROFILE_RADIUS_KM:.0f} km"
+            + (" and no HYCOM 3-D temperature at this point" if variable == "temperature" else "")
+            + ", so a vertical profile, thermocline or profile-based MLD cannot be derived here.",
             **extra)
     # Multi-level model (future datasets): temperature-criterion MLD on model levels.
     model_column = {"measurements": [{"depth": lv["depth"], "temperature": lv["value"]} for lv in levels]}

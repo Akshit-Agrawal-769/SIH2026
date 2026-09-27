@@ -874,6 +874,30 @@ TCHP_CAVEAT = ("Tropical Cyclone Heat Potential from HYCOM ESPC-D-V02 3-D temper
                "warmer than 26 °C down to the seabed (shallow shelves) are left blank.")
 
 
+def hycom_temperature_column(lat: float, lon: float) -> Optional[Dict[str, Any]]:
+    """Latest HYCOM 3-D temperature column (0-300 m) at the nearest ocean grid point, from
+    ext_products/hycom_t3z_latest.nc. None when the product or an ocean point within ~0.2 deg is missing."""
+    import netCDF4 as nc
+    ds, _ = open_nc("hycom_t3z_latest.nc")
+    if ds is None:
+        return None
+    la, lo = np.asarray(ds["lat"][:], float), np.asarray(ds["lon"][:], float)
+    j, i = int(np.argmin(np.abs(la - lat))), int(np.argmin(np.abs(lo - lon)))
+    if abs(la[j] - lat) > 0.2 or abs(lo[i] - lon) > 0.2:
+        return None
+    col = np.ma.filled(ds["water_temp"][0, :, j, i].astype(float), np.nan)
+    dep = np.asarray(ds["depth"][:], float)
+    ok = np.isfinite(col)
+    if ok.sum() < 3:
+        return None
+    t = ds["time"]
+    when = nc.num2date(t[0], t.units)
+    return {"levels": [{"depth": round(float(d), 1), "value": round(float(v), 3)} for d, v in zip(dep[ok], col[ok])],
+            "date": when.strftime("%Y-%m-%d"), "time": when.strftime("%Y-%m-%dT%H:%MZ"),
+            "max_depth": float(dep[ok].max()),
+            "distance_km": round(haversine_km(lat, lon, float(la[j]), float(lo[i])), 1)}
+
+
 def tchp_dates() -> Tuple[List[str], Optional[str]]:
     ds, reason = open_nc("tchp.nc")
     return (nc_dates(ds), None) if ds is not None else ([], reason)

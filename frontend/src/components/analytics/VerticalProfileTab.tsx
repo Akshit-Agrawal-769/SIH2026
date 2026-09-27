@@ -26,7 +26,7 @@ export const VerticalProfileTab: React.FC<VerticalProfileTabProps> = ({
   variable,
   lat,
   lon,
-  units,
+  units: requestedUnits,
   date
 }) => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -59,7 +59,7 @@ export const VerticalProfileTab: React.FC<VerticalProfileTabProps> = ({
     return (
       <div className="h-72 flex flex-col items-center justify-center gap-3 text-ocean-muted">
         <div className="w-8 h-8 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs font-mono">Reading model levels at this point…</p>
+        <p className="text-xs font-mono">Reading vertical levels at this point…</p>
       </div>
     );
   }
@@ -68,7 +68,7 @@ export const VerticalProfileTab: React.FC<VerticalProfileTabProps> = ({
     return (
       <div className="h-72 flex flex-col items-center justify-center gap-2 p-6 text-center border border-dashed border-ocean-border rounded-xl">
         <AlertCircle className="w-8 h-8 text-amber-400" />
-        <h4 className="text-sm font-semibold text-ocean-text-secondary">No model vertical profile</h4>
+        <h4 className="text-sm font-semibold text-ocean-text-secondary">No vertical profile here</h4>
         <p className="text-xs text-ocean-muted max-w-md">
           {data?.reason || error || 'Point is outside the model domain or on land.'}
         </p>
@@ -82,8 +82,20 @@ export const VerticalProfileTab: React.FC<VerticalProfileTabProps> = ({
     );
   }
 
+  // A fallback column may be temperature even when another variable was requested (e.g. MLD).
+  const units = data.profile_source && data.variable !== variable ? '°C' : requestedUnits;
+  const src = data.profile_source;
+
   return (
     <div className="space-y-4">
+      {src && (
+        <div className={`rounded-xl border px-3 py-2 text-xs ${src.kind === 'argo'
+          ? 'border-teal-400/40 bg-teal-400/5 text-teal-200' : 'border-violet-400/40 bg-violet-400/5 text-violet-200'}`}>
+          <span className="font-semibold">{src.kind === 'argo' ? 'Observed profile: ' : 'Model profile: '}</span>{src.label}
+          {data.model_note && <span className="block text-[10px] text-ocean-muted mt-0.5">
+            {data.model_note} The column shown is the nearest real vertical data instead.</span>}
+        </div>
+      )}
       {/* Stratification & Layering Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-ocean-bg/60 border border-ocean-border rounded-xl p-3">
@@ -198,7 +210,7 @@ export const VerticalProfileTab: React.FC<VerticalProfileTabProps> = ({
                 borderRadius: '0.75rem',
                 fontSize: '12px'
               }}
-              formatter={(val: any) => [`${val} ${units}`, `${variable.toUpperCase()}`]}
+              formatter={(val: any) => [`${val} ${units}`, `${(data.variable || variable).toUpperCase()}`]}
               labelFormatter={(lbl) => `Depth: ${lbl} m`}
             />
             <Line isAnimationActive={false}
@@ -221,7 +233,7 @@ export const VerticalProfileTab: React.FC<VerticalProfileTabProps> = ({
           Deepest level ({data.levels[data.levels.length - 1]?.depth} m): <span className="text-teal-300 font-mono">{data.bottom_value} {units}</span>
         </div>
         <div className="font-mono text-[11px] text-neutral-500">
-          Model levels: {data.model_depths?.join(', ')} m
+          {src ? `${data.levels.length} levels` : `Model levels: ${data.model_depths?.join(', ')} m`}
         </div>
       </div>
     </div>

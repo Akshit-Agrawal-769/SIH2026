@@ -789,6 +789,9 @@ def build_tchp():
                  f"HYCOM z-levels with linear interpolation of the 26 degC crossing; rho={xh.TCHP_RHO}, cp={xh.TCHP_CP}")
     ds.close()
     os.replace(tmp, path)
+    # latest 3-D column kept as a product for the vertical-structure fallback (analytics_engine)
+    import shutil
+    shutil.copyfile(files[-1], os.path.join(PROD, "hycom_t3z_latest.nc"))
     xh.clear_cache()
     for d, fld in list(zip(dates, tchps))[-7:]:
         write_static_tile("tchp", d, fld)
