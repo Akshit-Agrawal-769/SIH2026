@@ -39,7 +39,7 @@ COMPARABLE_VARIABLES = ("temperature", "salinity")
 _lock = threading.Lock()
 _state: Dict[str, Any] = {"root": None, "catalog": None, "catalog_mtime": None}
 _tile_cache: Dict[Tuple[str, str, str, float], np.ndarray] = {}
-_TILE_CACHE_MAX = 96
+_TILE_CACHE_MAX = int(os.getenv("TILE_CACHE_MAX", "48"))
 
 
 # --------------------------------------------------------------------------- data root / catalog

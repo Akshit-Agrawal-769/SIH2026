@@ -14,13 +14,14 @@ Disable with IBR_LIVE_TILES=0 (the catalog then falls back to the static export 
 """
 from __future__ import annotations
 
+import gc
 import logging
 import os
 import struct
 import tempfile
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -37,6 +38,9 @@ RETRY_AFTER_S = 300
 _lock = threading.Lock()
 _state: Dict[str, Any] = {"times": None, "error": None, "failed_at": 0.0}
 _regrid: Dict[str, Callable[[np.ndarray], np.ndarray]] = {}
+_inflight: Dict[Tuple[str, str], threading.Event] = {}
+# Each on-demand month peaks at ~120 MB; limit parallel builds to fit a 512 MB instance.
+_build_slots = threading.BoundedSemaphore(max(1, int(os.getenv("IBR_LIVE_CONCURRENCY", "1"))))
 
 
 def _decode_times(r: ms.Reader) -> Dict[str, int]:
@@ -128,6 +132,32 @@ def tile_path(variable: str, date: str, meta: Dict[str, Any], grid: Dict[str, An
     p = cached_tile_path(variable, date)
     if p:
         return p
+    # One build per (variable, date): concurrent requests wait and reuse the first result.
+    key = (variable, date)
+    with _lock:
+        ev = _inflight.get(key)
+        owner = ev is None
+        if owner:
+            ev = _inflight[key] = threading.Event()
+    if not owner:
+        ev.wait()
+        return cached_tile_path(variable, date)
+    try:
+        with _build_slots:
+            p = cached_tile_path(variable, date)
+            if p:
+                return p
+            return _build(variable, date, meta, grid)
+    finally:
+        # Downloaded chunk buffers sit in reference cycles; free them before the next build
+        # so RSS stays flat instead of growing ~60 MB per month.
+        gc.collect()
+        with _lock:
+            _inflight.pop(key, None)
+        ev.set()
+
+
+def _build(variable: str, date: str, meta: Dict[str, Any], grid: Dict[str, Any]) -> Optional[str]:
     times = timesteps()
     if not times or date not in times:
         return None

@@ -18,6 +18,9 @@ COPY frontend/public/api/ ./data/api/
 COPY frontend/public/tiles/ ./data/tiles/
 COPY frontend/public/data/ ./data/data/
 ENV OCEAN_DATA_ROOT=/app/data
+# Keep RSS within a 512 MB instance: fewer glibc malloc arenas across threads, and build
+# on-demand IBR months one at a time.
+ENV MALLOC_ARENA_MAX=2 IBR_LIVE_CONCURRENCY=1
 
 EXPOSE 8000
 # Render (and similar hosts) inject PORT; default to 8000 for docker compose.

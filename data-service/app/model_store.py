@@ -367,16 +367,23 @@ def _fetch_plan(remote_path: str, plan: Dict[str, Any]) -> np.ndarray:
 
     t0 = time.time()
     nbytes = sum(ge - gs for gs, ge, _ in groups)
-    with ThreadPoolExecutor(max_workers=max(1, min(HF_PARALLEL, len(groups) or 1))) as ex:
-        for results in ex.map(get, groups):
-            for off, raw, mask in results:
-                arr = _decode_chunk(raw, plan["filters"], mask, dt, ch)
-                src, dst = [], []
-                for o, c, l, h in zip(off, ch, lo, hi):
-                    a, b = max(o, l), min(o + c, h)
-                    src.append(slice(a - o, b - o))
-                    dst.append(slice(a - l, b - l))
-                box[tuple(dst)] = arr[tuple(src)]
+    workers = max(1, min(HF_PARALLEL, len(groups) or 1))
+    # ex.map submits everything up front and buffers finished blobs, so feed it a bounded
+    # batch at a time: at most ~2x workers downloaded ranges are held in memory at once.
+    batch = workers * 2
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for i in range(0, len(groups), batch):
+            for results in ex.map(get, groups[i:i + batch]):
+                for off, raw, mask in results:
+                    arr = _decode_chunk(raw, plan["filters"], mask, dt, ch)
+                    src, dst = [], []
+                    for o, c, l, h in zip(off, ch, lo, hi):
+                        a, b = max(o, l), min(o + c, h)
+                        src.append(slice(a - o, b - o))
+                        dst.append(slice(a - l, b - l))
+                    box[tuple(dst)] = arr[tuple(src)]
+                    del arr, raw
+                del results
     log.info("fetched %d chunks in %d requests, %.1f MB, %.1fs", len(plan["chunks"]), len(groups),
              nbytes / 1e6, time.time() - t0)
     return box[tuple(0 if sq else slice(None, None, s) for _, _, s, sq in plan["sel"])]
