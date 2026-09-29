@@ -301,8 +301,9 @@ def _resolve_url(remote_path: str, refresh: bool = False) -> str:
     hit = _http["resolved"].get(remote_path)
     if hit and not refresh and time.time() - hit[1] < 600:
         return hit[0]
-    repo_rev, fname = remote_path[len("datasets/"):].rsplit("/", 1)
-    repo, _, rev = repo_rev.partition("@")
+    # datasets/<owner>/<name>@<rev>/<path inside the repo, may contain '/'>
+    repo, _, rest = remote_path[len("datasets/"):].partition("@")
+    rev, _, fname = rest.partition("/")
     url = f"{HF_ENDPOINT}/datasets/{repo}/resolve/{rev or 'main'}/{fname}"
     client = _http_client()
     for _ in range(5):
@@ -335,6 +336,44 @@ def _get_range(remote_path: str, start: int, end: int) -> bytes:
             last = str(exc)
         time.sleep(0.5 * (attempt + 1))
     raise StoreError(f"Range {start}-{end} of {remote_path} failed after {HTTP_RETRIES} tries: {last}", 502)
+
+
+def _local_repo_file(rel_path: str) -> Optional[str]:
+    """Local copy of a file at <rel_path> inside the dataset repo layout (datasets/...)."""
+    parts = [p for p in rel_path.replace("\\", "/").split("/") if p]
+    if not parts or any(p in (".", "..") for p in parts):
+        raise StoreError(f"Invalid dataset path '{rel_path}'", 400)
+    for d in _local_dirs():
+        p = os.path.join(d, *parts)
+        if os.path.isfile(p) and os.path.getsize(p) > 0:
+            return p
+    return None
+
+
+def repo_file_bytes(rel_path: str) -> bytes:
+    """Whole (small) file from the dataset repo: local datasets/ copy first, else Hugging Face."""
+    local = _local_repo_file(rel_path)
+    if local:
+        with open(local, "rb") as f:
+            return f.read()
+    try:
+        return hf_fs().cat_file(hf_path(rel_path))
+    except FileNotFoundError as exc:
+        raise StoreError(f"'{rel_path}' is not in the Hugging Face dataset {HF_REPO}.", 404) from exc
+    except StoreError:
+        raise
+    except Exception as exc:
+        raise StoreError(f"Could not read {rel_path} from Hugging Face: {exc}", 502) from exc
+
+
+def repo_file_range(rel_path: str, start: int, end: int) -> bytes:
+    """Bytes [start, end) of a dataset-repo file (e.g. one member of raw/argo_*.tar)."""
+    local = _local_repo_file(rel_path)
+    if local:
+        with open(local, "rb") as f:
+            f.seek(start)
+            return f.read(end - start)
+    return _get_range(hf_path(rel_path), start, end)
 
 
 def _coalesce(items):

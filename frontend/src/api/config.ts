@@ -37,7 +37,9 @@ export function liveApiAvailable(): boolean | null {
 }
 export function noteApiResponse(res: Response | null): void {
   if (!res) {
-    apiAvailable = false;
+    // A network error before the API ever answered means static hosting; once the API has
+    // answered, a failure is transient (restart, timeout) and must not disable it for good.
+    if (apiAvailable === null) apiAvailable = false;
     return;
   }
   const ct = res.headers.get('content-type') || '';

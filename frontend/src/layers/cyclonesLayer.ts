@@ -1,5 +1,5 @@
 import * as Cesium from 'cesium';
-import { CYCLONES_DATA, CycloneRecord } from '../data/cyclones';
+import { CycloneRecord, fetchCyclones } from '../data/cyclones';
 import { getCycloneMarkerIconUrl } from './cycloneIcon';
 
 export interface HoveredCyclonePayload extends CycloneRecord {
@@ -41,37 +41,45 @@ export function createCyclonesLayer(
 
   const removePreRenderListener = viewer.scene.preRender.addEventListener(onPreRender);
 
-  // 2. Add marker constructs for each of the 9 static cyclones
-  // Size increased to 64px (~1.6x larger than previous 40px) with NearFarScalar distance scaling
-  CYCLONES_DATA.forEach((cyclone, idx) => {
-    const entityId = `cyclone-${cyclone.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-    // Phase offset per cyclone so the cluster does not swirl in lockstep
-    const phaseOffset = idx * (Math.PI / 4.5);
+  // 2. One marker per named IBTrACS landfall (loaded from the data service).
+  let destroyed = false;
+  const addMarkers = (cyclones: CycloneRecord[]) => {
+    if (destroyed || viewer.isDestroyed()) return;
+    viewer.entities.suspendEvents();
+    cyclones.forEach((cyclone, idx) => {
+      const entityId = `cyclone-${cyclone.id}`;
+      // Phase offset per cyclone so the cluster does not swirl in lockstep
+      const phaseOffset = idx * (Math.PI / 4.5);
 
-    const entity = viewer.entities.add({
-      id: entityId,
-      name: cyclone.name,
-      position: Cesium.Cartesian3.fromDegrees(cyclone.lon, cyclone.lat, 100),
-      billboard: {
-        image: normalIconUrl,
-        width: 64,
-        height: 64,
-        scaleByDistance: new Cesium.NearFarScalar(2.0e5, 1.15, 1.8e7, 0.40),
-        verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        rotation: new Cesium.CallbackProperty(() => {
-          return baseRotation + phaseOffset;
-        }, false)
-      },
-      properties: new Cesium.PropertyBag({
-        isCycloneMarker: true,
-        cycloneData: cyclone
-      })
+      const entity = viewer.entities.add({
+        id: entityId,
+        name: cyclone.name,
+        position: Cesium.Cartesian3.fromDegrees(cyclone.lon, cyclone.lat, 100),
+        billboard: {
+          image: normalIconUrl,
+          width: 40,
+          height: 40,
+          scaleByDistance: new Cesium.NearFarScalar(2.0e5, 1.15, 1.8e7, 0.40),
+          verticalOrigin: Cesium.VerticalOrigin.CENTER,
+          horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          rotation: new Cesium.CallbackProperty(() => {
+            return baseRotation + phaseOffset;
+          }, false)
+        },
+        properties: new Cesium.PropertyBag({
+          isCycloneMarker: true,
+          cycloneData: cyclone
+        })
+      });
+
+      entityMap.set(entityId, entity);
     });
-
-    entityMap.set(entityId, entity);
-  });
+    viewer.entities.resumeEvents();
+  };
+  fetchCyclones()
+    .then(addMarkers)
+    .catch((err) => console.error('[CyclonesLayer] IBTrACS landfalls unavailable:', err));
 
   // 3. Handle raycast picking on mouse move
   handler.setInputAction((movement: { endPosition: Cesium.Cartesian2 }) => {
@@ -124,6 +132,7 @@ export function createCyclonesLayer(
 
   return {
     destroy: () => {
+      destroyed = true;
       removePreRenderListener();
       handler.destroy();
       if (hoveredEntity) {

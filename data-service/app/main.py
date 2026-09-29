@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 
 from fastapi import FastAPI, HTTPException
@@ -6,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app import analytics_engine as ae
-from app import ibr_live
+from app import argo_store, ibr_live
 from app.routers import variables, manifest, instruments, tiles, wms, export, comparison, analytics, model, hazards
 from app.db.session import engine
 
@@ -43,6 +44,13 @@ def _warm_ibr_record():
     # /api/catalog already lists the full 1980-2019 record.
     ibr_live.warm_up()
 
+    def _load_argo():
+        try:
+            argo_store.platforms()
+        except argo_store.ArgoUnavailable:
+            pass  # logged; /api/instruments retries later
+    threading.Thread(target=_load_argo, name="argo-warmup", daemon=True).start()
+
 
 def _health():
     db_status = "not_configured" if engine is None else "unknown"
@@ -60,14 +68,18 @@ def _health():
         "database": db_status,
         "data": data,
         "ibr_full_record": ibr_live.status(),
+        "argo": argo_store.status(),
         "uptime_seconds": round(time.time() - start_time, 2),
     }
 
 
 @app.get("/health")
-def health_check():
-    """Liveness plus data-catalog and (optional) database status."""
-    return _health()
+async def health_check():
+    """Liveness probe (Render health check, 5 s timeout). Runs on the event loop and takes
+    no locks, so it keeps answering while a worker thread builds an on-demand IBR month.
+    Full data/database status: /api/health."""
+    return {"status": "alive", "service": "data-service", "ibr_full_record": ibr_live.status(),
+            "argo": argo_store.status(), "uptime_seconds": round(time.time() - start_time, 2)}
 
 
 @app.get("/api/health")

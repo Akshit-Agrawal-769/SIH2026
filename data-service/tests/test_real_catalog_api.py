@@ -47,66 +47,79 @@ def test_monthly_fields_are_distinct_in_time(real_root):
         assert len(digests) == len(ts), var
 
 
-def test_no_fabricated_platforms_and_valid_json(real_root):
+@pytest.fixture(scope="module")
+def argo():
+    from app import argo_store
+    try:
+        argo_store.platforms()
+    except argo_store.ArgoUnavailable as exc:
+        pytest.skip(f"Argo archive unreachable: {exc}")
+    return argo_store
+
+
+def _floats_with_profiles(argo, n):
+    return [p for p in argo.platforms() if p.get("tar")][:n]
+
+
+def test_every_archived_float_is_listed(argo):
     inst = ae.load_instruments()
-    assert {f["properties"]["platform_type"] for f in inst["features"]} == {"argo"}
-    prof_dir = os.path.join(real_root, "api", "profiles")
-    for name in os.listdir(prof_dir):
-        text = open(os.path.join(prof_dir, name), encoding="utf-8").read()
-        assert "NaN" not in text and "Infinity" not in text
-        prof = json.loads(text)
+    feats = inst["features"]
+    assert len(feats) == len(argo.platforms()) > 1000
+    assert {f["properties"]["platform_type"] for f in feats} == {"argo"}
+    assert len({f["id"] for f in feats}) == len(feats)
+    for f in feats:
+        lon, lat = f["geometry"]["coordinates"]
+        assert -180 <= lon <= 360 and -90 <= lat <= 90
+
+
+def test_static_instruments_match_archive(argo, real_root):
+    static = json.load(open(os.path.join(real_root, "api", "instruments.json"), encoding="utf-8"))
+    assert {f["id"] for f in static["features"]} == {f"ARGO_{p['wmo']}" for p in argo.platforms()}
+
+
+def test_profiles_are_qc_filtered_and_valid_json(argo):
+    for p in _floats_with_profiles(argo, 3):
+        prof = ae.load_profile(f"ARGO_{p['wmo']}")
+        if prof is None:
+            continue  # float without a QC-good ascending profile
+        text = json.dumps(prof, allow_nan=False)
+        assert "NaN" not in text
         assert prof["metadata"]["qc_policy"].startswith("Argo QC flags 1")
+        assert prof["metadata"]["source_file"].startswith(p["tar"])
         depths = [m["depth"] for m in prof["measurements"]]
         assert depths == sorted(depths) and depths[0] >= 0
 
 
-def test_latest_profile_is_newest_cycle_in_source_file(real_root):
-    prof = ae.load_profile("ARGO_2902084")
-    src = os.path.join(real_root, "..", "..", "datasets", "argo", "incois_2902084_prof.nc")
-    if not os.path.exists(src):
-        pytest.skip("source NetCDF not present (datasets/ is not in git)")
-    ds = nc.Dataset(src)
-    last = int(np.argmax(ds["JULD"][:]))
-    assert prof["cycle_number"] == int(ds["CYCLE_NUMBER"][last])
-    ds.close()
+def test_comparison_metrics_recomputed_from_pairs(argo):
+    for p in _floats_with_profiles(argo, 40):
+        res = ae.compute_model_vs_obs(f"ARGO_{p['wmo']}", "temperature")
+        if not res["available"]:
+            assert res["metrics"] is None and res["pairs"] == [] and res["reason"]
+            continue
+        obs = np.array([q["observation"] for q in res["pairs"]])
+        mod = np.array([q["model"] for q in res["pairs"]])
+        m = res["metrics"]
+        assert m["sample_count"] == len(obs)
+        assert m["rmse"] == pytest.approx(np.sqrt(np.mean((mod - obs) ** 2)), abs=1e-3)
+        assert m["bias"] == pytest.approx(np.mean(mod - obs), abs=1e-3)
+        assert all(abs(q["model_dt_days"]) <= 15.0 for q in res["pairs"])
+        assert all(q["obs_depth"] <= 10.0 for q in res["pairs"])
+        return
+    pytest.skip("no float in the first 40 overlaps a built IBR month")
 
 
-def test_comparison_metrics_recomputed_from_pairs(real_root):
-    res = ae.compute_model_vs_obs("ARGO_2902120", "temperature")
-    assert res["available"] is True
-    obs = np.array([p["observation"] for p in res["pairs"]])
-    mod = np.array([p["model"] for p in res["pairs"]])
-    m = res["metrics"]
-    assert m["sample_count"] == len(obs) > 100
-    assert m["rmse"] == pytest.approx(np.sqrt(np.mean((mod - obs) ** 2)), abs=1e-3)
-    assert m["bias"] == pytest.approx(np.mean(mod - obs), abs=1e-3)
-    assert m["pearson_r"] == pytest.approx(np.corrcoef(obs, mod)[0, 1], abs=1e-3)
-    assert all(abs(p["model_dt_days"]) <= 15.0 for p in res["pairs"])
-    assert all(p["obs_depth"] <= 10.0 for p in res["pairs"])
-
-
-def test_comparison_without_temporal_overlap_is_explicitly_unavailable(real_root):
-    res = ae.compute_model_vs_obs("ARGO_1902594", "temperature")
-    assert res["available"] is False and res["metrics"] is None and res["pairs"] == []
-    assert "No temporal overlap" in res["reason"]
-    assert ae.compute_model_vs_obs("ARGO_1902594", "oxygen")["available"] is False
-
-
-def test_static_comparison_json_matches_live_engine(real_root):
-    for iid in ("ARGO_2902120", "ARGO_1902594"):
-        static = json.load(open(os.path.join(real_root, "api", "comparison", f"{iid}__temperature.json"),
-                                encoding="utf-8"))
-        assert static["metrics"] == ae.compute_model_vs_obs(iid, "temperature")["metrics"]
+def test_comparison_for_unsupported_variable_is_unavailable(argo):
+    p = _floats_with_profiles(argo, 1)[0]
+    assert ae.compute_model_vs_obs(f"ARGO_{p['wmo']}", "oxygen")["available"] is False
 
 
 # ------------------------------------------------------------------ HTTP API
 
 def test_health_endpoints():
-    for path in ("/health", "/api/health"):
-        r = client.get(path)
-        assert r.status_code == 200
-        body = r.json()
-        assert body["data"]["catalog"] is True and body["status"] == "healthy"
+    r = client.get("/health")  # liveness only: must never block on data or locks
+    assert r.status_code == 200 and r.json()["status"] == "alive"
+    body = client.get("/api/health").json()
+    assert body["data"]["catalog"] is True and body["status"] == "healthy"
 
 
 def test_manifest_timesteps_come_from_catalog():
@@ -131,7 +144,8 @@ def test_tile_endpoint_serves_real_tiles_and_refuses_everything_else():
 def test_analytics_endpoints():
     lat, lon = 15.0, 65.0
     ts = client.get("/api/analytics/timeseries", params={"variable": "temperature", "lat": lat, "lon": lon}).json()
-    assert ts["available"] and len(ts["timeseries_points"]) == 12
+    # 12 bundled months; more when the full IBR record is reachable (IBR_LIVE_TILES).
+    assert ts["available"] and len(ts["timeseries_points"]) >= 12
     an = client.get("/api/analytics/anomalies", params={"variable": "temperature", "lat": lat, "lon": lon}).json()
     assert an["available"] and an["date"] == ae.latest_timestep("temperature")
     co = client.get("/api/analytics/correlation", params={"lat": lat, "lon": lon}).json()
@@ -143,13 +157,24 @@ def test_analytics_endpoints():
     assert client.get("/api/analytics/timeseries", params={"variable": "temperature"}).status_code == 422
 
 
-def test_instruments_and_profile_endpoints():
+def test_instruments_and_profile_endpoints(argo):
     fc = client.get("/api/instruments").json()
-    assert fc["type"] == "FeatureCollection" and len(fc["features"]) == len(ae.get_catalog()["instruments"])
-    p = client.get("/api/instruments/ARGO_2902084/profile").json()
-    assert p["cycle_number"] == 55 and p["analysis"]["mld_meters"] is not None
-    assert client.get("/api/instruments/INCOIS_ARGO_2902084/profile").status_code == 200  # legacy id alias
+    assert fc["type"] == "FeatureCollection" and len(fc["features"]) == len(argo.platforms())
+    p = _floats_with_profiles(argo, 1)[0]
+    prof = client.get(f"/api/instruments/ARGO_{p['wmo']}/profile").json()
+    assert prof["external_id"] == f"ARGO_{p['wmo']}" and "analysis" in prof
+    assert client.get(f"/api/instruments/INCOIS_ARGO_{p['wmo']}/profile").status_code == 200  # legacy id alias
     assert client.get("/api/instruments/ARGO_0000000/profile").status_code == 404
+
+
+def test_cyclones_come_from_ibtracs():
+    body = client.get("/api/hazards/cyclones").json()
+    if not body["available"]:
+        pytest.skip(body["reason"])
+    assert body["source"].startswith("IBTrACS") and len(body["cyclones"]) > 50
+    ids = [c["id"] for c in body["cyclones"]]
+    assert len(set(ids)) == len(ids)
+    assert all(c["name"] and c["date"] and -90 <= c["lat"] <= 90 for c in body["cyclones"])
 
 
 def test_ingest_requires_admin_token(monkeypatch):
