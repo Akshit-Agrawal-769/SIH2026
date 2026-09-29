@@ -94,6 +94,10 @@ export interface OceanState {
   showRightPanel: boolean;
   setShowRightPanel: (show: boolean) => void;
   toggleRightPanel: () => void;
+  /** Timeline dock; hidden by default (a date pill stays visible while it is hidden). */
+  showTimeline: boolean;
+  setShowTimeline: (show: boolean) => void;
+  toggleTimeline: () => void;
 
   // Three.js water-column inspector
   activeWaterBlockTarget: WaterBlockTarget | null;
@@ -378,6 +382,11 @@ export const useOceanStore = create<OceanState>((set, get) => ({
   showRightPanel: true,
   setShowRightPanel: (showRightPanel) => set({ showRightPanel }),
   toggleRightPanel: () => set((s) => ({ showRightPanel: !s.showRightPanel })),
+
+  showTimeline: false,
+  // Hiding unmounts the timeline (and its playback timer), so playback is stopped with it.
+  setShowTimeline: (showTimeline) => set(showTimeline ? { showTimeline } : { showTimeline, isPlaying: false }),
+  toggleTimeline: () => set((s) => (s.showTimeline ? { showTimeline: false, isPlaying: false } : { showTimeline: true })),
 
   isGraticuleEnabled: true,
   setIsGraticuleEnabled: (isGraticuleEnabled) => set({ isGraticuleEnabled }),
