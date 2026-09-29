@@ -11,6 +11,7 @@ import {
   RotateCcw,
   PanelLeftClose,
   PanelRightClose,
+  CalendarClock,
   Eye,
   Layers,
   Home,
@@ -51,11 +52,12 @@ const REGION_PRESETS: LocationPreset[] = [
 
 export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
   const {
-    mode, setMode, showLeftPanel, toggleLeftPanel, showRightPanel, toggleRightPanel, openWaterBlock,
+    mode, setMode, showLeftPanel, toggleLeftPanel, showRightPanel, toggleRightPanel, showTimeline, toggleTimeline, openWaterBlock,
     openAnalyticsModal, clickedGlobePoint
   } = useOceanStore(useShallow((s) => ({
     mode: s.mode, setMode: s.setMode, showLeftPanel: s.showLeftPanel, toggleLeftPanel: s.toggleLeftPanel,
-    showRightPanel: s.showRightPanel, toggleRightPanel: s.toggleRightPanel, openWaterBlock: s.openWaterBlock,
+    showRightPanel: s.showRightPanel, toggleRightPanel: s.toggleRightPanel,
+    showTimeline: s.showTimeline, toggleTimeline: s.toggleTimeline, openWaterBlock: s.openWaterBlock,
     openAnalyticsModal: s.openAnalyticsModal, clickedGlobePoint: s.clickedGlobePoint
   })));
 
@@ -178,14 +180,14 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
         <div
           onClick={() => setMode('operational')}
           className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-ocean-panel border border-ocean-border backdrop-blur-sm cursor-pointer group shadow-xl transition-transform hover:scale-[1.02]"
-          title="Oceanix — ocean data visualisation for the INCOIS problem statement"
+          title="WAVE — Web Analytics for Volumetric Exploration (INCOIS problem statement)"
         >
           <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-ocean-accent/30 to-ocean-accent/30 border border-ocean-accent/40 flex items-center justify-center text-ocean-accent shadow-md">
             <Waves className="w-3.5 h-3.5 text-ocean-accent" />
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-xs tracking-tight text-white leading-none">
-              Oceanix
+              WAVE
             </span>
             <span className="text-[8px] font-mono text-ocean-accent tracking-wider uppercase mt-0.5">
               INCOIS TWIN
@@ -374,6 +376,17 @@ export const TopBar: React.FC<TopBarProps> = ({ viewer }) => {
               }`}
             >
               <PanelRightClose className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={toggleTimeline}
+              aria-label={showTimeline ? 'Hide timeline' : 'Show timeline'}
+              aria-pressed={showTimeline}
+              title={showTimeline ? 'Hide Timeline' : 'Show Timeline'}
+              className={`p-1.5 rounded-full transition-all duration-[150ms] ease-nasa ${
+                showTimeline ? 'text-ocean-accent bg-white/10' : 'text-ocean-muted hover:text-ocean-text-secondary'
+              }`}
+            >
+              <CalendarClock className="w-3.5 h-3.5" />
             </button>
             
           </div>

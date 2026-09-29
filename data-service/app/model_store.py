@@ -35,7 +35,7 @@ HF_REVISION = os.getenv("HF_DATASET_REVISION", "main")
 # h5py's file object only reads metadata (headers, chunk B-trees): chunk data is fetched by
 # fetch_plan with exact ranges. Small read-ahead keeps scattered B-tree reads cheap.
 HF_BLOCK_SIZE = int(os.getenv("HF_BLOCK_SIZE", str(512 * 1024)))
-HF_PARALLEL = int(os.getenv("HF_PARALLEL", "16"))  # concurrent chunk range requests
+HF_PARALLEL = int(os.getenv("HF_PARALLEL", "6"))  # concurrent chunk range requests
 CACHE_DIR = os.getenv("VOLUME_CACHE_DIR", os.path.join(__import__("tempfile").gettempdir(), "incois_volume_cache"))
 
 log = logging.getLogger("model_store")
@@ -274,7 +274,7 @@ def _plan(lay: Dict[str, Any], key: Tuple, index: Optional[Dict[Tuple[int, ...],
 
 HF_ENDPOINT = os.getenv("HF_ENDPOINT", "https://huggingface.co").rstrip("/")
 RANGE_MERGE_GAP = int(os.getenv("HF_RANGE_MERGE_GAP", str(256 * 1024)))   # merge ranges closer than this
-RANGE_MAX_BYTES = int(os.getenv("HF_RANGE_MAX_BYTES", str(16 * 1024 * 1024)))
+RANGE_MAX_BYTES = int(os.getenv("HF_RANGE_MAX_BYTES", str(8 * 1024 * 1024)))
 HTTP_TIMEOUT_S = float(os.getenv("HF_HTTP_TIMEOUT", "60"))
 HTTP_RETRIES = 3
 
@@ -396,7 +396,9 @@ def _coalesce(items):
 
 def _fetch_plan(remote_path: str, plan: Dict[str, Any]) -> np.ndarray:
     dt, ch, lo, hi = plan["dtype"], plan["chunk_shape"], plan["lo"], plan["hi"]
-    box = np.full([h - l for l, h in zip(lo, hi)], plan["fill"], dtype=dt)
+    steps = [s for _, _, s, _ in plan["sel"]]
+    # Allocate only the strided output (the full unstrided box can exceed small-instance memory).
+    box = np.full([len(range(l, h, s)) for l, h, s in zip(lo, hi, steps)], plan["fill"], dtype=dt)
     groups = _coalesce(plan["chunks"])
 
     def get(group):
@@ -425,7 +427,7 @@ def _fetch_plan(remote_path: str, plan: Dict[str, Any]) -> np.ndarray:
                 del results
     log.info("fetched %d chunks in %d requests, %.1f MB, %.1fs", len(plan["chunks"]), len(groups),
              nbytes / 1e6, time.time() - t0)
-    return box[tuple(0 if sq else slice(None, None, s) for _, _, s, sq in plan["sel"])]
+    return box[tuple(0 if sq else slice(None) for _, _, _, sq in plan["sel"])]
 
 
 def _decode_chunk(buf: bytes, filters: List[int], mask: int, dtype: np.dtype, chunk_shape: Tuple) -> np.ndarray:

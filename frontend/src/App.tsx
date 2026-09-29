@@ -10,6 +10,7 @@ import { CycloneHoverTooltip } from './components/CycloneHoverTooltip';
 import { OutreachTourOverlay } from './components/OutreachTourOverlay';
 import { GlobeClickWaterBlockCallout } from './components/GlobeClickWaterBlockCallout';
 import { Timeline } from './components/Timeline';
+import { TimelinePill } from './components/TimelinePill';
 import { useShallow } from 'zustand/react/shallow';
 import { useOceanStore } from './store/useOceanStore';
 import { DataStatusBar } from './components/DataStatusBar';
@@ -23,11 +24,12 @@ const AnalyticsModal = React.lazy(() => import('./components/analytics').then(m 
 
 export const App: React.FC = () => {
   const [viewer, setViewer] = useState<Cesium.Viewer | null>(null);
-  const { mode, setMode, showLeftPanel, showRightPanel, loadCatalog, activeWaterBlockTarget, closeWaterBlock } = useOceanStore(
+  const { mode, setMode, showLeftPanel, showRightPanel, showTimeline, loadCatalog, activeWaterBlockTarget, closeWaterBlock } = useOceanStore(
     useShallow((s) => ({
       mode: s.mode,
       setMode: s.setMode,
       showLeftPanel: s.showLeftPanel,
+      showTimeline: s.showTimeline,
       showRightPanel: s.showRightPanel, activeWaterBlockTarget: s.activeWaterBlockTarget, closeWaterBlock: s.closeWaterBlock,
       loadCatalog: s.loadCatalog
     }))
@@ -78,7 +80,7 @@ export const App: React.FC = () => {
             <>
               {showLeftPanel && <LeftPanel />}
               {showRightPanel && <RightPanel />}
-              <Timeline />
+              {showTimeline ? <Timeline /> : <TimelinePill />}
             </>
           )}
 
