@@ -39,7 +39,7 @@ COMPARABLE_VARIABLES = ("temperature", "salinity")
 _lock = threading.Lock()
 _state: Dict[str, Any] = {"root": None, "catalog": None, "catalog_mtime": None}
 _tile_cache: Dict[Tuple[str, str, str, float], np.ndarray] = {}
-_TILE_CACHE_MAX = 96
+_TILE_CACHE_MAX = int(os.getenv("TILE_CACHE_MAX", "48"))
 
 
 # --------------------------------------------------------------------------- data root / catalog
@@ -309,15 +309,85 @@ def canonical_instrument_id(instrument_id: str) -> str:
     return f"ARGO_{m.group(1)}" if m else instrument_id
 
 
+MATCHUP_MAX_DT_DAYS = 15.0
+
+
+def build_matchups(instrument_id: str) -> Optional[Dict[str, Any]]:
+    """Collocate a float's near-surface observations with IBR surface tiles: nearest IBR
+    timestep within +/-15 days, bilinear on the served grid (land corners excluded).
+    Only tiles already built are used, so a comparison never triggers month builds."""
+    from app import argo_store
+    try:
+        obs = argo_store.observation_records(instrument_id)
+    except argo_store.ArgoUnavailable:
+        return None
+    if obs is None:
+        return None
+    ts = timesteps("temperature")
+    tsec = np.array([datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() for d in ts])
+    records = []
+    for o in obs["records"]:
+        rec = dict(o)
+        t = datetime.strptime(o["time"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+        if not len(tsec):
+            rec["status"] = "outside_model_time_coverage"
+            records.append(rec)
+            continue
+        k = int(np.argmin(np.abs(tsec - t)))
+        rec["model_time"] = ts[k]
+        rec["model_dt_days"] = round(abs(tsec[k] - t) / 86400.0, 2)
+        if rec["model_dt_days"] > MATCHUP_MAX_DT_DAYS:
+            rec["status"] = "outside_model_time_coverage"
+            records.append(rec)
+            continue
+        rec["status"] = "collocated"
+        for var in COMPARABLE_VARIABLES:
+            v = rec.get(var)
+            if not v:
+                continue
+            arr = load_tile(var, ts[k], 0.0, generate=False)
+            if arr is None:
+                rec["status"] = "model_month_not_built"
+                v["model"] = None
+                continue
+            m = sample_grid(arr, o["latitude"], o["longitude"])
+            v["model"] = round(m, 4) if m is not None else None
+        records.append(rec)
+    return {
+        "instrument_id": canonical_instrument_id(instrument_id),
+        "wmo": obs["wmo"],
+        "model_source_id": "ibr",
+        "model_time_coverage": [ts[0], ts[-1]] if ts else None,
+        "method": {
+            "observation": "shallowest QC-good level with depth <= 10 m of each ascending profile",
+            "temporal": f"nearest IBR timestep, |dt| <= {MATCHUP_MAX_DT_DAYS:g} days",
+            "spatial": "bilinear on the served IBR surface grid; land corners excluded",
+            "vertical": "IBR provides surface fields only; no vertical interpolation performed",
+        },
+        "records": records,
+    }
+
+
 def load_instruments() -> Optional[Dict[str, Any]]:
-    return _load_json(os.path.join("api", "instruments.json"))
+    """Every Argo float in the uploaded GDAC archives (app.argo_store); the static export
+    (api/instruments.json, generated from the same float list) when the archive is unreachable."""
+    from app import argo_store
+    try:
+        return {"type": "FeatureCollection", "source": "argo_archive", "features": argo_store.features()}
+    except argo_store.ArgoUnavailable:
+        return _load_json(os.path.join("api", "instruments.json"))
 
 
 def load_profile(instrument_id: str) -> Optional[Dict[str, Any]]:
+    """Latest QC-good ascending profile, read on demand from the float's GDAC NetCDF."""
+    from app import argo_store
     iid = canonical_instrument_id(instrument_id)
-    if not re.fullmatch(r"ARGO_\d{7}", iid):
+    if not re.fullmatch(r"ARGO_\d{5,8}", iid):
         return None
-    return _load_json(os.path.join("api", "profiles", f"{iid}.json"))
+    try:
+        return argo_store.latest_profile(iid)
+    except argo_store.ArgoUnavailable:
+        return None
 
 
 # --------------------------------------------------------------------------- statistics
@@ -378,18 +448,24 @@ def compute_model_vs_obs(instrument_id: str, variable: str = "temperature",
         base["reason"] = (f"No model counterpart for '{variable}': IBR surface matchups are available for "
                           f"{', '.join(COMPARABLE_VARIABLES)} only.")
         return base
-    mu = _load_json(os.path.join("api", "matchups", f"{iid}.json")) if re.fullmatch(r"ARGO_\d{7}", iid) else None
+    mu = build_matchups(iid) if re.fullmatch(r"ARGO_\d{5,8}", iid) else None
     if mu is None:
         base["reason"] = f"No observation record found for instrument '{instrument_id}'."
         return base
 
     only_date = normalize_date(date) if date else None
     records = mu.get("records", [])
-    excluded = {"outside_model_time_coverage": 0, "no_near_surface_observation": 0,
+    excluded = {"outside_model_time_coverage": 0, "model_month_not_built": 0, "no_near_surface_observation": 0,
                 "model_no_data_at_location": 0, "other_model_timestep": 0}
     pairs = []
     obs_times = [r["time"] for r in records]
     for rec in records:
+        if only_date and rec.get("model_time") and rec.get("model_time") != only_date:
+            excluded["other_model_timestep"] += 1
+            continue
+        if rec.get("status") == "model_month_not_built":
+            excluded["model_month_not_built"] += 1
+            continue
         if rec.get("status") != "collocated":
             excluded["outside_model_time_coverage"] += 1
             continue
@@ -423,7 +499,11 @@ def compute_model_vs_obs(instrument_id: str, variable: str = "temperature",
     if not pairs:
         span = f"{min(obs_times)[:10]} .. {max(obs_times)[:10]}" if obs_times else "none"
         cov = mu.get("model_time_coverage") or ["?", "?"]
-        if excluded["outside_model_time_coverage"] == len(records):
+        if excluded["model_month_not_built"]:
+            base["reason"] = (f"{excluded['model_month_not_built']} profile(s) fall in IBR months not yet built on "
+                              f"this server (float profiles span {span}). Open those months on the timeline "
+                              f"once to build them, then retry.")
+        elif excluded["outside_model_time_coverage"] == len(records):
             base["reason"] = (f"No temporal overlap: float profiles span {span}; IBR model coverage is "
                               f"{cov[0]} .. {cov[1]}.")
         else:
@@ -1163,6 +1243,6 @@ def health() -> Dict[str, Any]:
         "catalog": bool(cat),
         "catalog_generated_at": cat.get("generated_at") if cat else None,
         "variables": {k: len(v["timesteps"]) for k, v in cat["variables"].items()} if cat else {},
-        "instruments": len(cat.get("instruments", [])) if cat else 0,
+        "instruments": cat.get("instrument_count", 0) if cat else 0,
         "server_time": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }

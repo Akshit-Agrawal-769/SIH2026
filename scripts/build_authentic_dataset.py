@@ -9,33 +9,27 @@ Sources (all verified by file metadata, see catalog.json "sources"):
       datasets/model/INCOIS-BIO-ROMS.nc  (monthly, 1980-01 .. 2019-12, surface only)
   * CMEMS ARMOR3D MULTIOBS_GLO_PHY_TSUV_3D_MYNRT_015_012 (CLS), 2024-12-31, surface
       datasets/cmems.nc                  (observation-based analysis, geostrophic u/v)
-  * Argo GDAC profile files (Coriolis / FR GDAC)
-      datasets/coriolis/<WMO>/profiles/S*.nc, datasets/argo/incois_<WMO>_prof.nc
+  * Argo float list for static hosting: datasets/argo_platforms.json
+      (scripts/build_argo_index.py, from the uploaded GDAC archives). Profiles and
+      model matchups are served on demand by the data-service (app/argo_store.py).
 
 Rules enforced here:
   * No synthetic values. Missing / flagged / land values stay NaN in tiles and
     null in JSON. Nothing is filled, extrapolated or invented.
-  * Argo QC: only flags 1 and 2 are kept; *_ADJUSTED values are used when the
-    parameter data mode is 'A' or 'D'. JULD_QC and POSITION_QC must be 1 or 2.
-  * Depth from pressure: TEOS-10 gsw.z_from_p (latitude dependent).
-  * Model/observation collocation is done against the native IBR grid:
-    nearest IBR timestep within +/-15 days, bilinear in space, all four corners
-    must be ocean (finite) or the pair is rejected.
+  * Argo QC, depth from pressure and model collocation rules live in
+    data-service/app/argo_qc.py and app/analytics_engine.py (one implementation).
 
 Usage:  python scripts/build_authentic_dataset.py [--ibr-year 2019]
 """
 import argparse
 import datetime as dt
-import glob
 import json
 import os
-import re
 import shutil
 import struct
 import sys
 import time
 
-import gsw
 import netCDF4 as nc
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
@@ -63,37 +57,6 @@ TGT_LONS = GRID["lon0"] + GRID["dlon"] * np.arange(GRID["width"])
 TGT_LATS = GRID["lat0"] + GRID["dlat"] * np.arange(GRID["height"])
 
 SURFACE_DEPTH = 0.0
-
-# Argo floats shown in the application (previous release list minus fabricated
-# platforms). 2902126 had no source file anywhere in datasets/ and is dropped.
-ARGO_S_FILE_FLOATS = [
-    "1902751", "1902757", "1902594", "4903660", "6990514", "6990700",
-    "1902681", "5907086", "6990503", "3902490", "3902657",
-]
-ARGO_MULTIPROF_FILES = [
-    os.path.join(DATASETS, "argo", "incois_2902084_prof.nc"),
-    os.path.join(DATASETS, "argo", "incois_2902120_prof.nc"),
-]
-
-DATA_CENTRES = {
-    "IN": "INCOIS (India)",
-    "IF": "Coriolis / Ifremer (France)",
-    "AO": "AOML (USA)",
-    "BO": "BODC (UK)",
-    "CS": "CSIRO (Australia)",
-    "HZ": "CSIO (China)",
-    "JA": "JMA (Japan)",
-    "ME": "MEDS (Canada)",
-    "KO": "KORDI (Korea)",
-}
-
-GOOD_QC = (b"1", b"2")
-MATCHUP_MAX_DT_DAYS = 15.0
-MATCHUP_MAX_DEPTH_M = 10.0
-MAX_CORE_LEVELS = 200
-MAX_BGC_LEVELS = 150
-
-JULD_EPOCH = dt.datetime(1950, 1, 1, tzinfo=dt.timezone.utc)
 
 
 # --------------------------------------------------------------------------- utils
@@ -126,16 +89,6 @@ def finite_or_none(x, ndigits):
     if not np.isfinite(x):
         return None
     return round(x, ndigits)
-
-
-def chars(arr):
-    """Decode a netCDF char array (possibly masked) to a stripped str."""
-    a = np.ma.filled(arr, b" ")
-    return b"".join(a.tolist()).decode("utf-8", "ignore").strip()
-
-
-def qc_bytes(arr):
-    return np.ma.filled(arr, b" ").astype("S1")
 
 
 def depth_key(depth):
@@ -316,336 +269,33 @@ def build_model_tiles(ibr_year):
 
 # --------------------------------------------------------------------------- Argo
 
-def param_modes(ds, prof):
-    """Map parameter name -> data mode ('R','A','D') for one profile."""
-    params = [chars(p) for p in ds["STATION_PARAMETERS"][prof]]
-    if "PARAMETER_DATA_MODE" in ds.variables:
-        pdm = np.ma.filled(ds["PARAMETER_DATA_MODE"][prof], b" ")
-        modes = [m.decode() if isinstance(m, bytes) else str(m) for m in pdm.tolist()]
-    else:
-        m = chars(ds["DATA_MODE"][prof:prof + 1])
-        modes = [m] * len(params)
-    return {p: modes[i].strip() or "R" for i, p in enumerate(params) if p}
-
-
-def param_values(ds, prof, name, mode):
-    """Return (values, good_mask, used_field) applying Argo QC flags 1/2."""
-    use_adj = mode in ("A", "D") and f"{name}_ADJUSTED" in ds.variables
-    field = f"{name}_ADJUSTED" if use_adj else name
-    if field not in ds.variables:
-        return None, None, None
-    vals = np.ma.filled(ds[field][prof].astype(float), np.nan)
-    qc = qc_bytes(ds[f"{field}_QC"][prof])
-    good = np.isfinite(vals) & np.isin(qc, GOOD_QC)
-    return vals, good, field
-
-
-def profile_header(ds, prof):
-    juld = ds["JULD"][prof]
-    lat = ds["LATITUDE"][prof]
-    lon = ds["LONGITUDE"][prof]
-    if np.ma.is_masked(juld) or np.ma.is_masked(lat) or np.ma.is_masked(lon):
-        return None
-    jqc = qc_bytes(ds["JULD_QC"][prof:prof + 1])[0]
-    pqc = qc_bytes(ds["POSITION_QC"][prof:prof + 1])[0]
-    if jqc not in GOOD_QC or pqc not in GOOD_QC:
-        return None
-    lat, lon, juld = float(lat), float(lon), float(juld)
-    if not (np.isfinite(lat) and np.isfinite(lon) and np.isfinite(juld)):
-        return None
-    direction = chars(ds["DIRECTION"][prof:prof + 1]) if "DIRECTION" in ds.variables else "A"
-    return {
-        "time": JULD_EPOCH + dt.timedelta(days=juld),
-        "lat": lat,
-        "lon": lon,
-        "cycle": int(ds["CYCLE_NUMBER"][prof]),
-        "direction": direction or "A",
-    }
-
-
-def stride_pick(indices, max_n):
-    indices = np.asarray(indices)
-    if len(indices) <= max_n:
-        return indices
-    step = int(np.ceil(len(indices) / max_n))
-    picked = indices[::step]
-    if picked[-1] != indices[-1]:
-        picked = np.append(picked, indices[-1])  # keep deepest real level
-    return picked
-
-
-def extract_profile(ds, prof, hdr):
-    modes = param_modes(ds, prof)
-    pres, pres_good, pres_field = param_values(ds, prof, "PRES", modes.get("PRES", "R"))
-    if pres is None:
-        return None
-    fields = {}
-    used = {"PRES": pres_field}
-    for name in ("TEMP", "PSAL", "DOXY", "CHLA"):
-        if name in modes or f"{name}" in ds.variables:
-            vals, good, fld = param_values(ds, prof, name, modes.get(name, "R"))
-            if vals is not None:
-                fields[name] = (vals, good & pres_good)
-                used[name] = fld
-    if "TEMP" not in fields:
-        return None
-    core_idx = np.where(fields["TEMP"][1] | fields.get("PSAL", (None, np.zeros_like(pres_good)))[1])[0]
-    keep = set(stride_pick(core_idx, MAX_CORE_LEVELS).tolist()) if len(core_idx) else set()
-    for name in ("DOXY", "CHLA"):
-        if name in fields:
-            bidx = np.where(fields[name][1])[0]
-            keep |= set(stride_pick(bidx, MAX_BGC_LEVELS).tolist()) if len(bidx) else set()
-    levels = sorted(keep, key=lambda i: pres[i])
-    lat = hdr["lat"]
-    out = []
-    for i in levels:
-        p = float(pres[i])
-        depth = float(-gsw.z_from_p(p, lat))
-
-        def val(name, nd):
-            if name not in fields:
-                return None
-            v, g = fields[name]
-            return round(float(v[i]), nd) if g[i] else None
-
-        m = {
-            "pressure": round(p, 2),
-            "depth": round(depth, 2),
-            "temperature": val("TEMP", 4),
-            "salinity": val("PSAL", 4),
-            "oxygen": val("DOXY", 2),
-            "chlorophyll": val("CHLA", 4),
-        }
-        if any(m[k] is not None for k in ("temperature", "salinity", "oxygen", "chlorophyll")):
-            out.append(m)
-    n_total = int(np.sum(pres_good))
-    return {
-        "measurements": out,
-        "levels_good_pressure": n_total,
-        "levels_served": len(out),
-        "parameter_modes": {k: modes.get(k) for k in used},
-        "fields_used": used,
-    }
-
-
-def float_metadata(ds, prof, wmo, source_file):
-    dc = chars(ds["DATA_CENTRE"][prof]) if "DATA_CENTRE" in ds.variables else ""
-    return {
-        "wmo": wmo,
-        "data_centre": dc,
-        "institution": DATA_CENTRES.get(dc, dc or "unknown"),
-        "project_name": chars(ds["PROJECT_NAME"][prof]) if "PROJECT_NAME" in ds.variables else None,
-        "pi_name": chars(ds["PI_NAME"][prof]) if "PI_NAME" in ds.variables else None,
-        "float_platform_type": chars(ds["PLATFORM_TYPE"][prof]) if "PLATFORM_TYPE" in ds.variables else None,
-        "source_file": rel(source_file),
-    }
-
-
-def iter_profiles_multiprof(path):
-    ds = nc.Dataset(path)
-    ds.set_auto_mask(True)
-    for prof in range(ds.dimensions["N_PROF"].size):
-        hdr = profile_header(ds, prof)
-        if hdr is None:
-            continue
-        yield ds, prof, hdr, path
-    ds.close()
-
-
-def iter_profiles_sfiles(wmo):
-    files = sorted(glob.glob(os.path.join(DATASETS, "*", wmo, "profiles", "S*.nc")))
-    for path in files:
-        try:
-            ds = nc.Dataset(path)
-        except OSError:
-            continue
-        ds.set_auto_mask(True)
-        for prof in range(ds.dimensions["N_PROF"].size):
-            hdr = profile_header(ds, prof)
-            if hdr is None:
-                continue
-            yield ds, prof, hdr, path
-        ds.close()
-
-
-class IBRCollocator:
-    """Point collocation against the native IBR grid (no regridding)."""
-
-    def __init__(self, path):
-        self.ds = nc.Dataset(path)
-        t = self.ds["TIME"]
-        self.times = nc.num2date(t[:], t.units, t.calendar)
-        self.tsec = np.array([dt.datetime(x.year, x.month, x.day, tzinfo=dt.timezone.utc).timestamp()
-                              for x in self.times])
-        self.lat = np.ma.filled(self.ds["LAT"][:].astype(float), np.nan)
-        self.lon = np.ma.filled(self.ds["LON"][:].astype(float), np.nan)
-        for v in ("SST", "SSS"):
-            self.ds[v].set_var_chunk_cache(size=256 * 1024 * 1024)
-        self.coverage = (self.times[0].strftime("%Y-%m-%d"), self.times[-1].strftime("%Y-%m-%d"))
-
-    def nearest_time(self, when):
-        s = when.timestamp()
-        k = int(np.argmin(np.abs(self.tsec - s)))
-        return k, abs(self.tsec[k] - s) / 86400.0
-
-    def sample(self, var, k, lat, lon):
-        if not (self.lat[0] <= lat <= self.lat[-1] and self.lon[0] <= lon <= self.lon[-1]):
-            return None
-        j = int(np.searchsorted(self.lat, lat)) - 1
-        i = int(np.searchsorted(self.lon, lon)) - 1
-        j, i = max(0, min(j, len(self.lat) - 2)), max(0, min(i, len(self.lon) - 2))
-        block = np.ma.filled(self.ds[var][k, j:j + 2, i:i + 2].astype(float), np.nan)
-        if not np.all(np.isfinite(block)):
-            return None
-        wy = (lat - self.lat[j]) / (self.lat[j + 1] - self.lat[j])
-        wx = (lon - self.lon[i]) / (self.lon[i + 1] - self.lon[i])
-        top = block[0, 0] * (1 - wx) + block[0, 1] * wx
-        bot = block[1, 0] * (1 - wx) + block[1, 1] * wx
-        return float(top * (1 - wy) + bot * wy)
-
-    def close(self):
-        self.ds.close()
-
-
-def matchup_record(ds, prof, hdr, collocator):
-    """Near-surface observation vs IBR surface model at the profile position/time."""
-    modes = param_modes(ds, prof)
-    pres, pres_good, _ = param_values(ds, prof, "PRES", modes.get("PRES", "R"))
-    temp, temp_good, _ = param_values(ds, prof, "TEMP", modes.get("TEMP", "R"))
-    psal, psal_good, _ = param_values(ds, prof, "PSAL", modes.get("PSAL", "R"))
-    if pres is None or temp is None:
-        return None
-    depth = -gsw.z_from_p(np.where(np.isfinite(pres), pres, 0.0), hdr["lat"])
-    rec = {
-        "cycle": hdr["cycle"],
-        "time": hdr["time"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "latitude": round(hdr["lat"], 4),
-        "longitude": round(hdr["lon"], 4),
-    }
-    for var, vals, good in (("temperature", temp, temp_good), ("salinity", psal, psal_good)):
-        if vals is None:
-            rec[var] = None
-            continue
-        ok = np.where(good & pres_good & (depth <= MATCHUP_MAX_DEPTH_M))[0]
-        if len(ok) == 0:
-            rec[var] = None
-            continue
-        s = ok[np.argmin(depth[ok])]  # shallowest good level
-        rec[var] = {"obs": round(float(vals[s]), 4), "obs_depth": round(float(depth[s]), 2),
-                    "obs_pressure": round(float(pres[s]), 2)}
-    k, dtd = collocator.nearest_time(hdr["time"])
-    rec["model_time"] = collocator.times[k].strftime("%Y-%m-%d")
-    rec["model_dt_days"] = round(dtd, 2)
-    if dtd > MATCHUP_MAX_DT_DAYS:
-        rec["status"] = "outside_model_time_coverage"
-        return rec
-    for var, src in (("temperature", "SST"), ("salinity", "SSS")):
-        if rec.get(var) is not None:
-            m = collocator.sample(src, k, hdr["lat"], hdr["lon"])
-            rec[var]["model"] = round(m, 4) if m is not None else None
-    rec["status"] = "collocated"
-    return rec
-
-
-def build_argo(collocator):
-    features = []
-    prof_dir = os.path.join(OUT, "api", "profiles")
-    mu_dir = os.path.join(OUT, "api", "matchups")
-    clean_dir(prof_dir)
-    clean_dir(mu_dir)
-
-    sources = [(w, lambda w=w: iter_profiles_sfiles(w)) for w in ARGO_S_FILE_FLOATS]
-    for path in ARGO_MULTIPROF_FILES:
-        wmo = re.search(r"(\d{7})", os.path.basename(path)).group(1)
-        sources.append((wmo, lambda p=path: iter_profiles_multiprof(p)))
-
-    for wmo, it in sources:
-        ext_id = f"ARGO_{wmo}"
-        latest = None
-        n_profiles = 0
-        matchups = []
-        for ds, prof, hdr, path in it():
-            if hdr["direction"] != "A":
-                continue  # ascending profiles are the primary Argo product
-            n_profiles += 1
-            if latest is None or hdr["time"] > latest["hdr"]["time"]:
-                extracted = extract_profile(ds, prof, hdr)
-                if extracted and extracted["measurements"]:
-                    latest = {"hdr": hdr, "profile": extracted, "meta": float_metadata(ds, prof, wmo, path)}
-            rec = matchup_record(ds, prof, hdr, collocator)
-            if rec is not None:
-                matchups.append(rec)
-        if latest is None:
-            log(f"[Argo] {wmo}: no QC-acceptable ascending profile found; skipped")
-            continue
-        hdr, extracted, meta = latest["hdr"], latest["profile"], latest["meta"]
-        ms = extracted["measurements"]
-        has_oxy = any(m["oxygen"] is not None for m in ms)
-        has_chl = any(m["chlorophyll"] is not None for m in ms)
-        ts = hdr["time"].strftime("%Y-%m-%dT%H:%M:%SZ")
-        meta.update({
-            "latest_cycle": hdr["cycle"],
-            "profile_count_local": n_profiles,
-            "parameter_modes": extracted["parameter_modes"],
-            "fields_used": extracted["fields_used"],
-            "has_oxygen": has_oxy,
-            "has_chlorophyll": has_chl,
-            "qc_policy": "Argo QC flags 1 (good) and 2 (probably good) only; *_ADJUSTED used for A/D modes; "
-                         "JULD_QC and POSITION_QC must be 1 or 2",
-            "depth_method": "TEOS-10 gsw.z_from_p(pressure, latitude)",
-            "levels_good_pressure": extracted["levels_good_pressure"],
-            "levels_served": extracted["levels_served"],
-            "units": {"temperature": "°C (ITS-90)", "salinity": "PSU (PSS-78)", "oxygen": "µmol/kg",
-                      "chlorophyll": "mg/m³", "pressure": "dbar", "depth": "m (positive down)"},
-        })
-        profile = {
-            "instrument_id": ext_id,
-            "external_id": ext_id,
-            "platform_type": "argo",
-            "profile_id": f"{ext_id}_cycle_{hdr['cycle']:03d}",
-            "cycle_number": hdr["cycle"],
-            "timestamp": ts,
-            "latitude": round(hdr["lat"], 4),
-            "longitude": round(hdr["lon"], 4),
-            "metadata": meta,
-            "measurements": ms,
-        }
-        write_json(os.path.join(prof_dir, f"{ext_id}.json"), profile)
-        collocated = [m for m in matchups if m.get("status") == "collocated"]
-        write_json(os.path.join(mu_dir, f"{ext_id}.json"), {
-            "instrument_id": ext_id,
-            "wmo": wmo,
-            "model_source_id": "ibr",
-            "model_time_coverage": list(collocator.coverage),
-            "method": {
-                "observation": f"shallowest QC-good level with depth <= {MATCHUP_MAX_DEPTH_M} m of each ascending profile",
-                "temporal": f"nearest IBR timestep, |dt| <= {MATCHUP_MAX_DT_DAYS} days",
-                "spatial": "bilinear on native IBR grid; all four corners must be ocean",
-                "vertical": "IBR provides surface fields only; no vertical interpolation performed",
-            },
-            "profiles_considered": len(matchups),
-            "profiles_collocated": len(collocated),
-            "records": matchups,
-        })
-        features.append({
-            "type": "Feature",
-            "id": ext_id,
-            "geometry": {"type": "Point", "coordinates": [round(hdr["lon"], 4), round(hdr["lat"], 4)]},
-            "properties": {
-                "id": ext_id,
-                "external_id": ext_id,
-                "platform_type": "argo",
-                "last_report": ts,
-                "metadata": {k: meta[k] for k in ("wmo", "data_centre", "institution", "project_name", "pi_name",
-                                                  "latest_cycle", "profile_count_local", "has_oxygen",
-                                                  "has_chlorophyll", "qc_policy")},
-            },
-        })
-        log(f"[Argo] {wmo}: latest cycle {hdr['cycle']} @ {ts} ({extracted['levels_served']} levels), "
-            f"{n_profiles} ascending profiles, {len(collocated)} collocated with IBR")
-
+def build_argo_catalog():
+    """Static api/instruments.json with every float of the uploaded GDAC archives
+    (datasets/argo_platforms.json). No float is selected or hard-coded here."""
+    sys.path.insert(0, os.path.join(REPO, "data-service"))
+    from app import argo_store  # noqa: E402
+    path = os.path.join(DATASETS, "argo_platforms.json")
+    if not os.path.exists(path):
+        raise SystemExit(f"Missing {rel(path)}: run scripts/build_argo_index.py first")
+    with open(path, encoding="utf-8") as f:
+        plats = json.load(f)["platforms"]
+    features = [argo_store.feature(p) for p in plats]
+    for stale in ("profiles", "matchups", "comparison"):
+        shutil.rmtree(os.path.join(OUT, "api", stale), ignore_errors=True)
     write_json(os.path.join(OUT, "api", "instruments.json"), {"type": "FeatureCollection", "features": features})
-    return [f["id"] for f in features]
+    log(f"[Argo] {len(features)} floats -> api/instruments.json")
+    return len(features)
+
+
+def build_cyclones_static():
+    """Static api/cyclones.json: every named IBTrACS landfall (data-service app/cyclones.py)."""
+    sys.path.insert(0, os.path.join(REPO, "data-service"))
+    from app import cyclones  # noqa: E402
+    doc = cyclones.landfalls()
+    if not doc["available"]:
+        raise SystemExit(doc["reason"])
+    write_json(os.path.join(OUT, "api", "cyclones.json"), doc)
+    log(f"[Cyclones] {len(doc['cyclones'])} IBTrACS landfalls -> api/cyclones.json")
 
 
 # --------------------------------------------------------------------------- hazard layers
@@ -847,7 +497,7 @@ def update_catalog_with_hazards(derived):
 
 # --------------------------------------------------------------------------- catalog/static API
 
-def write_static_api(catalog, instrument_ids):
+def write_static_api(catalog):
     api = os.path.join(OUT, "api")
     write_json(os.path.join(api, "catalog.json"), catalog)
     clean_dir(os.path.join(api, "manifest"))
@@ -874,31 +524,22 @@ def write_static_api(catalog, instrument_ids):
                           "timesteps": meta["timesteps"]})
     write_json(os.path.join(api, "variables.json"), variables)
 
-    # Precomputed comparison + profile analysis for static hosting, produced by the
-    # SAME engine the FastAPI service runs (single source of truth).
-    sys.path.insert(0, os.path.join(REPO, "data-service"))
-    os.environ.setdefault("IBR_LIVE_TILES", "0")  # precompute from the static export only
-    from app import analytics_engine as ae  # noqa: E402
-    ae.set_data_root(OUT)
-    comp_dir = os.path.join(api, "comparison")
-    clean_dir(comp_dir)
-    for iid in instrument_ids:
-        for var in ("temperature", "salinity"):
-            write_json(os.path.join(comp_dir, f"{iid}__{var}.json"), ae.compute_model_vs_obs(iid, var))
-        prof_path = os.path.join(api, "profiles", f"{iid}.json")
-        with open(prof_path, encoding="utf-8") as f:
-            prof = json.load(f)
-        prof["analysis"] = ae.compute_observed_profile_analysis(prof)
-        write_json(prof_path, prof)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ibr-year", type=int, default=2019, help="IBR year exported as display tiles")
+    ap.add_argument("--observations-only", action="store_true",
+                    help="only rewrite api/instruments.json (Argo archive) and api/cyclones.json (IBTrACS)")
     ap.add_argument("--hazards-only", action="store_true",
                     help="only (re)build the derived hazard layers into the existing catalog; needs datasets/cmems.nc, "
                          "reads IBR SST from datasets/model/ or, if absent, from Hugging Face via the data-service")
     args = ap.parse_args()
+
+    if args.observations_only:
+        build_argo_catalog()
+        build_cyclones_static()
+        return
 
     if args.hazards_only:
         if not os.path.exists(os.path.join(OUT, "api", "catalog.json")):
@@ -916,16 +557,15 @@ def main():
     clean_dir(os.path.join(OUT, "tiles"))
     catalog_vars, sources = build_model_tiles(args.ibr_year)
 
-    collocator = IBRCollocator(IBR_PATH)
-    instrument_ids = build_argo(collocator)
-    collocator.close()
+    n_floats = build_argo_catalog()
+    build_cyclones_static()
     sources["argo"] = {
         "title": "Argo profiling floats (GDAC NetCDF)",
         "type": "in_situ_observation",
-        "institution": "Argo GDAC (Coriolis / FR GDAC); per-float data centre recorded in profile metadata",
+        "institution": "Argo GDAC; per-float data centre recorded in profile metadata",
         "reference": "Argo (2000). Argo float data and metadata from Global Data Assembly Centre (Argo GDAC). "
                      "SEANOE. https://doi.org/10.17882/42182",
-        "files": "datasets/coriolis/<WMO>/profiles/S*.nc, datasets/argo/incois_<WMO>_prof.nc",
+        "files": "raw/argo_<provider>.tar (argo_platforms.json, argo_tar_index/<provider>.json)",
     }
 
     catalog = {
@@ -942,11 +582,11 @@ def main():
         },
         "variables": catalog_vars,
         "sources": sources,
-        "instruments": instrument_ids,
+        "instrument_count": n_floats,
     }
-    write_static_api(catalog, instrument_ids)
+    write_static_api(catalog)
     update_catalog_with_hazards(build_hazard_layers(args.ibr_year))
-    log(f"[Done] catalog with {len(catalog_vars)} variables, {len(instrument_ids)} Argo floats -> {rel(OUT)}")
+    log(f"[Done] catalog with {len(catalog_vars)} variables, {n_floats} Argo floats -> {rel(OUT)}")
 
 
 if __name__ == "__main__":

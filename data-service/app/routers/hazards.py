@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Response
 
 from app import analytics_engine as ae
+from app import cyclones
 
 router = APIRouter(prefix="/hazards", tags=["hazards"])
 
@@ -62,6 +63,12 @@ def eddy_convergence(date: Optional[str] = None):
 def drift(lat: float = LAT, lon: float = LON, mode: str = "forward",
           hours: float = Query(48.0, gt=0, le=240), step_minutes: float = Query(60.0, ge=5, le=360)):
     return ae.compute_drift(lat, lon, mode, hours, step_minutes)
+
+
+@router.get("/cyclones")
+def cyclone_landfalls():
+    """Named tropical-cyclone landfalls from IBTrACS v04r01 (every one in the source file)."""
+    return cyclones.landfalls()
 
 
 @router.get("/advisories")

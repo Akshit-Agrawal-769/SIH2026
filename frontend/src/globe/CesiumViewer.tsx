@@ -176,7 +176,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({ onViewerReady }) => 
     createDepthSliceLayer(viewer, (status) => {
       const st = useOceanStore.getState();
       if (status.state === 'ok') st.setLayerStatus('slice', { state: 'ok' });
-      else if (status.state === 'loading') st.setLayerStatus('slice', { state: 'loading' });
+      else if (status.state === 'loading') st.setLayerStatus('slice', { state: 'loading', message: status.message });
       else st.setLayerStatus('slice', { state: status.state, message: status.message });
     }).then((manager) => {
       if (viewer.isDestroyed()) { manager.destroy(); return; }

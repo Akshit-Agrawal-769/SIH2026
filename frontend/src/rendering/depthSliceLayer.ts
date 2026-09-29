@@ -14,7 +14,7 @@ export interface SliceParams {
 }
 
 export type SliceStatus =
-  | { state: 'loading' }
+  | { state: 'loading'; message?: string }
   | { state: 'ok'; variable: string; date: string; depth: number }
   | { state: 'nodata' | 'error'; message: string };
 
@@ -67,8 +67,20 @@ export async function createDepthSliceLayer(
       return;
     }
     onStatus?.({ state: 'loading' });
+    // Months outside the static export are built from the source file on first request.
+    const day = params.date.slice(0, 10);
+    const slow = setTimeout(() => {
+      if (seq === requestSeq) {
+        onStatus?.({ state: 'loading', message: `Building ${params.variable} for ${day} from the INCOIS Bio-ROMS source (the first request for a month takes 1-3 min)` });
+      }
+    }, 4000);
     try {
-      const tileData = await fetchOceanTile(params.variable, params.date, params.depth);
+      const tileData = await fetchOceanTile(params.variable, params.date, params.depth, ({ attempt, reason }) => {
+        if (seq === requestSeq) {
+          onStatus?.({ state: 'loading', message: `Still building ${params.variable} for ${day}: ${reason}; retry ${attempt}` });
+        }
+      });
+      clearTimeout(slow);
       if (seq !== requestSeq || viewer.isDestroyed()) return; // superseded by a newer request
       const canvas = renderTileToCanvas(tileData, {
         palette: params.palette,
@@ -89,6 +101,7 @@ export async function createDepthSliceLayer(
       currentTileData = tileData;
       onStatus?.({ state: 'ok', variable: params.variable, date: params.date, depth: params.depth });
     } catch (err) {
+      clearTimeout(slow);
       if (seq !== requestSeq) return;
       clear();
       lastKey = '';

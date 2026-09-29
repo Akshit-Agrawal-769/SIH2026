@@ -301,8 +301,9 @@ def _resolve_url(remote_path: str, refresh: bool = False) -> str:
     hit = _http["resolved"].get(remote_path)
     if hit and not refresh and time.time() - hit[1] < 600:
         return hit[0]
-    repo_rev, fname = remote_path[len("datasets/"):].rsplit("/", 1)
-    repo, _, rev = repo_rev.partition("@")
+    # datasets/<owner>/<name>@<rev>/<path inside the repo, may contain '/'>
+    repo, _, rest = remote_path[len("datasets/"):].partition("@")
+    rev, _, fname = rest.partition("/")
     url = f"{HF_ENDPOINT}/datasets/{repo}/resolve/{rev or 'main'}/{fname}"
     client = _http_client()
     for _ in range(5):
@@ -337,6 +338,44 @@ def _get_range(remote_path: str, start: int, end: int) -> bytes:
     raise StoreError(f"Range {start}-{end} of {remote_path} failed after {HTTP_RETRIES} tries: {last}", 502)
 
 
+def _local_repo_file(rel_path: str) -> Optional[str]:
+    """Local copy of a file at <rel_path> inside the dataset repo layout (datasets/...)."""
+    parts = [p for p in rel_path.replace("\\", "/").split("/") if p]
+    if not parts or any(p in (".", "..") for p in parts):
+        raise StoreError(f"Invalid dataset path '{rel_path}'", 400)
+    for d in _local_dirs():
+        p = os.path.join(d, *parts)
+        if os.path.isfile(p) and os.path.getsize(p) > 0:
+            return p
+    return None
+
+
+def repo_file_bytes(rel_path: str) -> bytes:
+    """Whole (small) file from the dataset repo: local datasets/ copy first, else Hugging Face."""
+    local = _local_repo_file(rel_path)
+    if local:
+        with open(local, "rb") as f:
+            return f.read()
+    try:
+        return hf_fs().cat_file(hf_path(rel_path))
+    except FileNotFoundError as exc:
+        raise StoreError(f"'{rel_path}' is not in the Hugging Face dataset {HF_REPO}.", 404) from exc
+    except StoreError:
+        raise
+    except Exception as exc:
+        raise StoreError(f"Could not read {rel_path} from Hugging Face: {exc}", 502) from exc
+
+
+def repo_file_range(rel_path: str, start: int, end: int) -> bytes:
+    """Bytes [start, end) of a dataset-repo file (e.g. one member of raw/argo_*.tar)."""
+    local = _local_repo_file(rel_path)
+    if local:
+        with open(local, "rb") as f:
+            f.seek(start)
+            return f.read(end - start)
+    return _get_range(hf_path(rel_path), start, end)
+
+
 def _coalesce(items):
     """Group (offset, (byte_off, size, mask)) chunks into contiguous-ish byte ranges."""
     stored = sorted((it for it in items if it[1] is not None), key=lambda it: it[1][0])
@@ -369,22 +408,23 @@ def _fetch_plan(remote_path: str, plan: Dict[str, Any]) -> np.ndarray:
 
     t0 = time.time()
     nbytes = sum(ge - gs for gs, ge, _ in groups)
-    with ThreadPoolExecutor(max_workers=max(1, min(HF_PARALLEL, len(groups) or 1))) as ex:
-        for results in ex.map(get, groups):
-            for off, raw, mask in results:
-                arr = _decode_chunk(raw, plan["filters"], mask, dt, ch)
-                src, dst, empty = [], [], False
-                for o, c, l, h, s in zip(off, ch, lo, hi, steps):
-                    first = l + -(-(max(o, l) - l) // s) * s          # first selected index >= chunk start
-                    last = min(o + c, h)
-                    if first >= last:
-                        empty = True
-                        break
-                    src.append(slice(first - o, last - o, s))
-                    dst.append(slice((first - l) // s, (first - l) // s + len(range(first, last, s))))
-                if not empty:
+    workers = max(1, min(HF_PARALLEL, len(groups) or 1))
+    # ex.map submits everything up front and buffers finished blobs, so feed it a bounded
+    # batch at a time: at most ~2x workers downloaded ranges are held in memory at once.
+    batch = workers * 2
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for i in range(0, len(groups), batch):
+            for results in ex.map(get, groups[i:i + batch]):
+                for off, raw, mask in results:
+                    arr = _decode_chunk(raw, plan["filters"], mask, dt, ch)
+                    src, dst = [], []
+                    for o, c, l, h in zip(off, ch, lo, hi):
+                        a, b = max(o, l), min(o + c, h)
+                        src.append(slice(a - o, b - o))
+                        dst.append(slice(a - l, b - l))
                     box[tuple(dst)] = arr[tuple(src)]
-                del arr
+                    del arr, raw
+                del results
     log.info("fetched %d chunks in %d requests, %.1f MB, %.1fs", len(plan["chunks"]), len(groups),
              nbytes / 1e6, time.time() - t0)
     return box[tuple(0 if sq else slice(None) for _, _, _, sq in plan["sel"])]

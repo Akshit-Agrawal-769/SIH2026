@@ -258,19 +258,46 @@ export class NoDataError extends Error {
   }
 }
 
-async function loadTile(variable: string, date: string, depth: number): Promise<OceanTileData> {
+/**
+ * Months outside the static export are built by the data service from the full source
+ * file on first request (1-3 min on a small instance). A network error or 5xx during that
+ * window (timeout, instance restart) is not "no data": retry with backoff before giving up.
+ */
+const LIVE_RETRY_DELAYS_MS = [5000, 10000, 20000, 30000, 45000];
+
+export type TileWaitListener = (info: { attempt: number; reason: string }) => void;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function fetchLiveTile(url: string, onWait?: TileWaitListener): Promise<Response | null> {
+  for (let attempt = 0; ; attempt++) {
+    let res: Response | null = null;
+    let reason = '';
+    try {
+      res = await fetch(url);
+      noteApiResponse(res);
+      if (res.status < 500 || isHtmlResponse(res)) return res;
+      reason = `data service answered HTTP ${res.status}`;
+    } catch {
+      reason = 'data service unreachable (it may be restarting)';
+    }
+    if (attempt >= LIVE_RETRY_DELAYS_MS.length) return res;
+    onWait?.({ attempt: attempt + 1, reason });
+    await sleep(LIVE_RETRY_DELAYS_MS[attempt]);
+  }
+}
+
+async function loadTile(variable: string, date: string, depth: number, onWait?: TileWaitListener): Promise<OceanTileData> {
   const d = dateKey(date);
   const live = `${API_BASE}/tiles/${encodeURIComponent(variable)}/${encodeURIComponent(d)}/${depthKey(depth)}`;
   let res: Response | null = null;
   if (liveApiAvailable() !== false) {
-    try {
-      res = await fetch(live);
-      noteApiResponse(res);
-    } catch {
-      res = null;
-    }
+    res = await fetchLiveTile(live, onWait);
   }
   if (!res || !res.ok || isHtmlResponse(res)) {
+    if (res && res.status >= 500 && !isHtmlResponse(res)) {
+      throw new Error(`data service could not build ${variable} for ${d} (HTTP ${res.status}); try again shortly`);
+    }
     const liveSaidNoData = res && res.status === 404 && !isHtmlResponse(res) &&
       (res.headers.get('content-type') || '').includes('application/json');
     if (liveSaidNoData) {
@@ -285,7 +312,9 @@ async function loadTile(variable: string, date: string, depth: number): Promise<
 }
 
 /** Fetch a tile with a bounded LRU cache keyed by (variable, date, depth) and request de-duplication. */
-export async function fetchOceanTile(variable: string, date: string, depth: number): Promise<OceanTileData> {
+export async function fetchOceanTile(
+  variable: string, date: string, depth: number, onWait?: TileWaitListener
+): Promise<OceanTileData> {
   const key = tileCacheKey(variable, date, depth);
   const hit = tileCache.get(key);
   if (hit) {
@@ -295,7 +324,7 @@ export async function fetchOceanTile(variable: string, date: string, depth: numb
   }
   const pending = inflight.get(key);
   if (pending) return pending;
-  const p = loadTile(variable, date, depth)
+  const p = loadTile(variable, date, depth, onWait)
     .then((tile) => {
       tileCache.set(key, tile);
       if (tileCache.size > TILE_CACHE_MAX) {

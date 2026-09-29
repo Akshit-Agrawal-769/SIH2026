@@ -78,14 +78,14 @@ def list_instruments(
 ):
     """
     GeoJSON FeatureCollection of observation platforms. PostGIS is used when it is
-    populated; otherwise the catalogued Argo floats built from GDAC NetCDF files.
+    populated; otherwise every Argo float in the uploaded GDAC archives.
     """
     box = _parse_bbox(bbox)
     features = _db_features(db, platform_type, box)
     source = "postgis"
     if not features:
-        source = "catalog"
         static = ae.load_instruments() or {"features": []}
+        source = static.get("source", "catalog")
         for f in static["features"]:
             lon, lat = f["geometry"]["coordinates"]
             if platform_type and f["properties"]["platform_type"] != platform_type:

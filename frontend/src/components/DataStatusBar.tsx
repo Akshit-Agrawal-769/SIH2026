@@ -15,7 +15,7 @@ export const DataStatusBar: React.FC = () => {
     if ((st.state === 'nodata' || st.state === 'error') && st.message) {
       items.push({ key, tone: 'warn', text: st.message });
     } else if (st.state === 'loading' && key === 'slice') {
-      items.push({ key, tone: 'info', text: 'Loading field…', busy: true });
+      items.push({ key, tone: 'info', text: st.message ?? 'Loading field…', busy: true });
     }
   }
   if (!items.length) return null;

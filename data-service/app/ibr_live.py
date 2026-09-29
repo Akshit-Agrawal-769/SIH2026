@@ -14,13 +14,15 @@ Disable with IBR_LIVE_TILES=0 (the catalog then falls back to the static export 
 """
 from __future__ import annotations
 
+import gc
 import logging
 import os
 import struct
 import tempfile
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional
+from concurrent.futures import Future, ThreadPoolExecutor
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -37,6 +39,7 @@ RETRY_AFTER_S = 300
 _lock = threading.Lock()
 _state: Dict[str, Any] = {"times": None, "error": None, "failed_at": 0.0}
 _regrid: Dict[str, Callable[[np.ndarray], np.ndarray]] = {}
+_inflight: Dict[Tuple[str, str], Future] = {}
 
 
 def _decode_times(r: ms.Reader) -> Dict[str, int]:
@@ -128,6 +131,46 @@ def tile_path(variable: str, date: str, meta: Dict[str, Any], grid: Dict[str, An
     p = cached_tile_path(variable, date)
     if p:
         return p
+    # One build per (variable, date): concurrent requests share the first request's future.
+    key = (variable, date)
+    with _lock:
+        fut = _inflight.get(key)
+        if fut is None:
+            fut = _inflight[key] = _builder.submit(_build_once, variable, date, meta, grid)
+            fut.add_done_callback(lambda _f, k=key: _forget(k))
+    return fut.result()
+
+
+def _forget(key: Tuple[str, str]) -> None:
+    with _lock:
+        _inflight.pop(key, None)
+
+
+def _build_once(variable: str, date: str, meta: Dict[str, Any], grid: Dict[str, Any]) -> Optional[str]:
+    try:
+        return cached_tile_path(variable, date) or _build(variable, date, meta, grid)
+    finally:
+        # Downloaded chunk buffers sit in reference cycles; free them before the next build
+        # so RSS stays flat instead of growing ~60 MB per month.
+        gc.collect()
+
+
+def _lowest_priority() -> None:
+    """Builder threads run at niceness 19 (Linux niceness is per thread and inherited by the
+    chunk-download threads they start), so on a fractional-CPU instance request handlers and
+    the health check are scheduled first and the service is not restarted mid-build."""
+    try:
+        os.setpriority(os.PRIO_PROCESS, threading.get_native_id(), 19)
+    except (AttributeError, OSError):  # not Linux / not permitted
+        pass
+
+
+# Each on-demand month peaks at ~120 MB; limit parallel builds to fit a 512 MB instance.
+_builder = ThreadPoolExecutor(max_workers=max(1, int(os.getenv("IBR_LIVE_CONCURRENCY", "1"))),
+                              thread_name_prefix="ibr-build", initializer=_lowest_priority)
+
+
+def _build(variable: str, date: str, meta: Dict[str, Any], grid: Dict[str, Any]) -> Optional[str]:
     times = timesteps()
     if not times or date not in times:
         return None
@@ -159,6 +202,7 @@ WARM_VARIABLES = [v for v in os.getenv("IBR_WARM_VARIABLES", "SST,SSS,CHL,MLD").
 
 
 def _warm() -> None:
+    _lowest_priority()
     if not timesteps():
         return
     # Chunk indexes make every later read of these variables pure parallel range requests.
