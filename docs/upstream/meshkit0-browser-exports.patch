@@ -1,0 +1,60 @@
+From b08ec0c30881b0f71ee9a98f7f69c02ff2ffa8d3 Mon Sep 17 00:00:00 2001
+From: Akshit Agrawal <akshitisagrawal@gmail.com>
+Date: Thu, 15 Oct 2026 15:20:36 +0000
+Subject: [PATCH] fix(meshkit): export encryption helpers from the browser
+ entry
+
+The browser/Capacitor/React Native entry (index.browser.ts) omitted encrypt,
+decrypt, isEncryptedPayload, DEFAULT_ITERATIONS and the EncryptOptions type,
+although the README documents client-side encryption on both backends and the
+Node entry exports them. Browser apps could encrypt via upload({ encrypt }) but
+could not call the standalone helpers or detect EMSH payloads.
+
+Adds the exports and a unit test that round-trips through the browser entry.
+---
+ packages/meshkit/src/index.browser.ts       |  6 +++++-
+ packages/meshkit/test/index.browser.test.ts | 17 +++++++++++++++++
+ 2 files changed, 22 insertions(+), 1 deletion(-)
+ create mode 100644 packages/meshkit/test/index.browser.test.ts
+
+diff --git a/packages/meshkit/src/index.browser.ts b/packages/meshkit/src/index.browser.ts
+index 0d32fe1..e687760 100644
+--- a/packages/meshkit/src/index.browser.ts
++++ b/packages/meshkit/src/index.browser.ts
+@@ -23,5 +23,9 @@ export {
+   extractCidFromPath,
+   toIpfsPath,
+   toIpnsPath,
++  encrypt,
++  decrypt,
++  isEncryptedPayload,
++  DEFAULT_ITERATIONS,
+ } from '@ipfs-meshkit/core';
+-export type { S3StorageConfig, FilOneConfig } from '@ipfs-meshkit/core';
++export type { EncryptOptions, S3StorageConfig, FilOneConfig } from '@ipfs-meshkit/core';
+diff --git a/packages/meshkit/test/index.browser.test.ts b/packages/meshkit/test/index.browser.test.ts
+new file mode 100644
+index 0000000..ff81569
+--- /dev/null
++++ b/packages/meshkit/test/index.browser.test.ts
+@@ -0,0 +1,17 @@
++import { describe, expect, it } from 'vitest';
++import * as browser from '../src/index.browser.js';
++
++describe('browser entry', () => {
++  it('exports the client-side encryption helpers', async () => {
++    const { encrypt, decrypt, isEncryptedPayload, DEFAULT_ITERATIONS } = browser as Record<string, any>;
++    expect(typeof encrypt).toBe('function');
++    expect(typeof decrypt).toBe('function');
++    expect(typeof isEncryptedPayload).toBe('function');
++    expect(DEFAULT_ITERATIONS).toBe(200_000);
++
++    const plaintext = new TextEncoder().encode('ocean tile bytes');
++    const payload = await encrypt(plaintext, { password: 'pw', iterations: 1_000 });
++    expect(isEncryptedPayload(payload)).toBe(true);
++    expect(new TextDecoder().decode(await decrypt(payload, 'pw'))).toBe('ocean tile bytes');
++  });
++});
+-- 
+2.34.1
+
