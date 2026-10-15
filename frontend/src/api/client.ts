@@ -1,4 +1,13 @@
 import { API_BASE, STATIC_TILE_BASE, dateKey, depthKey, getJsonWithFallback, isHtmlResponse, liveApiAvailable, noteApiResponse } from './config';
+import {
+  fetchFromIpfs,
+  getDataSourceMode,
+  loadIpfsManifest,
+  onModeChange,
+  reportTileSource,
+  tileManifestPath,
+  type TileSource
+} from './ipfsSource';
 
 export interface InstrumentFeature {
   type: 'Feature';
@@ -177,6 +186,9 @@ export interface OceanTileData {
   variable: string;
   depth: number;
   date: string;
+  /** Where the bytes came from; 'ipfs' means hash-verified against `cid`. */
+  source?: TileSource;
+  cid?: string;
 }
 
 /** Mirrors VAR_CODES in scripts/build_authentic_dataset.py (6-10: derived hazard layers). */
@@ -246,6 +258,20 @@ const TILE_CACHE_MAX = 48;
 const tileCache = new Map<string, OceanTileData>();
 const inflight = new Map<string, Promise<OceanTileData>>();
 
+/** Drops cached and in-flight tiles (e.g. after the data-source mode changes). */
+export function clearTileCache(): void {
+  tileCache.clear();
+  inflight.clear();
+}
+onModeChange(clearTileCache);
+
+/**
+ * In 'auto' mode IPFS is an optional layer: after the first failure in a session (no reachable
+ * provider, timeout, bad bytes) later tiles go straight to the static copy instead of each
+ * waiting for the IPFS timeout. Explicit 'ipfs' mode keeps trying.
+ */
+let ipfsFailedInAuto = false;
+
 export function tileCacheKey(variable: string, date: string, depth: number): string {
   return `${variable}|${dateKey(date)}|${depthKey(depth)}`;
 }
@@ -269,7 +295,7 @@ export type TileWaitListener = (info: { attempt: number; reason: string }) => vo
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function fetchLiveTile(url: string, onWait?: TileWaitListener): Promise<Response | null> {
+async function fetchLiveTile(url: string, onWait?: TileWaitListener, maxRetries = LIVE_RETRY_DELAYS_MS.length): Promise<Response | null> {
   for (let attempt = 0; ; attempt++) {
     let res: Response | null = null;
     let reason = '';
@@ -281,34 +307,72 @@ async function fetchLiveTile(url: string, onWait?: TileWaitListener): Promise<Re
     } catch {
       reason = 'data service unreachable (it may be restarting)';
     }
-    if (attempt >= LIVE_RETRY_DELAYS_MS.length) return res;
+    if (attempt >= maxRetries) return res;
     onWait?.({ attempt: attempt + 1, reason });
     await sleep(LIVE_RETRY_DELAYS_MS[attempt]);
   }
 }
 
+/** Tries the tile on IPFS; null (never throws) when it is unpublished, unreachable or invalid. */
+async function loadTileFromIpfs(variable: string, d: string, depth: number): Promise<OceanTileData | null> {
+  try {
+    const got = await fetchFromIpfs(tileManifestPath(variable, d, depth));
+    if (!got) return null;
+    return { ...parseOceanTileBuffer(got.buffer, variable, depth, d), source: 'ipfs', cid: got.cid };
+  } catch (err) {
+    console.warn(`[ipfs] ${variable} ${d}: ${(err as Error)?.message ?? err}; using the static copy`);
+    return null;
+  }
+}
+
+/**
+ * Source order by data-source mode:
+ *   server: live API -> static      auto: live API -> IPFS -> static      ipfs: IPFS -> static
+ * A live "no data" answer is final in every mode (IPFS only holds the same static export).
+ */
 async function loadTile(variable: string, date: string, depth: number, onWait?: TileWaitListener): Promise<OceanTileData> {
   const d = dateKey(date);
+  const mode = getDataSourceMode();
   const live = `${API_BASE}/tiles/${encodeURIComponent(variable)}/${encodeURIComponent(d)}/${depthKey(depth)}`;
-  let res: Response | null = null;
-  if (liveApiAvailable() !== false) {
-    res = await fetchLiveTile(live, onWait);
-  }
-  if (!res || !res.ok || isHtmlResponse(res)) {
-    if (res && res.status >= 500 && !isHtmlResponse(res)) {
-      throw new Error(`data service could not build ${variable} for ${d} (HTTP ${res.status}); try again shortly`);
+  let liveBuildError: Error | null = null;
+
+  if (mode !== 'ipfs') {
+    let res: Response | null = null;
+    if (liveApiAvailable() !== false) {
+      // Long live retries exist for months the server builds on demand. A tile already on IPFS
+      // does not need to wait for a sleeping backend in 'auto' mode.
+      const onIpfs = mode === 'auto' && !ipfsFailedInAuto &&
+        Boolean((await loadIpfsManifest())?.files[tileManifestPath(variable, d, depth)]);
+      res = await fetchLiveTile(live, onWait, onIpfs ? 0 : undefined);
+    }
+    if (res && res.ok && !isHtmlResponse(res)) {
+      return { ...parseOceanTileBuffer(await res.arrayBuffer(), variable, depth, d), source: 'api' };
     }
     const liveSaidNoData = res && res.status === 404 && !isHtmlResponse(res) &&
       (res.headers.get('content-type') || '').includes('application/json');
     if (liveSaidNoData) {
       throw new NoDataError(`No ${variable} data at ${d}, depth ${depthKey(depth)} m`);
     }
-    res = await fetch(`${STATIC_TILE_BASE}/${encodeURIComponent(variable)}/${encodeURIComponent(d)}/${depthKey(depth)}.bin`);
-    if (!res.ok || isHtmlResponse(res)) {
-      throw new NoDataError(`No ${variable} data at ${d}, depth ${depthKey(depth)} m`);
+    if (res && res.status >= 500 && !isHtmlResponse(res)) {
+      liveBuildError = new Error(`data service could not build ${variable} for ${d} (HTTP ${res.status}); try again shortly`);
+      if (mode === 'server') throw liveBuildError;
     }
   }
-  return parseOceanTileBuffer(await res.arrayBuffer(), variable, depth, d);
+
+  if (mode === 'ipfs' || (mode === 'auto' && !ipfsFailedInAuto)) {
+    const tile = await loadTileFromIpfs(variable, d, depth);
+    if (tile) return tile;
+    if (mode === 'auto' && (await loadIpfsManifest())?.files[tileManifestPath(variable, d, depth)]) {
+      ipfsFailedInAuto = true;
+    }
+  }
+
+  const res = await fetch(`${STATIC_TILE_BASE}/${encodeURIComponent(variable)}/${encodeURIComponent(d)}/${depthKey(depth)}.bin`);
+  if (!res.ok || isHtmlResponse(res)) {
+    // A month only the live service can build is "try again", not "no data".
+    throw liveBuildError ?? new NoDataError(`No ${variable} data at ${d}, depth ${depthKey(depth)} m`);
+  }
+  return { ...parseOceanTileBuffer(await res.arrayBuffer(), variable, depth, d), source: 'static' };
 }
 
 /** Fetch a tile with a bounded LRU cache keyed by (variable, date, depth) and request de-duplication. */
@@ -320,12 +384,14 @@ export async function fetchOceanTile(
   if (hit) {
     tileCache.delete(key);
     tileCache.set(key, hit);
+    reportTileSource({ source: hit.source ?? 'static', cid: hit.cid });
     return hit;
   }
   const pending = inflight.get(key);
   if (pending) return pending;
   const p = loadTile(variable, date, depth, onWait)
     .then((tile) => {
+      reportTileSource(tile.cid ? { source: tile.source ?? 'ipfs', cid: tile.cid } : { source: tile.source ?? 'static' });
       tileCache.set(key, tile);
       if (tileCache.size > TILE_CACHE_MAX) {
         tileCache.delete(tileCache.keys().next().value as string);
