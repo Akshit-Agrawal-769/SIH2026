@@ -18,7 +18,7 @@ Developed for the **Smart India Hackathon 2026 (SIH 2026)**.
 - **Organization:** Ministry of Earth Sciences (MoES) — Indian National Centre for Ocean Information Services (INCOIS)
 - **Category:** Software
 - **Theme:** Disaster Management / Smart Ocean & Climate
-- **Team Name:** W.A.V.E
+- **Team Name:** W.A.V.E.
 - **Team Members:**
   - Akshit Agrawal (Team Leader)
   - Aveeral Jain
