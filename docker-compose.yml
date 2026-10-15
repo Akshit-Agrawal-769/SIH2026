@@ -140,7 +140,29 @@ services:
     depends_on:
       - gateway
 
+  kubo:
+    # IPFS node for the decentralised tile layer (scripts/ipfs/publish.mjs).
+    # 001-profile.sh applies unixfs-v1-2025 (CIDv1 + raw leaves) before the daemon starts.
+    image: ipfs/kubo:v0.43.1
+    container_name: incois_kubo
+    restart: unless-stopped
+    ports:
+      # RPC is an admin interface: loopback only, never expose publicly.
+      - "127.0.0.1:5001:5001"
+      - "127.0.0.1:8080:8080"
+      - "4001:4001"
+      - "4001:4001/udp"
+    volumes:
+      - ipfs_data:/data/ipfs
+      - ./infra/kubo/001-profile.sh:/container-init.d/001-profile.sh:ro
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  ipfs_data:
