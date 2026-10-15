@@ -13,6 +13,22 @@ export const API_BASE = `${origin}/api`;
 export const STATIC_API_BASE = '/api';
 export const STATIC_TILE_BASE = '/tiles';
 
+/**
+ * IPFS gateways used by @helia/verified-fetch (comma-separated VITE_IPFS_GATEWAYS).
+ * Bytes are hash-checked against the CID in the browser, so gateways need not be trusted.
+ * In dev the local Kubo gateway (docker compose `kubo`) is tried first.
+ */
+const envGateways = String(import.meta.env.VITE_IPFS_GATEWAYS || '')
+  .split(',')
+  .map((g: string) => g.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+export const IPFS_GATEWAYS: string[] = envGateways.length
+  ? envGateways
+  : [...(import.meta.env.DEV ? ['http://127.0.0.1:8080'] : []), 'https://trustless-gateway.link'];
+
+/** Per-request IPFS timeout before falling back to the static copy. */
+export const IPFS_TIMEOUT_MS = 8000;
+
 /** Canonical depth key used in tile paths on both backend and static hosting ("0.0", "10.0"). */
 export function depthKey(depth: number): string {
   return depth.toFixed(1);
