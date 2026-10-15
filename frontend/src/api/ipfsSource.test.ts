@@ -4,7 +4,9 @@ const helia = vi.hoisted(() => ({ createVerifiedFetch: vi.fn() }));
 vi.mock('@helia/verified-fetch', () => ({ createVerifiedFetch: helia.createVerifiedFetch }));
 import {
   __resetIpfsSourceForTests,
+  cidInspectorUrl,
   fetchFromIpfs,
+  ipfsInAutoEnabled,
   getDataSourceMode,
   loadIpfsManifest,
   onModeChange,
@@ -156,5 +158,35 @@ describe('default verified fetcher', () => {
       expect.objectContaining({ gateways: expect.any(Array), routers: [] })
     );
     expect(verifiedFetch).toHaveBeenCalledWith('ipfs://bafyT', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  });
+});
+
+describe('auto-mode IPFS gate', () => {
+  it('uses IPFS in auto only in dev or when gateways are configured explicitly', () => {
+    expect(ipfsInAutoEnabled({ DEV: true })).toBe(true);
+    expect(ipfsInAutoEnabled({ DEV: false, VITE_IPFS_GATEWAYS: 'https://example-gw.io' })).toBe(true);
+    expect(ipfsInAutoEnabled({ DEV: false })).toBe(false);
+    expect(ipfsInAutoEnabled({ DEV: false, VITE_IPFS_GATEWAYS: '  ' })).toBe(false);
+  });
+});
+
+describe('badge link', () => {
+  it('links a CID to the CID inspector, which works for any CID in any browser', () => {
+    expect(cidInspectorUrl('bafkreiabc')).toBe('https://cid.ipfs.tech/#bafkreiabc');
+  });
+});
+
+describe('slow verified-fetch setup', () => {
+  it('does not count chunk/setup time against the fetch timeout', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const verifiedFetch = vi.fn(async () => new Response(new Uint8Array([4]), { status: 200 }));
+    helia.createVerifiedFetch.mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(verifiedFetch), 9000))
+    );
+    const p = fetchFromIpfs('tiles/temperature/2019-01-29/0.0.bin', { manifest: MANIFEST });
+    for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); // let the lazy import settle
+    await vi.advanceTimersByTimeAsync(9000);
+    const got = await p;
+    expect(new Uint8Array(got!.buffer)).toEqual(new Uint8Array([4]));
   });
 });

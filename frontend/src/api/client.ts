@@ -2,6 +2,7 @@ import { API_BASE, STATIC_TILE_BASE, dateKey, depthKey, getJsonWithFallback, isH
 import {
   fetchFromIpfs,
   getDataSourceMode,
+  ipfsInAutoEnabled,
   loadIpfsManifest,
   onModeChange,
   reportTileSource,
@@ -260,9 +261,13 @@ const inflight = new Map<string, Promise<OceanTileData>>();
 
 /** Drops cached and in-flight tiles (e.g. after the data-source mode changes). */
 export function clearTileCache(): void {
+  cacheGeneration++;
   tileCache.clear();
   inflight.clear();
 }
+
+/** Bumped by clearTileCache so requests started under an old mode cannot repopulate the cache. */
+let cacheGeneration = 0;
 onModeChange(clearTileCache);
 
 /**
@@ -341,7 +346,7 @@ async function loadTile(variable: string, date: string, depth: number, onWait?: 
     if (liveApiAvailable() !== false) {
       // Long live retries exist for months the server builds on demand. A tile already on IPFS
       // does not need to wait for a sleeping backend in 'auto' mode.
-      const onIpfs = mode === 'auto' && !ipfsFailedInAuto &&
+      const onIpfs = mode === 'auto' && !ipfsFailedInAuto && ipfsInAutoEnabled() &&
         Boolean((await loadIpfsManifest())?.files[tileManifestPath(variable, d, depth)]);
       res = await fetchLiveTile(live, onWait, onIpfs ? 0 : undefined);
     }
@@ -359,7 +364,7 @@ async function loadTile(variable: string, date: string, depth: number, onWait?: 
     }
   }
 
-  if (mode === 'ipfs' || (mode === 'auto' && !ipfsFailedInAuto)) {
+  if (mode === 'ipfs' || (mode === 'auto' && !ipfsFailedInAuto && ipfsInAutoEnabled())) {
     const tile = await loadTileFromIpfs(variable, d, depth);
     if (tile) return tile;
     if (mode === 'auto' && (await loadIpfsManifest())?.files[tileManifestPath(variable, d, depth)]) {
@@ -389,8 +394,10 @@ export async function fetchOceanTile(
   }
   const pending = inflight.get(key);
   if (pending) return pending;
-  const p = loadTile(variable, date, depth, onWait)
+  const generation = cacheGeneration;
+  const p: Promise<OceanTileData> = loadTile(variable, date, depth, onWait)
     .then((tile) => {
+      if (generation !== cacheGeneration) return tile; // superseded by a mode change: don't cache/report
       reportTileSource(tile.cid ? { source: tile.source ?? 'ipfs', cid: tile.cid } : { source: tile.source ?? 'static' });
       tileCache.set(key, tile);
       if (tileCache.size > TILE_CACHE_MAX) {
@@ -398,7 +405,9 @@ export async function fetchOceanTile(
       }
       return tile;
     })
-    .finally(() => inflight.delete(key));
+    .finally(() => {
+      if (inflight.get(key) === p) inflight.delete(key);
+    });
   inflight.set(key, p);
   return p;
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { HardDrive, Server, ShieldCheck } from 'lucide-react';
 import {
+  cidInspectorUrl,
   getDataSourceMode,
   getLoadedManifest,
   onModeChange,
@@ -49,7 +50,7 @@ export const DataSourceBadge: React.FC = () => {
               IPFS ✓ verified
             </span>
             <a
-              href={`https://trustless-gateway.link/ipfs/${info.cid}`}
+              href={cidInspectorUrl(info.cid!)}
               target="_blank"
               rel="noreferrer"
               className="ml-auto font-mono text-ocean-text-secondary hover:text-white truncate"

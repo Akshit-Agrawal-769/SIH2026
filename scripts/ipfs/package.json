@@ -10,7 +10,8 @@
   "scripts": {
     "test": "node --test \"test/*.test.mjs\"",
     "publish:ipfs": "node publish.mjs",
-    "bench": "node benchmark.mjs"
+    "bench": "node benchmark.mjs",
+    "check": "node check-manifest.mjs"
   },
   "dependencies": {
     "@helia/verified-fetch": "^8.1.2",

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // The tile loader's source chain, with the IPFS layer mocked and global fetch stubbed per URL.
 const ipfs = vi.hoisted(() => ({
   mode: 'auto' as 'auto' | 'ipfs' | 'server',
+  autoEnabled: true,
   fetchFromIpfs: vi.fn(),
   loadIpfsManifest: vi.fn(),
   reportTileSource: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock('./ipfsSource', async (importActual) => {
   return {
     tileManifestPath: actual.tileManifestPath,
     getDataSourceMode: () => ipfs.mode,
+    ipfsInAutoEnabled: () => ipfs.autoEnabled,
     fetchFromIpfs: ipfs.fetchFromIpfs,
     loadIpfsManifest: ipfs.loadIpfsManifest,
     reportTileSource: ipfs.reportTileSource,
@@ -64,6 +66,7 @@ async function freshClient() {
 
 beforeEach(() => {
   ipfs.mode = 'auto';
+  ipfs.autoEnabled = true;
   ipfs.fetchFromIpfs.mockReset();
   ipfs.reportTileSource.mockReset();
   ipfs.loadIpfsManifest.mockReset().mockResolvedValue({ files: { [PATH]: { cid: 'bafyT', size: 40, sha256: 'x' } } });
@@ -157,6 +160,40 @@ describe('tile source chain', () => {
     await vi.advanceTimersByTimeAsync(120_000);
     await assertion;
     vi.useRealTimers();
+  });
+
+  it('auto: production build without configured gateways never tries IPFS', async () => {
+    ipfs.autoEnabled = false;
+    const f = stubFetch(() => { throw new TypeError('network down'); });
+    const { fetchOceanTile } = await freshClient();
+    vi.useFakeTimers();
+    const p = fetchOceanTile('temperature', '2019-01-29', 0);
+    await vi.advanceTimersByTimeAsync(120_000); // live retries run as on main
+    expect((await p).source).toBe('static');
+    vi.useRealTimers();
+    expect(ipfs.fetchFromIpfs).not.toHaveBeenCalled();
+    expect(liveCalls(f)).toBe(6);
+  });
+
+  it('a request still in flight across a mode change cannot overwrite the new mode', async () => {
+    ipfs.mode = 'server';
+    let releaseLive!: () => void;
+    const liveGate = new Promise<void>((r) => { releaseLive = r; });
+    stubFetch(async () => { await liveGate; return binary(tileBuffer()); });
+    const { fetchOceanTile } = await freshClient();
+    const a = fetchOceanTile('temperature', '2019-01-29', 0);       // server-mode request, stalled
+    await Promise.resolve();
+    ipfs.mode = 'ipfs';
+    ipfs.modeListeners.forEach((l) => l('ipfs'));
+    ipfs.fetchFromIpfs.mockResolvedValue({ buffer: tileBuffer(), cid: 'bafyT' });
+    const b = await fetchOceanTile('temperature', '2019-01-29', 0); // new-mode request
+    expect(b.source).toBe('ipfs');
+    releaseLive();
+    expect((await a).source).toBe('api');                            // caller A still gets its tile
+    ipfs.reportTileSource.mockClear();
+    const c = await fetchOceanTile('temperature', '2019-01-29', 0); // cache must hold B, not A
+    expect(c.source).toBe('ipfs');
+    expect(ipfs.reportTileSource).toHaveBeenLastCalledWith({ source: 'ipfs', cid: 'bafyT' });
   });
 
   it('mode change clears cache', async () => {

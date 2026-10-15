@@ -273,7 +273,12 @@ those derived files, **not** the 9.2 GB source NetCDF.
   the Layers panel reads **IPFS ✓ verified**.
 - **Fallback chain**, switchable in that badge (`Auto / IPFS / Server`):
   `Auto` = live API → IPFS → static, `IPFS` = IPFS → static, `Server` = live API → static.
-  Without a manifest the app behaves exactly as before.
+  Without a manifest the app behaves exactly as before. In production builds `Auto` only tries IPFS
+  when `VITE_IPFS_GATEWAYS` is set. **Set it only after the root CID is pinned on a public node or
+  pinning service**; until then `Auto` stays live API → static, so users never wait on an
+  unreachable gateway.
+- **Stale-manifest guard:** `node scripts/ipfs/check-manifest.mjs` (also run in CI) fails if any
+  tile or JSON changed after publishing, so "verified" is never shown for outdated data.
 - **Benchmark:** [`docs/IPFS_BENCHMARK.md`](docs/IPFS_BENCHMARK.md). Static hosting is the
   fastest path; IPFS is here for verifiability and replication, not speed.
 

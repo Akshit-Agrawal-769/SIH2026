@@ -53,6 +53,21 @@ export function parseIpfsManifest(json: unknown): IpfsManifest | null {
   return m as IpfsManifest;
 }
 
+/**
+ * Whether 'auto' mode may try IPFS. Dev builds always may (local Kubo gateway). Production builds
+ * only when VITE_IPFS_GATEWAYS is set explicitly, i.e. the team has pinned the manifest root on a
+ * publicly reachable node; otherwise auto behaves exactly as before (live API -> static).
+ * Explicit 'ipfs' mode is unaffected.
+ */
+export function ipfsInAutoEnabled(env: { DEV?: boolean; VITE_IPFS_GATEWAYS?: string } = import.meta.env): boolean {
+  return Boolean(env.DEV) || String(env.VITE_IPFS_GATEWAYS ?? '').trim() !== '';
+}
+
+/** A link that explains any CID (version, codec, hash) and works in every browser. */
+export function cidInspectorUrl(cid: string): string {
+  return `https://cid.ipfs.tech/#${cid}`;
+}
+
 export function tileManifestPath(variable: string, date: string, depth: number): string {
   return `tiles/${variable}/${dateKey(date)}/${depthKey(depth)}.bin`;
 }
@@ -115,6 +130,9 @@ export async function fetchFromIpfs(
   const manifest = opts.manifest !== undefined ? opts.manifest : await loadIpfsManifest();
   const entry = manifest?.files[path];
   if (!entry) return null;
+  // Resolve the fetcher first: downloading the Helia chunk on a slow link must not eat the
+  // per-request budget (or leave a timeout rejection nobody is listening to).
+  const fetcher = opts.fetcher ?? (await getDefaultFetcher());
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -124,7 +142,6 @@ export async function fetchFromIpfs(
     }, IPFS_TIMEOUT_MS);
   });
   try {
-    const fetcher = opts.fetcher ?? (await getDefaultFetcher());
     const buffer = await Promise.race([fetcher(entry.cid, controller.signal), timeout]);
     return { buffer, cid: entry.cid };
   } finally {
