@@ -183,8 +183,10 @@ describe('slow verified-fetch setup', () => {
     helia.createVerifiedFetch.mockImplementation(
       () => new Promise((resolve) => setTimeout(() => resolve(verifiedFetch), 9000))
     );
+    const setupCallsBefore = helia.createVerifiedFetch.mock.calls.length;
     const p = fetchFromIpfs('tiles/temperature/2019-01-29/0.0.bin', { manifest: MANIFEST });
-    for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); // let the lazy import settle
+    // Wait (on real ticks) until the lazy import has resolved and setup has started, then advance.
+    while (helia.createVerifiedFetch.mock.calls.length === setupCallsBefore) await new Promise((r) => setImmediate(r));
     await vi.advanceTimersByTimeAsync(9000);
     const got = await p;
     expect(new Uint8Array(got!.buffer)).toEqual(new Uint8Array([4]));
