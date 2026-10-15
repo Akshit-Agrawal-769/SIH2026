@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const helia = vi.hoisted(() => ({ createVerifiedFetch: vi.fn() }));
+vi.mock('@helia/verified-fetch', () => ({ createVerifiedFetch: helia.createVerifiedFetch }));
 import {
   __resetIpfsSourceForTests,
   fetchFromIpfs,
@@ -140,5 +143,18 @@ describe('tile source events', () => {
     off();
     reportTileSource({ source: 'static' });
     expect(seen).toEqual([{ source: 'ipfs', cid: 'bafyT' }]);
+  });
+});
+
+describe('default verified fetcher', () => {
+  it('uses only the configured gateways, with no delegated routers', async () => {
+    const verifiedFetch = vi.fn(async () => new Response(new Uint8Array([9]), { status: 200 }));
+    helia.createVerifiedFetch.mockResolvedValue(verifiedFetch);
+    const got = await fetchFromIpfs('tiles/temperature/2019-01-29/0.0.bin', { manifest: MANIFEST });
+    expect(new Uint8Array(got!.buffer)).toEqual(new Uint8Array([9]));
+    expect(helia.createVerifiedFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ gateways: expect.any(Array), routers: [] })
+    );
+    expect(verifiedFetch).toHaveBeenCalledWith('ipfs://bafyT', expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 });

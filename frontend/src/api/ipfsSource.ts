@@ -85,8 +85,11 @@ function getDefaultFetcher(): Promise<CidFetcher> {
       // Lazy chunk: the Helia stack is only downloaded when IPFS is actually used.
       const { createVerifiedFetch } = await import('@helia/verified-fetch');
       const local = IPFS_GATEWAYS.some((g) => g.startsWith('http://'));
+      // Gateway-only retrieval: the manifest already names the CIDs, so no delegated-routing
+      // lookups (no third-party requests, no stalls if a public router is slow or gone).
       const verifiedFetch = await createVerifiedFetch({
         gateways: IPFS_GATEWAYS,
+        routers: [],
         allowInsecure: local,
         allowLocal: local,
       });
