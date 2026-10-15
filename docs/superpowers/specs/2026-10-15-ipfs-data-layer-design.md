@@ -41,13 +41,38 @@ milestone.
    - `ipfs`: IPFS → static
    Changing mode clears the tile cache.
 5. **UI** `frontend/src/components/DataSourceBadge.tsx` (operational mode): shows
-   the source of the last tile — `IPFS ✓ verified · <short CID>` / `Server` /
-   `Static` — and a mode selector. Clicking the CID opens it on the public gateway.
+   the source of the last tile — `IPFS ✓ verified · <short CID>` / `Live API` /
+   `Static (unverified)` — and a mode selector. Clicking the CID opens it on the public gateway.
 6. **Benchmark** `scripts/ipfs/benchmark.mjs`: for N tiles from the manifest
    (default 12), fetch via (a) static HTTP, (b) local Kubo gateway, (c)
    verified-fetch through the public trustless gateway; record total ms, TTFB,
    success, and SHA-256 match against the local file; write
    `docs/IPFS_BENCHMARK.md` with median / p95 / success-rate per path.
+
+## Revisions after research (2026-10-15 evening)
+
+See `reports/IPFS stack and mentor profile 2.md` (research). Changes:
+- **CIDv1 everywhere.** Kubo runs with `ipfs config profile apply unixfs-v1-2025`
+  (CIDv1, raw leaves, 1 MiB chunks). The publish script fails if any CID starts with
+  `Qm`. Each tile (< 1 MiB) must have the same CID from meshkit0, from a local
+  `CID.create(1, raw, sha256)` and inside the directory root.
+- **One root CID** for the whole published tree, plus per-file CIDs. Manifest:
+  `{ schema, generated_at, generator, kubo_version, profile, git_commit, root,
+  files: { path: { cid, size, sha256 } } }`, committed to Git as WAVE's pin list
+  (ORCESTRA pattern).
+- meshkit0 attaches to the Kubo service (`init({ nodes: [...] })`), never spawns
+  one; `@ipfs-meshkit/meshkit` pinned to exactly `1.2.1`; Kubo RPC port 5001 is
+  never exposed publicly.
+- Badge says `IPFS ✓ verified` only for bytes that came through verified-fetch;
+  otherwise `Live API` or `Static (unverified)`.
+- Benchmark: cold and warm runs, ≥ 30 samples per path, p50/p95, date and gateway
+  host stamped, verification overhead measured separately. Static hosting is
+  expected to be fastest and the write-up says so.
+- Upstream: a reproducible meshkit0 issue (CID version differs between Kubo and S3
+  backends; propose a `cidVersion` option) and a small PR exporting
+  `encrypt`/`decrypt`/`isEncryptedPayload` from the browser entry.
+- Before publishing to public IPFS, the team confirms INCOIS / CMEMS terms allow
+  redistributing the derived tiles.
 
 ## Out of scope
 
