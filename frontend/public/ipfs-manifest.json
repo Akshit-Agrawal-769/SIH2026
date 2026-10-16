@@ -1,0 +1,436 @@
+{
+  "schema": "incois-ipfs-manifest/1",
+  "generated_at": "2026-10-15T14:33:59.609Z",
+  "generator": "scripts/ipfs/publish.mjs (@ipfs-meshkit/meshkit 1.2.1)",
+  "kubo_version": "0.43.1",
+  "profile": "unixfs-v1-2025",
+  "git_commit": "34713d7ef6aeb2b9000564b61870ee6033027d56",
+  "root": "bafybeibqyhsv47mls7abteitrzibarevkw3ngjxhaftpb24kvlhrdggiia",
+  "files": {
+    "api/catalog.json": {
+      "cid": "bafkreibajytkdc5qexeramtgb2mrldq6zh4wvvvdi3xapsin6wgkmuyzwe",
+      "size": 8045,
+      "sha256": "204e26a18bb025c91032660e99158e1ec9f96ad6a346ee07c90df58ca65319b1"
+    },
+    "api/cyclones.json": {
+      "cid": "bafkreiafofwnltogyd3dh5wubnr6cyvpiqbusbsynzmbgjchf2b5xwavvm",
+      "size": 31907,
+      "sha256": "05716cd5cdc6c0f633f6d40b63e162af44034906586e581324472e83dbd815ab"
+    },
+    "api/instruments.json": {
+      "cid": "bafkreif3fqqt4irn6q2jvpbaq2mtjbpuypnl2krkjgku4ox4dprgrpau5q",
+      "size": 744964,
+      "sha256": "bb2c213e222df4349abc2086993485f4c3dabd2a2a49954e3afc1be268bc14ec"
+    },
+    "api/manifest/chlorophyll.json": {
+      "cid": "bafkreig6pzx4tiq2fqdsaey5eapc6ib6wfzodv6tilatsgqiosioj762ti",
+      "size": 554,
+      "sha256": "de7e6fc9a21a2c0720131d201e2f203eb172e1d7d342c1391a087490e4ffda9a"
+    },
+    "api/manifest/currents.json": {
+      "cid": "bafkreifiyxvetqp4qcqrjoxnrscyonq4ygr6dlx47g54qujc5nhz4wecim",
+      "size": 417,
+      "sha256": "a8c5ea49c1fc80a114baed8c8587361cc1a3e1aefcf9bbc85122eb4f9e588243"
+    },
+    "api/manifest/mld.json": {
+      "cid": "bafkreiebujaocxljxt3llubxlnfuomlx4nulvuib3r2wjh4teuz7y2mzoq",
+      "size": 544,
+      "sha256": "81a240e15d69bcf6b5d0375b4b473177e368bad101dc75649f932533fc699974"
+    },
+    "api/manifest/salinity.json": {
+      "cid": "bafkreihzp2h57amlglmu3xowm5kdwtw2f5xshw2u6u737qwefblzex7lgq",
+      "size": 551,
+      "sha256": "f97e8fdf818b32d94dddd667543b4eda2f6f23db54f53fbfc2c42857925feb34"
+    },
+    "api/manifest/temperature.json": {
+      "cid": "bafkreibf32eqbn62rjlqdi6wihxvmm5sxpbegmwzfrigcbnnmvrrihzg44",
+      "size": 555,
+      "sha256": "25de8900b7da8a5701a3d641ef5633b2bbc24332d92c506105ad6563141f26e7"
+    },
+    "api/variables.json": {
+      "cid": "bafkreihwigcdunztob3apluxnghjjo45eyziojhc7ebgcre6auvrfmwu34",
+      "size": 1814,
+      "sha256": "f641843a3733707607ae97698e94bb9d26328724e2f90261449e052b12b2d4df"
+    },
+    "tiles/chlorophyll/2019-01-29/0.0.bin": {
+      "cid": "bafkreibxxljsqwfluqxqljjdmju3hffrlxn7pimfqo5e4dv3j6gk6vw7ma",
+      "size": 582432,
+      "sha256": "37bad32858aba42f05a5236269b394b15ddbf7a18583ba4e0ebb4f8caf56df60"
+    },
+    "tiles/chlorophyll/2019-02-28/0.0.bin": {
+      "cid": "bafkreick77vrusijwcfcrwpqeu5mc7v7lsfesbspgkyngzjkozbvt3himy",
+      "size": 582432,
+      "sha256": "4affeb1a4909b08a28d9f0253ac17ebf5c8a49064f32b0d3652a764359ece866"
+    },
+    "tiles/chlorophyll/2019-03-30/0.0.bin": {
+      "cid": "bafkreiez22jxbt5fvpnlul4otfwgj7a37wsnntayconcr5rqolhdp6sdwe",
+      "size": 582432,
+      "sha256": "99d69370cfa5abdaba2f8e996c64fc1bfda4d6cc18139a28f63072ce37fa43b1"
+    },
+    "tiles/chlorophyll/2019-04-29/0.0.bin": {
+      "cid": "bafkreic3xq62cpdagf4dwbt5espirtqwzd6f4kjlnrtmi7ohnnnu3ogqwa",
+      "size": 582432,
+      "sha256": "5bbc3da13c6031783b067d249e88ce16c8fc5e292b6c66c47dc76b5b4db8d0b0"
+    },
+    "tiles/chlorophyll/2019-05-29/0.0.bin": {
+      "cid": "bafkreia3h3bwtrla56iic4knl5bmomip25snk6ofu2ckpxmt37xh7h3l7e",
+      "size": 582432,
+      "sha256": "1b3ec369c560ef9081714d5f42c7310fd764d579c5a684a7dd93dfee7f9f6bf9"
+    },
+    "tiles/chlorophyll/2019-06-28/0.0.bin": {
+      "cid": "bafkreigjcrrdtvmimo6zyuig3qpkclrrcr62egsmgd3wwggv3m6wvlz4yi",
+      "size": 582432,
+      "sha256": "c9146239d58863bd9c5106dc1ea12e31147da21a4c30f76b18d5db3d6aaf3cc2"
+    },
+    "tiles/chlorophyll/2019-07-28/0.0.bin": {
+      "cid": "bafkreibgyjw2lzymradc5wtsnoizkf7oh6hqzhr4naoloctrzulodzs5hu",
+      "size": 582432,
+      "sha256": "26c26da5e70c88062eda726b919517ee3f8f0c9e3c681cb70a71cd16e1e65d3d"
+    },
+    "tiles/chlorophyll/2019-08-27/0.0.bin": {
+      "cid": "bafkreicqvop4safbjsci4sjplgva2wb6ecycrz4kvtjq4365otbzdtfawq",
+      "size": 582432,
+      "sha256": "50ab9fc900a14c848e492f59aa0d583e20b028e78aacd30e6fdd74c391cca0b4"
+    },
+    "tiles/chlorophyll/2019-09-26/0.0.bin": {
+      "cid": "bafkreifgnlc7xsoq4yq3uq44m5syf7d27ugkyuhqvvwgmjla76bngpvuqu",
+      "size": 582432,
+      "sha256": "a66ac5fbc9d0e621ba439c676582fc7afd0cac50f0ad6c662560ff82d33eb485"
+    },
+    "tiles/chlorophyll/2019-10-26/0.0.bin": {
+      "cid": "bafkreicrkyhryxge7cisdsa7zsawayqqnvhlsmc634phbhvs7cmfw7yc64",
+      "size": 582432,
+      "sha256": "51560f1c5cc4f89121c81fcc816062106d4eb9305edf1e709eb2f8985b7f02f7"
+    },
+    "tiles/chlorophyll/2019-11-25/0.0.bin": {
+      "cid": "bafkreie5gqts3a5zhqv5lq3jnt3hhnfhovewe4rhwntjdjd5xbfbtv3m7i",
+      "size": 582432,
+      "sha256": "9d34272d83b93c2bd5c3696cf673b4a77549627227b36691a47db84a19d76cfa"
+    },
+    "tiles/chlorophyll/2019-12-25/0.0.bin": {
+      "cid": "bafkreid2ydt56yhevmulwpe32hoavxn73eap42kn5ncyfai2tbttphdmpa",
+      "size": 582432,
+      "sha256": "7ac0e7df60e4ab28bb3c9bd1dc0addbfd900fe694deb4582811a9867379c6c78"
+    },
+    "tiles/current_u/2024-12-31/0.0.bin": {
+      "cid": "bafkreiaprrukeup7eksaubd2xmi5ondym4fdjboylpwdeoo5jeq7folmba",
+      "size": 582432,
+      "sha256": "0f8c68a251ff22a40a047abb11d73478670a3485d85bec3239dd4921f2b96c08"
+    },
+    "tiles/current_v/2024-12-31/0.0.bin": {
+      "cid": "bafkreie72qouat3k2lzhvb3fwsnm4kpx2oxmvgoov4zbspi7dtpix77j3i",
+      "size": 582432,
+      "sha256": "9fd41d404f6ad2f27a8765b49ace29f7d3aeca99ceaf32193d1f1cde8bffe9da"
+    },
+    "tiles/currents/2024-12-31/0.0.bin": {
+      "cid": "bafkreicnzei6ymxqgor3l3vzn6hehz5taeazoor5vww5smgt6gug36e4zy",
+      "size": 582432,
+      "sha256": "4dc911ec32f033a3b5eeb96f8e43e7b30101973a3dadadd930d3f1a86df89cce"
+    },
+    "tiles/eddy_convergence/2019-01-29/0.0.bin": {
+      "cid": "bafkreiftc26fmzak25e5ozqrz2qerqqcej63wu4zlfjgjqucyhqmxwax2q",
+      "size": 582432,
+      "sha256": "b316bc56640ad749d76611cea048c202227dbb5399595264c282c1e0cbd817d4"
+    },
+    "tiles/eddy_convergence/2019-02-28/0.0.bin": {
+      "cid": "bafkreicwslad3fe4rhkpjxzdxa4idnjfvz6lshjegolp7u7wmtqh6v35gm",
+      "size": 582432,
+      "sha256": "5692c03d949c89d4f4df23b83881b525ae7cb91d243396ffd3f664e07f577d33"
+    },
+    "tiles/eddy_convergence/2019-03-30/0.0.bin": {
+      "cid": "bafkreihhnfhnfuzvzy6bctutt5fk7tnvdga3kittgz77peaf44y5oxqrq4",
+      "size": 582432,
+      "sha256": "e7694ed2d335ce3c114e939f4aafcdb51981b52273367ff79005e731d75e1187"
+    },
+    "tiles/eddy_convergence/2019-04-29/0.0.bin": {
+      "cid": "bafkreid6salb7mxhbbo4wlfmi2tvhmamojkoel5p7f6wtdmcnj3vugqap4",
+      "size": 582432,
+      "sha256": "7e90161fb2e7085dcb2cac46a753b00c7254e22faff97d698d826a775a1a007f"
+    },
+    "tiles/eddy_convergence/2019-05-29/0.0.bin": {
+      "cid": "bafkreibrfwqsuuhhybzjp55vj3yhieb2k6tm6ahdpdqjr6dhy2giy6nd6i",
+      "size": 582432,
+      "sha256": "312da12a50e7c07297f7b54ef074103a57a6cf00e378e098f867c68c8c79a3f2"
+    },
+    "tiles/eddy_convergence/2019-06-28/0.0.bin": {
+      "cid": "bafkreig2hsolfzhzfbsksmwn6z3c4fbo4elxhkzazlpfcusk7egm4ylbom",
+      "size": 582432,
+      "sha256": "da3c9cb2e4f92864a932cdf6762e142ee11773ab20cade51524af90cce616173"
+    },
+    "tiles/eddy_convergence/2019-07-28/0.0.bin": {
+      "cid": "bafkreid6xvffkv2fne5rv2l774q76eu7ly6i5gk2vpisyddnoufyyyl5xu",
+      "size": 582432,
+      "sha256": "7ebd4a555745693b1ae97fff21ff129f5e3c8e995aabd12c0c6d750b8c617dbd"
+    },
+    "tiles/eddy_convergence/2019-08-27/0.0.bin": {
+      "cid": "bafkreiflisldqi7agxjhxq5t25aj73mygjzuhqc6tfkjljwvynjnu5hc4a",
+      "size": 582432,
+      "sha256": "ab44963823e035d27bc3b3d7409fed98327343c05e995495a6d5c352da74e2e0"
+    },
+    "tiles/eddy_convergence/2019-09-26/0.0.bin": {
+      "cid": "bafkreigdhht2as7ip4usyevgu7gxcdhvuusjyiw2fo66wzl74n7fqirgda",
+      "size": 582432,
+      "sha256": "c339e7a04be87f292c12a6a7cd710cf5a5249c22da2bbdeb657fe37e58222618"
+    },
+    "tiles/eddy_convergence/2019-10-26/0.0.bin": {
+      "cid": "bafkreidkn47zss2en3riltrgh3z6gjikzsxgoc3aybihikfksglmwpexw4",
+      "size": 582432,
+      "sha256": "6a6f3f994b446ee285ce263ef3e3250accae670b60c0507428aa9196cb3c97b7"
+    },
+    "tiles/eddy_convergence/2019-11-25/0.0.bin": {
+      "cid": "bafkreifhveof6hdsqopcxmrlau3qv3v47s4qnecbm2sh3aavzmoh37w56q",
+      "size": 582432,
+      "sha256": "a7a91c5f1c72839e2bb22b05370aeebcfcb906904166a47d8015cb1c7dfeddf4"
+    },
+    "tiles/eddy_convergence/2019-12-25/0.0.bin": {
+      "cid": "bafkreif5t533sirwqbhu4eoxg35eyxsj3bbqfv34qy3fuohqnw6h46oadq",
+      "size": 582432,
+      "sha256": "bd9f77b92236804f4e11d736fa4c5e49d84302d77c86365a38f06dbc7e79c01c"
+    },
+    "tiles/mhw_intensity/2019-01-29/0.0.bin": {
+      "cid": "bafkreigsfri6uazbidem63yfjq566ntfef6mzgkmtva3obtwluo3hjqftq",
+      "size": 582432,
+      "sha256": "d22c51ea032140c8cf6f054c3bef3665217ccc994c9d41b706765d1db3a6059c"
+    },
+    "tiles/mhw_intensity/2019-02-28/0.0.bin": {
+      "cid": "bafkreiez34emxumuhwl2veu6d5t4rudofnicrxonvmra6mf6g5oaghyxla",
+      "size": 582432,
+      "sha256": "99df08cbd1943d97aa929e1f67c8d06e2b5028ddcdab220f30be375c031f1758"
+    },
+    "tiles/mhw_intensity/2019-03-30/0.0.bin": {
+      "cid": "bafkreihiljpc3b4i4gawijzmryrnxjugxcvznt34npducejiw7wbre4bo4",
+      "size": 582432,
+      "sha256": "e85a5e2d8788e18164272c8e22dba686b8ab96cf7c6bc7411128b7ec18938177"
+    },
+    "tiles/mhw_intensity/2019-04-29/0.0.bin": {
+      "cid": "bafkreih2z27utynikqbwnyuj6kkytp7emyol4ws752i6nwfa7hbxt4tr3u",
+      "size": 582432,
+      "sha256": "facebf49e1a8540366e289f29589bfe4661cbe5a5fee91e6d8a0f9c379f271dd"
+    },
+    "tiles/mhw_intensity/2019-05-29/0.0.bin": {
+      "cid": "bafkreigppjs5ocwsbmlj5ivp4iqtniocf5lztesgqsjkkh3i6wq5i57zdm",
+      "size": 582432,
+      "sha256": "cf7a65d70ad20b169ea2afe22136a1c22f579992468492a51f68f5a1d477f91b"
+    },
+    "tiles/mhw_intensity/2019-06-28/0.0.bin": {
+      "cid": "bafkreiamtweuuqqdtmpuqgjltf52butz5eyvvww5b4eljmuobixdbaa2si",
+      "size": 582432,
+      "sha256": "0c9d894a42039b1f48192b997ba0d279e9315adadd0f08b4b28e0a2e30801a92"
+    },
+    "tiles/mhw_intensity/2019-07-28/0.0.bin": {
+      "cid": "bafkreibzjhnhy4tlm5nxi53pd6retvyzjimqw77445uvm24c7dgv7b2xgq",
+      "size": 582432,
+      "sha256": "3949da7c726b675b74776f1fa249d7194a190b7ffce769566b82f8cd5f875734"
+    },
+    "tiles/mhw_intensity/2019-08-27/0.0.bin": {
+      "cid": "bafkreie7dshjyzgo7bdswhhp6yv4dmyryiutxaf646y7tl3c6dul3biwi4",
+      "size": 582432,
+      "sha256": "9f1c8e9c64cef8472b1ceff62bc1b311c2293b80bee7b1f9af62f0e8bd851647"
+    },
+    "tiles/mhw_intensity/2019-09-26/0.0.bin": {
+      "cid": "bafkreigrxyxtj3uu6okgm7kfh66jbrhwgrh55uild7ecqddli34oxa6goy",
+      "size": 582432,
+      "sha256": "d1be2f34ee94f394667d453fbc90c4f6344fded10b1fc8280c6b46f8eb83c676"
+    },
+    "tiles/mhw_intensity/2019-10-26/0.0.bin": {
+      "cid": "bafkreihgrllbljbdyvvdgky7w2me6goghmr2q2pa3tq4gnvud3l5ugsid4",
+      "size": 582432,
+      "sha256": "e68ad615a423c56a332b1fb6984f19c63b23a869e0dce1c336b41ed7da1a481f"
+    },
+    "tiles/mhw_intensity/2019-11-25/0.0.bin": {
+      "cid": "bafkreichxwqnonnpbqikfpfl2qibc5sh25fpfufpwq3p56bpy6uarqnvb4",
+      "size": 582432,
+      "sha256": "47bda0d735af0c10a2bcabd410117647d74af2d0afb436fef82fc7a808c1b50f"
+    },
+    "tiles/mhw_intensity/2019-12-25/0.0.bin": {
+      "cid": "bafkreigpndi5lurtylcgpqfeoyve4osk456lqomocsynbweoytx2svvife",
+      "size": 582432,
+      "sha256": "cf68d1d5d233c2c467c0a4762a4e3a4ae77cb8398e14b0d0d88ec4efa956a829"
+    },
+    "tiles/mld/2019-01-29/0.0.bin": {
+      "cid": "bafkreiev3s4d5rk3hzzceyralpagvew4i5wcvkdcld4bufv4w4gwlbtulu",
+      "size": 582432,
+      "sha256": "95dcb83ec55b3e722262205bc06a92dc476c2aa86258f81a16bcb70d6586745d"
+    },
+    "tiles/mld/2019-02-28/0.0.bin": {
+      "cid": "bafkreidlizvc4hz2sxsijmibjmd2724j2airhymmkwmwcqdtg3vd7labhu",
+      "size": 582432,
+      "sha256": "6b466a2e1f3a95e484b1014b07afeb89d01113e18c559961407336ea3fac013d"
+    },
+    "tiles/mld/2019-03-30/0.0.bin": {
+      "cid": "bafkreib4ivctp6x7oyhg3jeru3vpxtxem2bwgtz7sq34rl7kxrudxb5r64",
+      "size": 582432,
+      "sha256": "3c454537faff760e6da491a6eafbcee46683634f3f9437c8afeabc683b87b1f7"
+    },
+    "tiles/mld/2019-04-29/0.0.bin": {
+      "cid": "bafkreiblnhgzvycl3gwc653k4rmckorjtwhbcfpn4lzqiigquqqhzh5jz4",
+      "size": 582432,
+      "sha256": "2b69cd9ae04bd9ac2f776ae458253a299d8e1115ede2f30420d0a4207c9fa9cf"
+    },
+    "tiles/mld/2019-05-29/0.0.bin": {
+      "cid": "bafkreifd2h77gcil3kxiglljfpdxcbwgcckpyocowtaki3zydommwes3qe",
+      "size": 582432,
+      "sha256": "a3d1fff3090bdaae832d692bc77106c61094fc384eb4c0a46f381b98cb125b81"
+    },
+    "tiles/mld/2019-06-28/0.0.bin": {
+      "cid": "bafkreif5gbfjvkggiektsvho3xoliyxkppn7uk4mlhwerdc7j2fsw2j4w4",
+      "size": 582432,
+      "sha256": "bd304a9aa8c641153954eedddcb462ea7bdbfa2b8c59ec488c5f4e8b2b693cb7"
+    },
+    "tiles/mld/2019-07-28/0.0.bin": {
+      "cid": "bafkreignkao4tjpuonedo6snfcfdy7uojn72zk6wn6xfojmnjjoghj5mum",
+      "size": 582432,
+      "sha256": "cd501dc9a5f47348377a4d288a3c7e8e4b7facabd66fae57258d4a5c63a7aca3"
+    },
+    "tiles/mld/2019-08-27/0.0.bin": {
+      "cid": "bafkreibfbz2ossyawfap45whlbqdi7hip4cuussm5x4anukewlzsxn24la",
+      "size": 582432,
+      "sha256": "250e74e94b00b140fe76c75860347ce87f054a4a4cedf806d144b2f32bb75c58"
+    },
+    "tiles/mld/2019-09-26/0.0.bin": {
+      "cid": "bafkreicxkmarn5wvm3izekdnglevpd2dcv27nf3riiedptqn46wy52j33q",
+      "size": 582432,
+      "sha256": "57530116f6d566d192286d32c9578f431575f69771420837ce0de7ad8ee93bdc"
+    },
+    "tiles/mld/2019-10-26/0.0.bin": {
+      "cid": "bafkreieje7jxk4vrjgonqboklae6td3uu5zoeu5l6ltwsw2chnl5ac6tiu",
+      "size": 582432,
+      "sha256": "8927d37572b1499cd805ca5809e98f74a772e253abf2e7695b423b57d00bd345"
+    },
+    "tiles/mld/2019-11-25/0.0.bin": {
+      "cid": "bafkreifxqqjh47ajiu4ab3u2dxsdtviwcy42oy5samocopdxsuttuve6sa",
+      "size": 582432,
+      "sha256": "b784127e7c09453800ee9a1de439d5161639a763b2031c273c7795273a549e90"
+    },
+    "tiles/mld/2019-12-25/0.0.bin": {
+      "cid": "bafkreiacepffkvn3vhbqqvo35tam36c6q7jcqckar2omd5loz4wflm6bpi",
+      "size": 582432,
+      "sha256": "0223ca5555bba9c30855dbecc0cdf85e87d22809408e9cc1f56ecf2c55b3c17a"
+    },
+    "tiles/salinity/2019-01-29/0.0.bin": {
+      "cid": "bafkreiborymv5dflpozq3r3ga5jntx3bqfivu3eksnh7krszz6j2xxdcaq",
+      "size": 582432,
+      "sha256": "2e8e195e8cab7bb30dc7660752d9df6181515a6c8a934ff54659cf93abdc6204"
+    },
+    "tiles/salinity/2019-02-28/0.0.bin": {
+      "cid": "bafkreiftbeccvvyuiywd7xnfdielvg5wgxrclicvtdiqy7qd4d76oz3n6y",
+      "size": 582432,
+      "sha256": "b309042ad714462c3fdda51a08ba9bb635e225a05598d10c7e03e0ffe7676df6"
+    },
+    "tiles/salinity/2019-03-30/0.0.bin": {
+      "cid": "bafkreihklmwsns4a6a6acge4ror7zsgtrl7pze3tlivtzqix3u3v66ebxy",
+      "size": 582432,
+      "sha256": "ea5b2d26cb80f03c01189c8ba3fcc8d38afefc93735a2b3cc117dd375f7881be"
+    },
+    "tiles/salinity/2019-04-29/0.0.bin": {
+      "cid": "bafkreigteh7rbfj2phbwzmhp7pightgqqbrppdhkzhssiqse5363sfvax4",
+      "size": 582432,
+      "sha256": "d321ff10953a79c36cb0effbd063ccd08062f78ceac9e5244244eefdb916a0bf"
+    },
+    "tiles/salinity/2019-05-29/0.0.bin": {
+      "cid": "bafkreicp5w4kjpfm5bpw4dsto4bxelhkcnlmmtcutieot4hkwaf4d3zxzi",
+      "size": 582432,
+      "sha256": "4fedb8a4bcace85f6e0e537703722cea1356c64c549a08e9f0eab00bc1ef37ca"
+    },
+    "tiles/salinity/2019-06-28/0.0.bin": {
+      "cid": "bafkreifckzlfbcn2qn6pgn4yebdg4xdp4ksan2mxaultr5jxn2a42o7rgm",
+      "size": 582432,
+      "sha256": "a256565089ba837cf3379820466e5c6fe2a406e997051738f5376e81cd3bf133"
+    },
+    "tiles/salinity/2019-07-28/0.0.bin": {
+      "cid": "bafkreihlcu6wbtvjmozfqhd3fmycs5orlkeb4etwf2ijevh32xuya5cp6y",
+      "size": 582432,
+      "sha256": "eb153d60cea963b2581c7b2b302975d15a881e12762e909254fbd5e980744ff6"
+    },
+    "tiles/salinity/2019-08-27/0.0.bin": {
+      "cid": "bafkreihxof6g2uu7j2odwsfdkf5lvx73tn2vkx3q7erdwuatdoukerh5qu",
+      "size": 582432,
+      "sha256": "f7717c6d529f4e9c3b48a3517abadffb9b75555f70f9223b50131ba8a244fd85"
+    },
+    "tiles/salinity/2019-09-26/0.0.bin": {
+      "cid": "bafkreiffgoecavc5wzdmcslvg3ybdefpoxrddyzopbvf73rvf5ohs7y2ya",
+      "size": 582432,
+      "sha256": "a5338820545db646c1497536f01190af75e231e32e786a5fee352f5c797f1ac0"
+    },
+    "tiles/salinity/2019-10-26/0.0.bin": {
+      "cid": "bafkreibzcstsrvnxvtotv6xdan62t6gziibd7v3jsc2dohtjgq5srkimzu",
+      "size": 582432,
+      "sha256": "3914a728d5b7acdd3afae3037da9f8d942023fd76990b4371e69343b28a90ccd"
+    },
+    "tiles/salinity/2019-11-25/0.0.bin": {
+      "cid": "bafkreifxwffwwy7omvjfqilc7kdfurfo4ujhygwmsh5xmqdig7lgge2cqe",
+      "size": 582432,
+      "sha256": "b7b14b6b63ee6552582162fa865a44aee5127c1acc91fb76406837d663134281"
+    },
+    "tiles/salinity/2019-12-25/0.0.bin": {
+      "cid": "bafkreie76kx2k2mmctajuid3o4fjm4rzdvfaoy7eic623jhwcp3gt7mune",
+      "size": 582432,
+      "sha256": "9ff2afa5698c14c09a207b770a9672391d4a0763e440bdada4f613f669fd9469"
+    },
+    "tiles/temperature/2019-01-29/0.0.bin": {
+      "cid": "bafkreicmbyxfhiywfqcxlm7d6q2daov5duxigtbla3aihnzylbhctibi5y",
+      "size": 582432,
+      "sha256": "4c0e2e53a3162c0575b3e3f434303abd1d2e834c2b06c083b738584e29a028ee"
+    },
+    "tiles/temperature/2019-02-28/0.0.bin": {
+      "cid": "bafkreid3izk75sfinjnnpyp5oe7gmazurvi42u2amnqztf7ggskaxe6oei",
+      "size": 582432,
+      "sha256": "7b4655fec8a86a5ad7e1fd713e6603348d51cd534063619997e634940b93ce22"
+    },
+    "tiles/temperature/2019-03-30/0.0.bin": {
+      "cid": "bafkreicrl6dpv7jgdfw6x6qt6jnnicdyfyrqvqtw73q2sbxkyvffhimmbu",
+      "size": 582432,
+      "sha256": "515f86fafd26196debfa13f25ad408782e230ac276fee1a906eac54a53a18c0d"
+    },
+    "tiles/temperature/2019-04-29/0.0.bin": {
+      "cid": "bafkreih3sgc32abtp4hs7kzsui2yz3iu52dgejmcgutl2opforo4b7fv5y",
+      "size": 582432,
+      "sha256": "fb9185bd00337f0f2fab32a2358ced14ee866225823526bd39e5745dc0fcb5ee"
+    },
+    "tiles/temperature/2019-05-29/0.0.bin": {
+      "cid": "bafkreia5dfkhi77rmubirfpefjhc7lw55csp66k6s7iuc3zhfj4zz3esym",
+      "size": 582432,
+      "sha256": "1d1954747ff165028895e42a4e2faedde8a4ff795e97d1416f272a799cec92c3"
+    },
+    "tiles/temperature/2019-06-28/0.0.bin": {
+      "cid": "bafkreieggltfvsp7uzeecqqqn4p4ixismpdfdxjadd7cpwme7a26coxzdm",
+      "size": 582432,
+      "sha256": "8632e65ac9ffa6484142106f1fc45d1263c651dd2018fe27d984f835e13af91b"
+    },
+    "tiles/temperature/2019-07-28/0.0.bin": {
+      "cid": "bafkreicoseo735sdjuuessd3qeboaq7hptvf2oenc2afhbgcvzhwdmsnea",
+      "size": 582432,
+      "sha256": "4e911dfdf6434d2849487b8102e043e77cea5d388d16805384c2ae4f61b24d20"
+    },
+    "tiles/temperature/2019-08-27/0.0.bin": {
+      "cid": "bafkreie6jl3rmfmm3aiewwal5yt5irt5l6wd4ymkzauuunqv4uy7lzk45m",
+      "size": 582432,
+      "sha256": "9e4af716158cd8104b580bee27d4467d5fac3e618ac8294a3615e531f5e55ceb"
+    },
+    "tiles/temperature/2019-09-26/0.0.bin": {
+      "cid": "bafkreicjc26orz2pkztmzidogmtsy2cboo5ayroooifmqqzwnm3uu2lhpa",
+      "size": 582432,
+      "sha256": "4916bce8e74f5666cca06e33272c684173ba0c45ce720ac843366b374a696778"
+    },
+    "tiles/temperature/2019-10-26/0.0.bin": {
+      "cid": "bafkreihnedtmn7ppovjtyjwnudpv77zrmkubv2nrbxhltkubnsko4xjcnu",
+      "size": 582432,
+      "sha256": "ed20e6c6fdef75533c26cda0df5fff3162a81ae9b10dceb9aa816c94ee5d226d"
+    },
+    "tiles/temperature/2019-11-25/0.0.bin": {
+      "cid": "bafkreideunhwewyzwqiuimqb47qsj2xucmiug4wm627tqmf4he5swd36je",
+      "size": 582432,
+      "sha256": "64a34f625b19b411443201e7e124eaf413114372ccf6bf3830bc393b2b0f7e49"
+    },
+    "tiles/temperature/2019-12-25/0.0.bin": {
+      "cid": "bafkreieuxqhckglvvlhstl3562tsyndh2hyy75d35gbm2s4xuzgf6kulk4",
+      "size": 582432,
+      "sha256": "94bc0e251975aacf29af7df6a72c3467d1f18ff47be982cd4b97a64c5f2a8b57"
+    },
+    "tiles/vorticity/2024-12-31/0.0.bin": {
+      "cid": "bafkreigqr7bs4c2mozt3rvuam3sdocno5m6tbeoqpewdyvtu7av2lf2okq",
+      "size": 582432,
+      "sha256": "d08fc32e0b4c7667b8d68066e43709aeeb3d3091d0792c3c5674f82ba5974e54"
+    }
+  }
+}

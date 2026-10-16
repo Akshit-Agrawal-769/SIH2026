@@ -1,0 +1,22 @@
+{
+  "name": "wave-ipfs-tools",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Publish WAVE ocean tiles to IPFS with IPFS Meshkit + Kubo, and benchmark retrieval.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "publish:ipfs": "node publish.mjs",
+    "bench": "node benchmark.mjs",
+    "check": "node check-manifest.mjs"
+  },
+  "dependencies": {
+    "@helia/verified-fetch": "^8.1.2",
+    "@ipfs-meshkit/meshkit": "1.2.1",
+    "kubo-rpc-client": "^7.1.0",
+    "multiformats": "^14.0.5"
+  }
+}

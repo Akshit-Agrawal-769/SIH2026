@@ -14,6 +14,7 @@ import { TimelinePill } from './components/TimelinePill';
 import { useShallow } from 'zustand/react/shallow';
 import { useOceanStore } from './store/useOceanStore';
 import { DataStatusBar } from './components/DataStatusBar';
+import { DataSourceBadge } from './components/DataSourceBadge';
 import { parseUrlState } from './store/urlState';
 
 const DotGlobeHeroDemo = React.lazy(() => import('./components/ui/demo'));
@@ -95,6 +96,7 @@ export const App: React.FC = () => {
           )}
 
           {mode === 'operational' && <DataStatusBar />}
+          {mode === 'operational' && <DataSourceBadge />}
 
           {/* Real-time Cursor Hover HUD Readout */}
           <OceanHoverHUD />
