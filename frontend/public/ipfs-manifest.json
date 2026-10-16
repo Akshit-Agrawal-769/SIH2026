@@ -1,10 +1,10 @@
 {
   "schema": "incois-ipfs-manifest/1",
-  "generated_at": "2026-10-15T14:33:59.609Z",
+  "generated_at": "2026-10-16T07:59:11.923Z",
   "generator": "scripts/ipfs/publish.mjs (@ipfs-meshkit/meshkit 1.2.1)",
   "kubo_version": "0.43.1",
   "profile": "unixfs-v1-2025",
-  "git_commit": "34713d7ef6aeb2b9000564b61870ee6033027d56",
+  "git_commit": "38dc1480ada4440fa14adce4dda4709403ea2aee",
   "root": "bafybeibqyhsv47mls7abteitrzibarevkw3ngjxhaftpb24kvlhrdggiia",
   "files": {
     "api/catalog.json": {
