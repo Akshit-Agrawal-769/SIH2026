@@ -257,7 +257,47 @@ ctest --test-dir cpp_visualizer/build
 
 ---
 
-## 13. Future Scope
+## 13. Decentralised data (IPFS + Meshkit)
+
+The precomputed tiles and catalog JSON that ship with the frontend (`frontend/public/tiles/**`,
+`frontend/public/api/**`: 85 files, ~45 MB) are also published to **IPFS**. This covers only
+those derived files, **not** the 9.2 GB source NetCDF.
+
+- **Publish:** `scripts/ipfs/publish.mjs` uploads and pins every file through
+  [IPFS Meshkit](https://github.com/IPFS-Meshkit/meshkit0) (`@ipfs-meshkit/meshkit` 1.2.1) on a
+  Kubo 0.43.1 node running the `unixfs-v1-2025` profile (CIDv1, raw leaves). It writes
+  `frontend/public/ipfs-manifest.json` (path → CID, size, SHA-256, plus one directory `root`).
+  Each file's CID is cross-checked three ways (meshkit, inside the root, CIDv1-raw).
+- **Fetch:** the browser loads tiles by CID with `@helia/verified-fetch`, which hashes the bytes
+  and rejects anything that doesn't match the CID. When a tile arrives this way the badge under
+  the Layers panel reads **IPFS ✓ verified**.
+- **Fallback chain**, switchable in that badge (`Auto / IPFS / Server`):
+  `Auto` = live API → IPFS → static, `IPFS` = IPFS → static, `Server` = live API → static.
+  Without a manifest the app behaves exactly as before. In production builds `Auto` only tries IPFS
+  when `VITE_IPFS_GATEWAYS` is set. **Set it only after the root CID is pinned on a public node or
+  pinning service**; until then `Auto` stays live API → static, so users never wait on an
+  unreachable gateway.
+- **Stale-manifest guard:** `node scripts/ipfs/check-manifest.mjs` (also run in CI) fails if any
+  tile or JSON changed after publishing, so "verified" is never shown for outdated data.
+- **Benchmark:** [`docs/IPFS_BENCHMARK.md`](docs/IPFS_BENCHMARK.md). Static hosting is the
+  fastest path; IPFS is here for verifiability and replication, not speed.
+
+```bash
+docker compose up -d kubo                       # Kubo with the unixfs-v1-2025 profile
+cd scripts/ipfs && npm install
+npm run publish:ipfs                            # writes frontend/public/ipfs-manifest.json
+npm run bench                                   # needs Kubo + the built frontend served on :4173
+```
+
+![Tile fetched over IPFS and verified in the browser](docs/assets/ipfs-verified-badge.png)
+
+> **Honest limits.** This is **not decentralised or permanent while one node pins it**. A laptop
+> node goes offline when the laptop sleeps, so for public access pin the single `root` CID on a
+> public node or a pinning service. **Before pinning to public networks, confirm that the
+> INCOIS / CMEMS data terms allow redistributing these derived tiles**; replicated content
+> cannot be recalled. Details: [`scripts/ipfs/README.md`](scripts/ipfs/README.md).
+
+## 14. Future Scope
 
 1. **AI/ML Thermocline & Eddy Detection:** Integrate deep-learning models (CNN/LSTM) to automatically identify mesoscale eddies, coastal upwelling zones, and thermocline depth anomalies.
 2. **High-Frequency (HF) Radar Streaming:** Direct WebSockets ingestion of coastal HF-radar surface velocity measurements along the Indian coastline.

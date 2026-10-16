@@ -1,5 +1,7 @@
 import * as Cesium from 'cesium';
 import { fetchOceanTile, NoDataError, OceanTileData } from '../api/client';
+import { getDataSourceMode, onModeChange } from '../api/ipfsSource';
+import { sliceRequestKey } from './sliceKey';
 import { renderTileToCanvas, sampleOceanDataAt } from './colormaps';
 import { GRID } from './grid';
 
@@ -43,6 +45,7 @@ export async function createDepthSliceLayer(
   let currentTileData: OceanTileData | null = null;
   let requestSeq = 0;
   let lastKey = '';
+  let lastParams: SliceParams | null = null;
 
   const clear = () => {
     if (currentImageryLayer && !viewer.isDestroyed()) {
@@ -55,8 +58,8 @@ export async function createDepthSliceLayer(
   const updateSlice = async (params: SliceParams) => {
     currentVariable = params.variable;
     if (params.opacity !== undefined) currentOpacity = params.opacity;
-    const key = JSON.stringify([params.variable, params.date, params.depth, params.palette, params.customRange,
-      params.scaleType]);
+    lastParams = params;
+    const key = sliceRequestKey(params, getDataSourceMode());
     if (key === lastKey) return;
     lastKey = key;
     const seq = ++requestSeq;
@@ -112,6 +115,11 @@ export async function createDepthSliceLayer(
     }
   };
 
+  // Switching Auto / IPFS / Server re-fetches the field on screen from the new source.
+  const offModeChange = onModeChange(() => {
+    if (lastParams) void updateSlice(lastParams);
+  });
+
   return {
     updateSlice,
     updateVisibility: (activeLayers: string[]) => {
@@ -128,6 +136,7 @@ export async function createDepthSliceLayer(
     },
     getCurrentTileData: () => currentTileData,
     destroy: () => {
+      offModeChange();
       requestSeq++;
       clear();
     }
